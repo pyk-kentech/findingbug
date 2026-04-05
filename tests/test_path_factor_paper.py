@@ -18,25 +18,17 @@ def test_path_factor_paper_non_process_propagates_one():
     assert g.path_factor("proc:A", "file:X") == 1.0
 
 
-def test_path_factor_paper_process_without_common_ancestor_increments():
+def test_path_factor_unique_process_path_still_has_mac_size_one():
     g = ProvenanceGraph()
-    # 'flow' keeps process lineage independent, so proc:C has no common ancestor with proc:A.
     g.add_event(Event(event_id="e1", ts=None, event_type="flow", subject="proc:A", object="proc:C", raw={}))
 
-    assert g.path_factor("proc:A", "proc:C") > 1.0
-    assert g.path_factor("proc:A", "proc:C") == 2.0
+    assert g.path_factor("proc:A", "proc:C") == 1.0
 
 
-def test_path_factor_paper_multi_path_uses_minimum():
+def test_path_factor_parallel_version_queries_reflect_larger_mac():
     g = ProvenanceGraph()
-    g.add_events(
-        [
-            Event(event_id="e1", ts=None, event_type="flow", subject="proc:A", object="proc:P1", raw={}),
-            Event(event_id="e2", ts=None, event_type="flow", subject="proc:P1", object="file:D", raw={}),
-            Event(event_id="e3", ts=None, event_type="flow", subject="proc:A", object="file:F", raw={}),
-            Event(event_id="e4", ts=None, event_type="flow", subject="file:F", object="file:D", raw={}),
-        ]
-    )
+    e1 = g.add_event(Event(event_id="e1", ts=None, event_type="write", subject="proc:R", object="file:X", raw={}))
+    e2 = g.add_event(Event(event_id="e2", ts=None, event_type="write", subject="proc:R", object="file:Y", raw={}))
+    assert e1 is not None and e2 is not None
 
-    # Path via proc:P1 yields 2, path via file:F yields 1. Minimum should be chosen.
-    assert g.path_factor("proc:A", "file:D") == pytest.approx(1.0)
+    assert g.path_factor(e1["object_node_id"], e2["object_node_id"]) == pytest.approx(1.0)

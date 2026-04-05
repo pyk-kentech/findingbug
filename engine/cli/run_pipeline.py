@@ -9,8 +9,8 @@ from engine.core.matcher import Matcher
 from engine.hsg.builder import load_graph_path_allowlist
 from engine.io.events import load_events_jsonl
 from engine.noise.filter import NoiseConfig, apply_noise_filter, load_noise_config
-from engine.noise.model import load_noise_model, save_noise_model, train_noise_model
-from engine.rules.schema import load_rules_yaml
+from engine.noise.trainer import save_benign_noise_model, train_benign_noise_model
+from engine.rules.schema import load_rules
 from engine.stream.runner import StreamingEngine
 
 
@@ -76,6 +76,8 @@ def run_pipeline(
     max_graph_path_edges: int = 10000,
     max_graph_path_candidates_per_match: int = 200,
     use_online_prereq: bool = False,
+    apt_alert_threshold: float = 80.0,
+    max_pending_matches: int = 100000,
 ) -> dict:
     if prereq_policy not in {"dst_only", "union"}:
         raise ValueError("prereq_policy must be one of: dst_only, union")
@@ -90,9 +92,14 @@ def run_pipeline(
     )
 
     events = load_events_jsonl(events_path)
-    ruleset = load_rules_yaml(rules_path)
+    ruleset = load_rules(rules_path)
     allowlist = load_graph_path_allowlist(graph_path_allowlist)
-    noise_model = load_noise_model(noise_model_path) if noise_model_path else None
+    runtime_noise_config = load_noise_config(
+        noise_path,
+        model_path=noise_model_path,
+        noise_bytes_threshold=noise_bytes_threshold,
+        noise_signature_min_ratio=noise_signature_min_ratio,
+    )
     engine = StreamingEngine(
         ruleset=ruleset,
         scoring_mode=scoring_mode,
@@ -101,15 +108,17 @@ def run_pipeline(
         paper_mode=paper_mode,
         prereq_policy=prereq_policy,
         alpha=alpha,
-        noise_model=noise_model,
-        noise_bytes_threshold=noise_bytes_threshold,
-        noise_signature_min_ratio=noise_signature_min_ratio,
+        noise_config=runtime_noise_config,
         graph_path_allowlist=allowlist,
         max_graph_path_edges=max_graph_path_edges,
         max_graph_path_candidates_per_match=max_graph_path_candidates_per_match,
         use_online_prereq=use_online_prereq,
         resolved_effective_config=resolved_effective_config,
         global_refine_mode="off",
+        dropped_match_telemetry_path=Path(output_path) / "debug" / "dropped_matches.jsonl",
+        alerts_path=Path(output_path) / "alerts.jsonl",
+        apt_alert_threshold=apt_alert_threshold,
+        max_pending_matches=max_pending_matches,
     )
     for ev in events:
         engine.process_event(ev)
@@ -118,11 +127,15 @@ def run_pipeline(
     resolved_path_factor_op = str(resolved_effective_config["path_factor_op"])
     if noise_path or min_graph_path_weight > 0.0 or resolved_path_thres > 0.0:
         before_hsg = engine.current_hsg()
-        noise_config = load_noise_config(noise_path) if noise_path else NoiseConfig()
+        noise_config = load_noise_config(
+            noise_path,
+            noise_bytes_threshold=noise_bytes_threshold,
+            noise_signature_min_ratio=noise_signature_min_ratio,
+        ) if noise_path else NoiseConfig()
         noise_config.min_graph_path_weight = max(noise_config.min_graph_path_weight, min_graph_path_weight)
         noise_config.min_path_factor = max(noise_config.min_path_factor, resolved_path_thres)
         noise_config.path_factor_op = resolved_path_factor_op
-        matches_after, hsg_after = apply_noise_filter(engine.matches, before_hsg, noise_config)
+        matches_after, hsg_after = apply_noise_filter(engine.matches, before_hsg, noise_config, events_by_id=engine.events_by_id)
         engine._replace_state_from_filtered(  # noqa: SLF001
             matches_after,
             hsg_after,
@@ -143,26 +156,32 @@ def train_noise_model_pipeline(
     min_count: int = 5,
     bytes_min_count: int = 20,
     signature_min_ratio: float = 0.1,
+    dynamic_margin_ratio: float = 0.25,
+    dynamic_min_margin_bytes: int = 1,
+    dynamic_min_samples: int = 1,
 ) -> dict:
     signature_min_ratio = max(0.0, min(1.0, float(signature_min_ratio)))
     events = load_events_jsonl(train_events_path)
     graph = ProvenanceGraph()
     graph.add_events(events)
 
-    ruleset = load_rules_yaml(rules_path)
+    ruleset = load_rules(rules_path)
     matcher = Matcher()
     matches = matcher.match(graph=graph, ruleset=ruleset, events=events)
     rule_by_id = {r.rule_id: r for r in ruleset.rules}
     events_by_id = {e.event_id: e for e in events}
-    model = train_noise_model(
+    model = train_benign_noise_model(
         matches,
         rule_by_id=rule_by_id,
+        events_by_id=events_by_id,
         min_count=min_count,
         bytes_min_count=bytes_min_count,
         signature_min_ratio=signature_min_ratio,
-        events_by_id=events_by_id,
+        dynamic_margin_ratio=dynamic_margin_ratio,
+        dynamic_min_margin_bytes=dynamic_min_margin_bytes,
+        dynamic_min_samples=dynamic_min_samples,
     )
-    save_noise_model(model, save_noise_model_path)
+    save_benign_noise_model(model, save_noise_model_path)
 
     result = {
         "summary": {
@@ -175,11 +194,16 @@ def train_noise_model_pipeline(
             "min_count": int(min_count),
             "bytes_min_count": int(bytes_min_count),
             "signature_min_ratio": float(signature_min_ratio),
+            "dynamic_margin_ratio": float(dynamic_margin_ratio),
+            "dynamic_min_margin_bytes": int(dynamic_min_margin_bytes),
+            "dynamic_min_samples": int(dynamic_min_samples),
         },
         "noise_model": {
             "version": model.version,
             "benign_signatures": len(model.benign_signatures),
             "has_byte_volume": bool(model.byte_volume),
+            "dynamic_pair_thresholds": len(model.dynamic_thresholds.get("pair_thresholds", {})),
+            "dynamic_rule_thresholds": len(model.dynamic_thresholds.get("rule_thresholds", {})),
         },
     }
 
@@ -247,6 +271,27 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.1,
         help="Minimum benign signature frequency ratio within the same rule_id needed to drop (default: 0.1).",
+    )
+    parser.add_argument(
+        "--noise-dynamic-margin-ratio",
+        dest="noise_dynamic_margin_ratio",
+        type=float,
+        default=0.25,
+        help="Margin ratio added above the maximum benign cumulative byte volume (default: 0.25).",
+    )
+    parser.add_argument(
+        "--noise-dynamic-min-margin-bytes",
+        dest="noise_dynamic_min_margin_bytes",
+        type=int,
+        default=1,
+        help="Minimum additive byte margin for dynamic benign thresholds (default: 1).",
+    )
+    parser.add_argument(
+        "--noise-dynamic-min-samples",
+        dest="noise_dynamic_min_samples",
+        type=int,
+        default=1,
+        help="Minimum samples required before emitting a dynamic benign threshold (default: 1).",
     )
     parser.add_argument(
         "--alpha",
@@ -342,6 +387,20 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use online prerequisite/index propagation path (default off for legacy compatibility).",
     )
+    parser.add_argument(
+        "--apt-alert-threshold",
+        dest="apt_alert_threshold",
+        type=float,
+        default=80.0,
+        help="Emit an APT alert when scenario severity reaches this threshold (default: 80.0).",
+    )
+    parser.add_argument(
+        "--max-pending-matches",
+        dest="max_pending_matches",
+        type=int,
+        default=100000,
+        help="Maximum pending prerequisite matches retained before FIFO eviction (default: 100000).",
+    )
     return parser
 
 
@@ -358,6 +417,9 @@ def main() -> int:
             min_count=max(1, int(args.noise_min_count)),
             bytes_min_count=max(1, int(args.noise_bytes_min_count)),
             signature_min_ratio=max(0.0, min(1.0, float(args.noise_signature_min_ratio))),
+            dynamic_margin_ratio=max(0.0, float(args.noise_dynamic_margin_ratio)),
+            dynamic_min_margin_bytes=max(1, int(args.noise_dynamic_min_margin_bytes)),
+            dynamic_min_samples=max(1, int(args.noise_dynamic_min_samples)),
         )
     else:
         if not args.events:
@@ -383,6 +445,8 @@ def main() -> int:
             max_graph_path_edges=args.max_graph_path_edges,
             max_graph_path_candidates_per_match=args.max_graph_path_candidates_per_match,
             use_online_prereq=bool(args.use_online_prereq),
+            apt_alert_threshold=float(args.apt_alert_threshold),
+            max_pending_matches=max(0, int(args.max_pending_matches)),
         )
     return 0
 

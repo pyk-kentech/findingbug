@@ -131,3 +131,32 @@ Default `path_thres=3` is applied only by the mode resolver when scoring mode is
 `summary.json` includes:
 - `resolved_effective_config`: resolved runtime config values after mode resolver (`path_thres`, `path_factor_op`, `scoring`, `paper_mode`, `paper_weights`)
 - `paper_scoring`: paper scoring visibility fields (`threat_tuple`, `stage_severity`, `paper_weights`, `score_paper`)
+
+## DARPA TC E3 datasets used
+
+Dataset manifest:
+- `configs/darpa_manifest.yaml`
+
+Ground truth used in repository:
+- `configs/darpa_e3_ground_truth.json`
+- `configs/darpa_e3_ground_truth_trace.json`
+
+Mapped Google Drive datasets:
+- `trace_e3_benign_day`
+  - file id: `1sfIbavsUFwmB-irSGY1TZZ0Sq1dZqF9G`
+  - filename: `ta1-trace-e3-official.json.tar.gz`
+- `trace_e3_attack_day1`
+  - file id: `1GG1aUnPjjzzdbxznVTN8X6oVfA-K4oIV`
+  - filename: `ta1-trace-e3-official-1.json.tar.gz`
+- `theia_e3_attack_day1`
+  - file id: `1Kadc6CUTb4opVSDE4x6RFFnEy0P1cRp0`
+  - filename: `ta1-theia-e3-official-6r.json.tar.gz`
+
+Data actually used during local benchmark work:
+- benign slice: `D:/DARPA_TC_E3/benchmark/trace_benign_10k.jsonl`
+- attack slice: `D:/DARPA_TC_E3/benchmark/trace_attack_5k.jsonl`
+- benchmark output example: `output/darpa_trace_real_benchmark_5k/`
+
+Notes:
+- the repository keeps dataset addresses, manifests, and ground-truth metadata only
+- large raw DARPA archives and generated benchmark outputs are not committed

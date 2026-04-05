@@ -41,6 +41,7 @@ class NoiseModel:
     )
     byte_volume: dict[str, dict[str, float]] = field(default_factory=dict)
     signature_totals_by_rule: dict[str, int] = field(default_factory=dict)
+    dynamic_thresholds: dict[str, Any] = field(default_factory=dict)
 
 
 def _to_nonneg_int(value: Any) -> int | None:
@@ -211,6 +212,9 @@ def _infer_signature_totals_from_benign(benign: dict[str, dict[str, Any]]) -> di
 
 
 def extract_flow_bytes(event: Event) -> int | None:
+    if event.bytes_transferred is not None:
+        return int(event.bytes_transferred)
+
     raw = event.raw
     if not isinstance(raw, dict):
         return None
@@ -430,6 +434,7 @@ def load_noise_model(path: str | Path) -> NoiseModel:
     byte_volume = payload.get("byte_volume", {})
     signature_totals_by_rule = payload.get("signature_totals_by_rule", {})
     legacy_byte_p95 = payload.get("byte_p95_by_rule", {})
+    dynamic_thresholds = payload.get("dynamic_thresholds", {})
 
     if not isinstance(benign, dict):
         raise ValueError("noise model benign_signatures must be an object")
@@ -441,6 +446,8 @@ def load_noise_model(path: str | Path) -> NoiseModel:
         raise ValueError("noise model signature_totals_by_rule must be an object")
     if not isinstance(legacy_byte_p95, dict):
         raise ValueError("noise model byte_p95_by_rule must be an object")
+    if not isinstance(dynamic_thresholds, dict):
+        raise ValueError("noise model dynamic_thresholds must be an object")
 
     min_count = max(1, int(_to_nonneg_int(params.get("min_count")) or 5))
     bytes_min_count = max(1, int(_to_nonneg_int(params.get("bytes_min_count")) or 20))
@@ -519,6 +526,7 @@ def load_noise_model(path: str | Path) -> NoiseModel:
         },
         byte_volume=normalized_byte_volume,
         signature_totals_by_rule=normalized_totals,
+        dynamic_thresholds=dynamic_thresholds,
     )
 
 
@@ -556,4 +564,6 @@ def save_noise_model(model: NoiseModel, path: str | Path) -> None:
             }
             for rid, v in model.byte_volume.items()
         }
+    if model.dynamic_thresholds:
+        payload["dynamic_thresholds"] = model.dynamic_thresholds
     p.write_text(json.dumps(payload, indent=2), encoding="utf-8")

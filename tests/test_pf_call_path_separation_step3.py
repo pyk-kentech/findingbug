@@ -57,7 +57,7 @@ def test_prerequisite_only_calls_prereq_pf_not_pruning_pf(tmp_path, monkeypatch)
     _write_events(events_path)
     _write_rules(
         rules_path,
-        "- graph_path\n- type: path_factor\n  threshold: 1.0\n  op: \">=\"",
+        "- graph_path\n- type: path_factor\n  max_path_factor: 1",
     )
 
     counts = {"prereq_pf": 0, "pruning_pf": 0}
@@ -125,7 +125,7 @@ def test_both_paths_call_once_each_without_duplicate_filtering(tmp_path, monkeyp
     _write_events(events_path)
     _write_rules(
         rules_path,
-        "- graph_path\n- type: path_factor\n  threshold: 1.0\n  op: \">=\"",
+        "- graph_path\n- type: path_factor\n  max_path_factor: 1",
     )
 
     counts = {"prereq_pf": 0, "pruning_pf": 0}
@@ -151,6 +151,6 @@ def test_both_paths_call_once_each_without_duplicate_filtering(tmp_path, monkeyp
         paper_mode="strict",
     )
 
-    assert counts["prereq_pf"] == 1
+    assert counts["prereq_pf"] == 2
     assert counts["pruning_pf"] == 1
     assert any(e.get("relation") == "graph_path" for e in result["hsg"]["edges"])

@@ -79,33 +79,33 @@ def test_prerequisite_graph_path_not_satisfied_when_no_path():
     )
 
 
-def test_prerequisite_graph_path_min_strength_passes_threshold():
+def test_prerequisite_graph_path_max_path_factor_passes_threshold():
     g = ProvenanceGraph()
     g.add_event(Event(event_id="e1", ts=None, event_type="flow", subject="a", object="b", raw={}))
     m1 = TTPMatch(match_id="m1", rule_id="r1", event_ids=["e1"], entities=["a"], bindings={"from": "a"})
     m2 = TTPMatch(match_id="m2", rule_id="r2", event_ids=["e2"], entities=["b"], bindings={"to": "b"})
 
-    # a -> b direct edge: strength = 1 / (1 + 1) = 0.5
+    # Under the unified MAC model, direct a -> b has |MAC| = 1.
     assert is_prerequisite_satisfied(
         g,
         m1,
         m2,
         "graph_path",
-        {"from_binding": "from", "to_binding": "to", "min_strength": 0.5},
+        {"from_binding": "from", "to_binding": "to", "max_path_factor": 1.0},
     )
 
 
-def test_prerequisite_graph_path_min_strength_fails_threshold():
+def test_prerequisite_graph_path_max_path_factor_fails_threshold():
     g = ProvenanceGraph()
     g.add_event(Event(event_id="e1", ts=None, event_type="flow", subject="a", object="b", raw={}))
     m1 = TTPMatch(match_id="m1", rule_id="r1", event_ids=["e1"], entities=["a"], bindings={"from": "a"})
     m2 = TTPMatch(match_id="m2", rule_id="r2", event_ids=["e2"], entities=["b"], bindings={"to": "b"})
 
-    # a -> b direct edge: strength = 0.5, so 0.51 should fail.
+    # graph_path threshold now uses MAC <= max_path_factor.
     assert not is_prerequisite_satisfied(
         g,
         m1,
         m2,
         "graph_path",
-        {"from_binding": "from", "to_binding": "to", "min_strength": 0.51},
+        {"from_binding": "from", "to_binding": "to", "max_path_factor": 0.99},
     )

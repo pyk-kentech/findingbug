@@ -107,7 +107,7 @@ def test_min_graph_path_weight_drops_graph_path_edges_and_reduces_score(tmp_path
         str(rules_path),
         str(out_filtered),
         alpha=1.0,
-        min_graph_path_weight=0.6,
+        min_graph_path_weight=1.1,
     )
 
     hsg_filtered = json.loads((out_filtered / "hsg.json").read_text(encoding="utf-8"))
@@ -142,8 +142,8 @@ def test_min_path_factor_filters_graph_path_edges_on_parallel_paths_without_file
     hsg_before = build_hsg(matches, g, ruleset)
     assert any(e.relation == "graph_path" for e in hsg_before.edges)
 
-    _, hsg_drop = apply_noise_filter(matches, hsg_before, NoiseConfig(min_path_factor=3.1))
-    _, hsg_keep = apply_noise_filter(matches, hsg_before, NoiseConfig(min_path_factor=2.9))
+    _, hsg_drop = apply_noise_filter(matches, hsg_before, NoiseConfig(min_path_factor=1.1))
+    _, hsg_keep = apply_noise_filter(matches, hsg_before, NoiseConfig(min_path_factor=1.0))
 
     assert all(e.relation != "graph_path" for e in hsg_drop.edges)
     assert any(e.relation == "graph_path" for e in hsg_keep.edges)

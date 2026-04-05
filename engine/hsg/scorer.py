@@ -14,6 +14,8 @@ def _connected_components(hsg: HSG) -> list[set[str]]:
 
     adj: dict[str, set[str]] = defaultdict(set)
     for edge in hsg.edges:
+        if edge.src not in node_ids or edge.dst not in node_ids:
+            continue
         adj[edge.src].add(edge.dst)
         adj[edge.dst].add(edge.src)
 
@@ -47,14 +49,33 @@ def _score_component(
     alpha: float,
 ) -> float:
     sev = rule_severity or {}
+    valid_node_ids = {mid for mid in node_ids if mid in rule_id_by_match}
     if scoring == "structure":
-        return float(len(node_ids)) + 0.5 * float(edge_count)
+        return float(len(valid_node_ids)) + 0.5 * float(edge_count)
     if scoring == "severity":
-        return float(sum(sev.get(rule_id_by_match[mid], 1.0) for mid in node_ids))
+        return float(sum(sev.get(rule_id_by_match[mid], 1.0) for mid in valid_node_ids))
     if scoring == "weighted":
-        node_score = float(sum(sev.get(rule_id_by_match[mid], 1.0) for mid in node_ids))
+        node_score = float(sum(sev.get(rule_id_by_match[mid], 1.0) for mid in valid_node_ids))
         return node_score + float(alpha) * float(edge_score)
     raise ValueError(f"Unsupported scoring mode: {scoring}")
+
+
+def _component_connectivity(edge_strengths: list[float]) -> float:
+    if not edge_strengths:
+        return 1.0
+    avg_strength = sum(edge_strengths) / float(len(edge_strengths))
+    return 1.0 + avg_strength
+
+
+def _edge_path_factor_multiplier(path_factors: list[float]) -> float:
+    if not path_factors:
+        return 1.0
+    additive = 0.0
+    for pf in path_factors:
+        if pf <= 0.0:
+            continue
+        additive += math.log(1.0 + (1.0 / float(pf)))
+    return min(2.0, 1.0 + float(additive))
 
 
 def _to_cvss_severity(value: float | str | None) -> float:
@@ -106,6 +127,8 @@ def _build_threat_tuple(
 
     t = [0.0] * len(APT_STAGES)
     for mid in node_ids:
+        if mid not in rule_id_by_match:
+            continue
         rule_id = rule_id_by_match[mid]
         stage = int(stages.get(rule_id, 1))
         idx = max(1, min(stage, len(APT_STAGES))) - 1
@@ -144,6 +167,8 @@ def _build_threat_tuple_exact(
 
     t = [1.0] * len(APT_STAGES)
     for mid in node_ids:
+        if mid not in rule_id_by_match:
+            continue
         rule_id = rule_id_by_match[mid]
         stage = int(stages.get(rule_id, 1))
         idx = max(1, min(stage, len(APT_STAGES))) - 1
@@ -164,6 +189,12 @@ def _paper_exact_score_from_tuple(threat_tuple: list[float], paper_weights: list
     for s_i, w_i in zip(threat_tuple, weights):
         log_score += float(w_i) * math.log(float(s_i))
     return float(math.exp(log_score)), float(log_score)
+
+
+def _scenario_id_for_component(node_ids: set[str]) -> str:
+    if not node_ids:
+        return "scenario-empty"
+    return f"scenario-{sorted(node_ids)[0]}"
 
 
 def rank_hsg_scenarios(
@@ -195,14 +226,45 @@ def rank_hsg_scenarios(
 
     scenarios: list[dict[str, float | int | list[float]]] = []
     for comp in components:
-        component_edges = [e for e in hsg.edges if e.src in comp and e.dst in comp]
+        component_edges = [e for e in hsg.edges if e.src in comp and e.dst in comp and e.src in rule_id_by_match and e.dst in rule_id_by_match]
         edge_count = len(component_edges)
-        edge_score = sum(float(e.weight) for e in component_edges if e.weight is not None)
+        edge_path_factors = [
+            float(e.path_factor)
+            for e in component_edges
+            if e.path_factor is not None and float(e.path_factor) > 0.0
+        ]
+        edge_strengths = [
+            float(1.0 / float(e.path_factor))
+            for e in component_edges
+            if e.path_factor is not None and float(e.path_factor) > 0.0
+        ]
+        if not edge_strengths:
+            edge_strengths = [
+                float(e.dependency_strength)
+                for e in component_edges
+                if e.dependency_strength is not None
+            ]
+        edge_score = sum(
+            float(1.0 / float(e.path_factor))
+            for e in component_edges
+            if e.path_factor is not None and float(e.path_factor) > 0.0
+        )
+        if edge_score == 0.0:
+            edge_score = sum(
+                float(e.dependency_strength if e.dependency_strength is not None else e.weight)
+                for e in component_edges
+                if (e.dependency_strength is not None or e.weight is not None)
+            )
         score_legacy = _score_component(comp, edge_count, edge_score, rule_id_by_match, scoring, rule_severity, alpha)
         threat_tuple = _build_threat_tuple(comp, rule_id_by_match, rule_cvss, rule_stage, rule_severity)
-        score_paper = _paper_score_from_tuple(threat_tuple, paper_weights)
+        connectivity_strength = _component_connectivity(edge_strengths)
+        edge_multiplier = _edge_path_factor_multiplier(edge_path_factors)
+        score_paper = _paper_score_from_tuple(threat_tuple, paper_weights) * edge_multiplier
         threat_tuple_exact = _build_threat_tuple_exact(comp, rule_id_by_match, rule_cvss, rule_stage, rule_severity)
         score_paper_exact, score_paper_exact_log = _paper_exact_score_from_tuple(threat_tuple_exact, paper_weights)
+        score_paper_exact *= edge_multiplier
+        if edge_multiplier > 0.0:
+            score_paper_exact_log += math.log(edge_multiplier)
         if score_mode == "paper":
             score = score_paper
         elif score_mode == "paper_exact":
@@ -220,6 +282,10 @@ def rank_hsg_scenarios(
                 "threat_tuple": threat_tuple,
                 "stage_severity": stage_severity,
                 "paper_weights": list(paper_weights) if paper_weights is not None else [1.0] * len(APT_STAGES),
+                "connectivity_strength": float(connectivity_strength),
+                "edge_path_factor_multiplier": float(edge_multiplier),
+                "scenario_id": _scenario_id_for_component(comp),
+                "match_ids": sorted(comp),
                 "nodes": len(comp),
                 "edges": edge_count,
                 }
@@ -258,6 +324,8 @@ def rank_hsg_scenarios(
                 "threat_tuple": [0.0] * len(APT_STAGES),
                 "stage_severity": {APT_STAGES[i]: 0.0 for i in range(len(APT_STAGES))},
                 "paper_weights": list(paper_weights) if paper_weights is not None else [1.0] * len(APT_STAGES),
+                "connectivity_strength": 1.0,
+                "scenario_id": _scenario_id_for_component(set()),
                 "nodes": 0,
                 "edges": 0,
                 }

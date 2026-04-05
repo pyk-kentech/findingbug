@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Callable, Iterable
 
+from engine.io.cdr.base import canonical_relation
 from engine.io.events import Event
 
 
@@ -39,6 +41,7 @@ class VersionedNode:
     entity_id: str
     version: int
     created_at: int
+    observed_ts: str | None = None
 
 
 class EdgeType(str, Enum):
@@ -88,15 +91,57 @@ class ProvenanceGraph:
         self._process_ancestor_cache: dict[str, set[str]] = {}
         self._path_factor_cache: dict[str, dict[str, float]] = {}
         self._edge_hooks: list[Callable[[Edge], None]] = []
+        self._prune_hooks: list[Callable[[set[str], set[str]], None]] = []
         # Incremental summaries (delta-propagated on edge addition):
         # - ancestors_by_node[n]: all ancestors (inclusive) of n
         # - min_dist_from_ancestor[n][a]: shortest weighted distance a -> n
         #   where DATA_FLOW=1 and VERSION_TRANSITION=0
         self._ancestors_by_node: dict[str, set[str]] = {}
         self._min_dist_from_ancestor: dict[str, dict[str, int]] = {}
+        self.semantic_adj: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+        self.semantic_rev_adj: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+        self.semantic_relations: list[tuple[str, str, str]] = []
+        self._memory_vma_current_entity: dict[str, str] = {}
+        self._entity_last_seen_ts: dict[str, datetime] = {}
+        self._version_last_seen_ts: dict[str, datetime] = {}
 
     def register_edge_hook(self, hook: Callable[[Edge], None]) -> None:
         self._edge_hooks.append(hook)
+
+    def register_prune_hook(self, hook: Callable[[set[str], set[str]], None]) -> None:
+        self._prune_hooks.append(hook)
+
+    def clear_prune_hooks(self) -> None:
+        self._prune_hooks.clear()
+
+    @staticmethod
+    def _semantic_relations_for_event(event: Event) -> list[tuple[str, str, str]]:
+        raw = event.raw if isinstance(event.raw, dict) else {}
+        cdr = raw.get("cdr")
+        if not isinstance(cdr, dict):
+            return []
+        relations = cdr.get("semantic_relations")
+        if not isinstance(relations, list):
+            return []
+        out: list[tuple[str, str, str]] = []
+        for item in relations:
+            if not isinstance(item, dict):
+                continue
+            relation = item.get("relation")
+            src = item.get("src")
+            dst = item.get("dst")
+            if isinstance(relation, str) and isinstance(src, str) and isinstance(dst, str):
+                out.append((canonical_relation(relation), src, dst))
+        return out
+
+    def _register_semantic_edge(self, relation: str, src_entity: str, dst_entity: str) -> None:
+        src_node = self.current_version_node(src_entity)
+        dst_node = self.current_version_node(dst_entity)
+        if not src_node or not dst_node:
+            return
+        self.semantic_relations.append((canonical_relation(relation), src_entity, dst_entity))
+        self.semantic_adj[relation][src_node].add(dst_node)
+        self.semantic_rev_adj[relation][dst_node].add(src_node)
 
     @staticmethod
     def _flow_direction(event: Event) -> tuple[str, str]:
@@ -160,13 +205,39 @@ class ProvenanceGraph:
         self._creation_tick += 1
         return self._creation_tick
 
+    @staticmethod
+    def _parse_ts(value: str | None) -> datetime | None:
+        if value is None:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        try:
+            numeric = float(raw)
+            abs_numeric = abs(numeric)
+            if abs_numeric >= 1e17:
+                numeric /= 1_000_000_000.0
+            elif abs_numeric >= 1e14:
+                numeric /= 1_000_000.0
+            elif abs_numeric >= 1e11:
+                numeric /= 1_000.0
+            return datetime.fromtimestamp(numeric, tz=timezone.utc)
+        except (ValueError, OSError, OverflowError):
+            pass
+        normalized = raw.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
     def _node_meta(self, node_id: str) -> VersionedNode:
         return self.version_nodes[node_id]
 
     def _node_entity(self, node_id: str) -> str:
         return self.version_nodes[node_id].entity_id
 
-    def _new_version_node(self, entity_id: str) -> str:
+    def _new_version_node(self, entity_id: str, observed_ts: str | None = None) -> str:
         next_version = self._version_counter[entity_id] + 1
         self._version_counter[entity_id] = next_version
         node_id = f"{entity_id}#v{next_version}"
@@ -175,13 +246,25 @@ class ProvenanceGraph:
             entity_id=entity_id,
             version=next_version,
             created_at=self._next_tick(),
+            observed_ts=observed_ts,
         )
         self.version_nodes[node_id] = node
         self.entity_versions[entity_id].append(node_id)
         self.nodes.add(entity_id)
         self._ancestors_by_node[node_id] = {node_id}
         self._min_dist_from_ancestor[node_id] = {node_id: 0}
+        observed_dt = self._parse_ts(observed_ts)
+        if observed_dt is not None:
+            self._version_last_seen_ts[node_id] = observed_dt
+            prev_entity_ts = self._entity_last_seen_ts.get(entity_id)
+            if prev_entity_ts is None or observed_dt > prev_entity_ts:
+                self._entity_last_seen_ts[entity_id] = observed_dt
         return node_id
+
+    def current_version_node(self, entity_id: str | None) -> str | None:
+        if not entity_id:
+            return None
+        return self.current_version.get(entity_id)
 
     def _ensure_entity(self, entity_id: str) -> str:
         cur = self.current_version.get(entity_id)
@@ -265,7 +348,7 @@ class ProvenanceGraph:
 
     def _bump_entity(self, entity_id: str, event: Event) -> str:
         prev = self._ensure_entity(entity_id)
-        new_node = self._new_version_node(entity_id)
+        new_node = self._new_version_node(entity_id, observed_ts=event.ts)
         self.current_version[entity_id] = new_node
         self._link_version_edge(
             prev,
@@ -390,10 +473,28 @@ class ProvenanceGraph:
         """
         if not event.subject or not event.object:
             return None
+        event_dt = self._parse_ts(event.ts)
+        memory_transition: tuple[str, str] | None = None
+        if event.object.startswith("mem:"):
+            original_object = event.object
+            synchronized_object, memory_transition = self._synchronize_memory_vma(event)
+            event.object = synchronized_object
+            raw = event.raw if isinstance(event.raw, dict) else None
+            cdr = raw.get("cdr") if isinstance(raw, dict) and isinstance(raw.get("cdr"), dict) else None
+            relations = cdr.get("semantic_relations") if isinstance(cdr, dict) and isinstance(cdr.get("semantic_relations"), list) else None
+            if relations is not None:
+                for item in relations:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("dst") == original_object:
+                        item["dst"] = synchronized_object
 
         src_entity, dst_entity = self._flow_direction(event)
         self._ensure_entity(src_entity)
         self._ensure_entity(dst_entity)
+        if event_dt is not None:
+            self._entity_last_seen_ts[src_entity] = event_dt
+            self._entity_last_seen_ts[dst_entity] = event_dt
 
         pre_src = self.current_version[src_entity]
         pre_dst = self.current_version[dst_entity]
@@ -416,18 +517,156 @@ class ProvenanceGraph:
             edge_type=EdgeType.DATA_FLOW,
             relation="flow",
         )
+        if memory_transition is not None:
+            previous_memory_entity, current_memory_entity = memory_transition
+            previous_memory_node = self._ensure_entity(previous_memory_entity)
+            current_memory_node = self.current_version[current_memory_entity]
+            if previous_memory_node != current_memory_node:
+                self._link_version_edge(
+                    previous_memory_node,
+                    current_memory_node,
+                    event,
+                    edge_type=EdgeType.VERSION_TRANSITION,
+                    relation="vma_prev_version",
+                )
         self._path_factor_cache.clear()
 
         # Process lineage relation for common-ancestor checks.
         if event.event_type.lower() in {"proc_to_proc", "fork"} and self._is_process_node(event.subject) and self._is_process_node(event.object):
             self.process_parents[event.object].add(event.subject)
             self._process_ancestor_cache.clear()
+        for relation, semantic_src, semantic_dst in self._semantic_relations_for_event(event):
+            self._register_semantic_edge(relation, semantic_src, semantic_dst)
         return {
             "flow_src_version": flow_src,
             "flow_dst_version": flow_dst,
             "subject_node_id": self.current_version[event.subject],
             "object_node_id": self.current_version[event.object],
         }
+
+    def nodes_on_shortest_version_path(self, src: str, dst: str) -> set[str]:
+        version_path = self._shortest_version_path(src, dst)
+        if version_path is None:
+            return set()
+        return set(version_path)
+
+    def exact_mac_nodes(self, src: str, dst: str) -> set[str]:
+        return set(self.ac_min(src, dst))
+
+    def prune_stale_orphaned(
+        self,
+        *,
+        watermark_ts: str | None,
+        retention_seconds: int,
+        protected_entities: set[str] | None = None,
+        protected_version_nodes: set[str] | None = None,
+    ) -> dict[str, int]:
+        watermark = self._parse_ts(watermark_ts)
+        if watermark is None or retention_seconds < 0:
+            return {"entities_removed": 0, "version_nodes_removed": 0, "edges_removed": 0}
+        cutoff = watermark - timedelta(seconds=int(retention_seconds))
+        protected_entity_set = set(protected_entities or set())
+        protected_version_set = set(protected_version_nodes or set())
+
+        removable_entities: set[str] = set()
+        for entity_id in list(self.nodes):
+            if entity_id in protected_entity_set:
+                continue
+            version_ids = list(self.entity_versions.get(entity_id, []))
+            if not version_ids:
+                continue
+            if any(version_id in protected_version_set for version_id in version_ids):
+                continue
+            entity_ts = self._entity_last_seen_ts.get(entity_id)
+            if entity_ts is None or entity_ts > cutoff:
+                continue
+            removable_entities.add(entity_id)
+
+        if not removable_entities:
+            return {"entities_removed": 0, "version_nodes_removed": 0, "edges_removed": 0}
+
+        removable_version_nodes = {
+            node_id
+            for entity_id in removable_entities
+            for node_id in self.entity_versions.get(entity_id, [])
+            if node_id not in protected_version_set
+        }
+        old_edge_count = len(self.edges)
+        old_semantic_count = len(self.semantic_relations)
+        self.edges = [
+            edge
+            for edge in self.edges
+            if edge.src not in removable_version_nodes and edge.dst not in removable_version_nodes
+        ]
+        self.semantic_relations = [
+            (relation, src_entity, dst_entity)
+            for relation, src_entity, dst_entity in self.semantic_relations
+            if src_entity not in removable_entities and dst_entity not in removable_entities
+        ]
+        for entity_id in removable_entities:
+            self.nodes.discard(entity_id)
+            self.current_version.pop(entity_id, None)
+            self.entity_versions.pop(entity_id, None)
+            self._version_counter.pop(entity_id, None)
+            self._entity_last_seen_ts.pop(entity_id, None)
+            self.process_parents.pop(entity_id, None)
+            self._memory_vma_current_entity.pop(self._memory_base_key(entity_id) or "", None)
+        for node_id in removable_version_nodes:
+            self.version_nodes.pop(node_id, None)
+            self._ancestors_by_node.pop(node_id, None)
+            self._min_dist_from_ancestor.pop(node_id, None)
+            self._version_last_seen_ts.pop(node_id, None)
+
+        self._process_ancestor_cache.clear()
+        self._path_factor_cache.clear()
+        self._rebuild_indexes_from_current_state()
+        removed_entities_payload = set(removable_entities)
+        removed_versions_payload = set(removable_version_nodes)
+        for hook in self._prune_hooks:
+            hook(removed_entities_payload, removed_versions_payload)
+        return {
+            "entities_removed": len(removable_entities),
+            "version_nodes_removed": len(removable_version_nodes),
+            "edges_removed": old_edge_count - len(self.edges),
+            "semantic_edges_removed": old_semantic_count - len(self.semantic_relations),
+        }
+
+    def _rebuild_indexes_from_current_state(self) -> None:
+        self.adj = defaultdict(set)
+        self.rev_adj = defaultdict(set)
+        self.adj_data_flow = defaultdict(set)
+        self.rev_adj_data_flow = defaultdict(set)
+        self.adj_version_transition = defaultdict(set)
+        self.rev_adj_version_transition = defaultdict(set)
+        self.semantic_adj = defaultdict(lambda: defaultdict(set))
+        self.semantic_rev_adj = defaultdict(lambda: defaultdict(set))
+        self._ancestors_by_node = {}
+        self._min_dist_from_ancestor = {}
+        for node_id in self.version_nodes:
+            self._ancestors_by_node[node_id] = {node_id}
+            self._min_dist_from_ancestor[node_id] = {node_id: 0}
+        for edge in self.edges:
+            if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
+                continue
+            if edge.edge_type == EdgeType.DATA_FLOW:
+                self.adj_data_flow[edge.src].add(edge.dst)
+                self.rev_adj_data_flow[edge.dst].add(edge.src)
+            else:
+                self.adj_version_transition[edge.src].add(edge.dst)
+                self.rev_adj_version_transition[edge.dst].add(edge.src)
+            self.adj[edge.src].add(edge.dst)
+            self.rev_adj[edge.dst].add(edge.src)
+        for edge in self.edges:
+            if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
+                continue
+            self._propagate_ancestor_distance_delta(edge.src, edge.dst, edge.edge_type)
+        for relation, src_entity, dst_entity in self.semantic_relations:
+            src_node = self.current_version_node(src_entity)
+            dst_node = self.current_version_node(dst_entity)
+            if not src_node or not dst_node:
+                continue
+            self.semantic_adj[relation][src_node].add(dst_node)
+            self.semantic_rev_adj[relation][dst_node].add(src_node)
 
     def add_events(self, events: Iterable[Event]) -> None:
         for event in events:
@@ -499,20 +738,74 @@ class ProvenanceGraph:
                     break
         return result
 
+    def minimum_ancestral_cover_size(self, src: str, dst: str) -> int | None:
+        return self.exact_mac_size(src, dst)
+
+    def exact_mac_size(self, src: str, dst: str) -> int | None:
+        if src in self.version_nodes or dst in self.version_nodes:
+            cover = self.ac_min(src, dst)
+            if not cover:
+                return None
+            return len(cover)
+        if not self.has_path(src, dst):
+            return None
+        cover = self.ac_min(src, dst)
+        if not cover:
+            return None
+        return len(cover)
+
     def dependency_strength(self, src: str, dst: str) -> float:
         """
-        dependency_strength(x,y) = attenuation(distance(x,y)).
+        Backward-compatible alias derived from exact MAC size.
         """
-        path_len = self.shortest_path_len(src, dst)
-        if path_len is None:
+        mac_size = self.exact_mac_size(src, dst)
+        if mac_size is None or mac_size <= 0:
             return 0.0
-        return self.attenuation(path_len)
+        return 1.0 / float(mac_size)
 
     @staticmethod
     def _is_process_node(node: str | None) -> bool:
         if not node:
             return False
-        return node.split(":", 1)[0].lower() == "proc"
+        return node.split(":", 1)[0].lower() in {"proc", "proc_guid", "proc_pid"}
+
+    @staticmethod
+    def _memory_base_key(entity_id: str | None) -> str | None:
+        if not entity_id or not entity_id.startswith("mem:"):
+            return None
+        parts = entity_id.split(":")
+        if len(parts) < 4:
+            return None
+        return ":".join(parts[:3])
+
+    @staticmethod
+    def _memory_entity_with_version(base_key: str, version: int) -> str:
+        return f"{base_key}:{version}"
+
+    def _synchronize_memory_vma(self, event: Event) -> tuple[str | None, tuple[str, str] | None]:
+        if not event.object or not event.object.startswith("mem:"):
+            return event.object, None
+        base_key = self._memory_base_key(event.object)
+        if base_key is None:
+            return event.object, None
+        relations = {relation for relation, _src, _dst in self._semantic_relations_for_event(event)}
+        current_entity = self._memory_vma_current_entity.get(base_key)
+        if {"make_mem_exec", "protect_memory_exec"} & relations:
+            next_version = 1
+            if current_entity is not None:
+                try:
+                    next_version = int(current_entity.rsplit(":", 1)[1]) + 1
+                except ValueError:
+                    next_version = 1
+            next_entity = self._memory_entity_with_version(base_key, next_version)
+            self._memory_vma_current_entity[base_key] = next_entity
+            if current_entity is None:
+                return next_entity, None
+            return next_entity, (current_entity, next_entity)
+        if current_entity is None:
+            current_entity = self._memory_entity_with_version(base_key, 1)
+            self._memory_vma_current_entity[base_key] = current_entity
+        return current_entity, None
 
     def _process_ancestors(self, process_node: str) -> set[str]:
         if process_node in self._process_ancestor_cache:
@@ -669,19 +962,13 @@ class ProvenanceGraph:
         return int(flow)
 
     def path_factor(self, src: str, dst: str) -> float | None:
-        # Version-node query compatibility: AC_min-based value.
-        if src in self.version_nodes or dst in self.version_nodes:
-            ac_min_set = self.ac_min(src, dst)
-            if not ac_min_set:
-                return None
-            return 1.0 / float(len(ac_min_set))
-
-        # Entity-level paper path-factor compatibility.
-        pf_map = self._paper_path_factor_map(src)
-        val = pf_map.get(dst)
-        if val is None:
+        """
+        Unified path-factor definition: exact |MAC|.
+        """
+        mac_size = self.exact_mac_size(src, dst)
+        if mac_size is None:
             return None
-        return float(val)
+        return float(mac_size)
 
     def path_factor_for_edge(self, src: str, dst: str) -> float | None:
         """
@@ -719,6 +1006,32 @@ class ProvenanceGraph:
                     continue
                 adj[src_entity].add(dst_entity)
         return adj
+
+    def has_semantic_path(self, src: str, dst: str, relations: set[str] | None = None) -> bool:
+        starts = self._resolve_query_nodes(src)
+        targets = set(self._resolve_query_nodes(dst))
+        if not starts or not targets:
+            return False
+        relation_set = {canonical_relation(r) for r in (relations or set())}
+        q: deque[str] = deque(starts)
+        seen: set[str] = set(starts)
+        while q:
+            cur = q.popleft()
+            if cur in targets:
+                return True
+            for nxt in self.adj_version_transition.get(cur, set()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    q.append(nxt)
+            for relation, rel_adj in self.semantic_adj.items():
+                if relation_set and canonical_relation(relation) not in relation_set:
+                    continue
+                for nxt in rel_adj.get(cur, set()):
+                    if nxt in seen:
+                        continue
+                    seen.add(nxt)
+                    q.append(nxt)
+        return False
 
     def is_dag(self) -> bool:
         """Check acyclicity of the internal versioned graph."""

@@ -31,6 +31,23 @@ def _write_minimal_events(path: Path) -> None:
     )
 
 
+def _write_repeated_pair_events(path: Path, values: list[int]) -> None:
+    lines = []
+    for idx, value in enumerate(values, start=1):
+        lines.append(
+            json.dumps(
+                {
+                    "event_id": f"e{idx}",
+                    "event_type": "proc_to_file",
+                    "subject": "proc:web",
+                    "object": "file:/etc/passwd",
+                    "bytes": value,
+                }
+            )
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def test_noise_training_then_detection_suppresses_matching_signature(tmp_path):
     events_path = tmp_path / "events.jsonl"
     rules_path = tmp_path / "rules.yaml"
@@ -49,8 +66,9 @@ def test_noise_training_then_detection_suppresses_matching_signature(tmp_path):
     )
     assert model_path.exists()
     saved = json.loads(model_path.read_text(encoding="utf-8"))
-    assert saved["version"] == 1
+    assert saved["version"] == 2
     assert saved["benign_signatures"]
+    assert saved["dynamic_thresholds"]["pair_thresholds"]
 
     result = run_pipeline(
         events_path=str(events_path),
@@ -89,3 +107,36 @@ def test_noise_model_not_used_keeps_legacy_behavior(tmp_path):
     noise = result["summary"]["noise_filter"]
     assert noise["dropped"]["matches"] == 0
     assert noise["after"]["matches"] == noise["before"]["matches"] == 1
+
+
+def test_dynamic_threshold_keeps_match_only_after_cumulative_bytes_exceed_threshold(tmp_path):
+    train_events = tmp_path / "train.jsonl"
+    detect_events = tmp_path / "detect.jsonl"
+    rules_path = tmp_path / "rules.yaml"
+    out_train = tmp_path / "out_train"
+    out_detect = tmp_path / "out_detect"
+    model_path = tmp_path / "noise_model.json"
+    _write_minimal_rules(rules_path)
+    _write_repeated_pair_events(train_events, [40, 40])
+    _write_repeated_pair_events(detect_events, [40, 40, 40])
+
+    train_noise_model_pipeline(
+        train_events_path=str(train_events),
+        rules_path=str(rules_path),
+        output_path=str(out_train),
+        save_noise_model_path=str(model_path),
+        min_count=999,
+        bytes_min_count=999,
+        dynamic_margin_ratio=0.25,
+    )
+
+    result = run_pipeline(
+        events_path=str(detect_events),
+        rules_path=str(rules_path),
+        output_path=str(out_detect),
+        noise_model_path=str(model_path),
+    )
+
+    trained = result["summary"]["noise_filter"]["trained_noise"]
+    assert trained["by_dynamic_threshold"] == 2
+    assert result["summary"]["noise_filter"]["after"]["matches"] == 1

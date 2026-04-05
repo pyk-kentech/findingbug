@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-SUPPORTED_PATH_FACTOR_OPS: set[str] = {">=", "<=", ">", "<"}
 APT_STAGES: tuple[str, ...] = (
     "Initial Compromise",
     "Establish Foothold",
@@ -18,13 +18,16 @@ APT_STAGES: tuple[str, ...] = (
 )
 DEFAULT_APT_STAGE: str = APT_STAGES[0]
 DEFAULT_STAGE: int = 1
+APT_STAGE_ALIASES: dict[str, str] = {
+    "Lateral Movement": "Move Laterally",
+    "C&C Communication": "Establish Foothold",
+}
 
 
 @dataclass(slots=True, frozen=True)
 class PathFactorPrerequisite:
     type: str = "path_factor"
-    threshold: float = 0.0
-    op: str = ">="
+    max_path_factor: int = 0
 
 
 RulePrerequisite = str | PathFactorPrerequisite
@@ -32,20 +35,24 @@ RulePrerequisite = str | PathFactorPrerequisite
 
 @dataclass(slots=True)
 class Rule:
-    """Placeholder TTP rule schema. Detection logic is intentionally minimal."""
+    """HOLMES rule schema for both simplified YAML and Sigma-derived JSON rules."""
 
     rule_id: str
     name: str
     source_types: list[str] = field(default_factory=list)
     target_types: list[str] = field(default_factory=list)
     prerequisites: list[RulePrerequisite] = field(default_factory=list)
+    prerequisite_ast: dict[str, Any] | None = None
     event_predicate: dict[str, str] | None = None
+    match_logic: dict[str, Any] | None = None
+    entity_bindings: list[dict[str, Any]] = field(default_factory=list)
     severity: float = 1.0
     apt_stage: str = DEFAULT_APT_STAGE
     stage: int | None = None
     cvss: float | None = None
     tactic: str | None = None
     technique: str | None = None
+    bypass_benign_filter: bool = False
 
 
 @dataclass(slots=True)
@@ -85,17 +92,15 @@ def _ensure_prerequisites(value: Any) -> list[RulePrerequisite]:
         if prereq_type != "path_factor":
             raise RuleValidationError(f"prerequisites[{idx}].type must be 'path_factor'")
 
-        threshold = item.get("threshold")
-        if not isinstance(threshold, (int, float)):
-            raise RuleValidationError(f"prerequisites[{idx}].threshold must be a number")
+        max_path_factor = item.get("max_path_factor")
+        if not isinstance(max_path_factor, int):
+            raise RuleValidationError(f"prerequisites[{idx}].max_path_factor must be an integer")
+        if max_path_factor < 0:
+            raise RuleValidationError(f"prerequisites[{idx}].max_path_factor must be >= 0")
+        if "op" in item:
+            raise RuleValidationError(f"prerequisites[{idx}].op is not supported; use max_path_factor only")
 
-        op = item.get("op", ">=")
-        if not isinstance(op, str) or op not in SUPPORTED_PATH_FACTOR_OPS:
-            raise RuleValidationError(
-                f"prerequisites[{idx}].op must be one of {sorted(SUPPORTED_PATH_FACTOR_OPS)}"
-            )
-
-        result.append(PathFactorPrerequisite(threshold=float(threshold), op=op))
+        result.append(PathFactorPrerequisite(max_path_factor=int(max_path_factor)))
     return result
 
 
@@ -142,6 +147,7 @@ def _ensure_apt_stage(value: Any) -> str:
         return DEFAULT_APT_STAGE
     if not isinstance(value, str):
         raise RuleValidationError("apt_stage must be a string")
+    value = APT_STAGE_ALIASES.get(value, value)
     if value not in APT_STAGES:
         raise RuleValidationError(f"apt_stage must be one of {list(APT_STAGES)}")
     return value
@@ -185,6 +191,14 @@ def _ensure_optional_str(name: str, value: Any) -> str | None:
         return None
     if not isinstance(value, str):
         raise RuleValidationError(f"{name} must be a string")
+    return value
+
+
+def _ensure_bool(name: str, value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise RuleValidationError(f"{name} must be a bool")
     return value
 
 
@@ -253,13 +267,94 @@ def validate_ruleset(ruleset: RuleSet) -> None:
         seen.add(rule.rule_id)
 
 
-def load_rules_yaml(path: str | Path) -> RuleSet:
-    """Load YAML rulebook placeholder. Empty file/rules are valid."""
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"Rule file not found: {p}")
+def _build_rule_from_yaml_item(item: dict[str, Any], idx: int) -> Rule:
+    rule_id = item.get("rule_id")
+    name = item.get("name")
+    if not isinstance(rule_id, str) or not isinstance(name, str):
+        raise RuleValidationError(f"rules[{idx}] requires string rule_id and name")
 
-    text = p.read_text(encoding="utf-8")
+    apt_stage_value = _ensure_apt_stage(item.get("apt_stage"))
+    stage_value = _ensure_stage(item.get("stage"))
+    if item.get("apt_stage") is None and stage_value is not None:
+        apt_stage_value = _stage_to_apt_stage(stage_value)
+    match_logic = item.get("match_logic")
+    if match_logic is not None and not isinstance(match_logic, dict):
+        raise RuleValidationError(f"rules[{idx}].match_logic must be a mapping")
+    entity_bindings = item.get("entity_bindings")
+    if entity_bindings is None:
+        entity_bindings = []
+    if not isinstance(entity_bindings, list) or any(not isinstance(x, dict) for x in entity_bindings):
+        raise RuleValidationError(f"rules[{idx}].entity_bindings must be a list[mapping]")
+
+    return Rule(
+        rule_id=rule_id,
+        name=name,
+        source_types=_ensure_list_of_str("source_types", item.get("source_types")),
+        target_types=_ensure_list_of_str("target_types", item.get("target_types")),
+        prerequisites=_ensure_prerequisites(item.get("prerequisites")),
+        event_predicate=_ensure_event_predicate(item.get("event_predicate")),
+        match_logic=match_logic,
+        entity_bindings=entity_bindings,
+        severity=_ensure_severity(item.get("severity")),
+        apt_stage=apt_stage_value,
+        stage=stage_value,
+        cvss=_ensure_cvss(item.get("cvss")),
+        tactic=_ensure_optional_str("tactic", item.get("tactic")),
+        technique=_ensure_optional_str("technique", item.get("technique")),
+        bypass_benign_filter=_ensure_bool(f"rules[{idx}].bypass_benign_filter", item.get("bypass_benign_filter")),
+    )
+
+
+def _json_prerequisites_to_runtime(value: Any) -> tuple[list[RulePrerequisite], dict[str, Any] | None]:
+    if value is None:
+        return [], None
+    if isinstance(value, list):
+        return _ensure_prerequisites(value), None
+    if not isinstance(value, dict):
+        raise RuleValidationError("json prerequisites must be a mapping or list")
+    return [], value
+
+
+def _build_rule_from_json_item(item: dict[str, Any], idx: int) -> Rule:
+    rule_id = item.get("rule_id")
+    name = item.get("name")
+    if not isinstance(rule_id, str) or not isinstance(name, str):
+        raise RuleValidationError(f"rules[{idx}] requires string rule_id and name")
+
+    prerequisites, prerequisite_ast = _json_prerequisites_to_runtime(item.get("prerequisites"))
+    apt_stage_value = _ensure_apt_stage(item.get("apt_stage"))
+    source_types = _ensure_list_of_str("source_types", item.get("source_types"))
+    target_types = _ensure_list_of_str("target_types", item.get("target_types"))
+    match_logic = item.get("match_logic")
+    if match_logic is not None and not isinstance(match_logic, dict):
+        raise RuleValidationError(f"rules[{idx}].match_logic must be a mapping")
+    entity_bindings = item.get("entity_bindings")
+    if entity_bindings is None:
+        entity_bindings = []
+    if not isinstance(entity_bindings, list) or any(not isinstance(x, dict) for x in entity_bindings):
+        raise RuleValidationError(f"rules[{idx}].entity_bindings must be a list[mapping]")
+
+    return Rule(
+        rule_id=rule_id,
+        name=name,
+        source_types=source_types,
+        target_types=target_types,
+        prerequisites=prerequisites,
+        prerequisite_ast=prerequisite_ast,
+        match_logic=match_logic,
+        entity_bindings=entity_bindings,
+        severity=_ensure_severity(item.get("severity", item.get("severity_score"))),
+        apt_stage=apt_stage_value,
+        stage=_ensure_stage(item.get("stage")),
+        cvss=_ensure_cvss(item.get("cvss", item.get("severity_score"))),
+        tactic=_ensure_optional_str("tactic", item.get("tactic")),
+        technique=_ensure_optional_str("technique", item.get("technique")),
+        bypass_benign_filter=_ensure_bool(f"rules[{idx}].bypass_benign_filter", item.get("bypass_benign_filter")),
+    )
+
+
+def _load_yaml_payload(path: Path) -> RuleSet:
+    text = path.read_text(encoding="utf-8")
     if not text.strip():
         return RuleSet()
 
@@ -279,35 +374,58 @@ def load_rules_yaml(path: str | Path) -> RuleSet:
     for idx, item in enumerate(rule_items, start=1):
         if not isinstance(item, dict):
             raise RuleValidationError(f"rules[{idx}] must be a mapping")
-
-        rule_id = item.get("rule_id")
-        name = item.get("name")
-        if not isinstance(rule_id, str) or not isinstance(name, str):
-            raise RuleValidationError(f"rules[{idx}] requires string rule_id and name")
-
-        apt_stage_value = _ensure_apt_stage(item.get("apt_stage"))
-        stage_value = _ensure_stage(item.get("stage"))
-        if item.get("apt_stage") is None and stage_value is not None:
-            apt_stage_value = _stage_to_apt_stage(stage_value)
-
-        rules.append(
-            Rule(
-                rule_id=rule_id,
-                name=name,
-                source_types=_ensure_list_of_str("source_types", item.get("source_types")),
-                target_types=_ensure_list_of_str("target_types", item.get("target_types")),
-                prerequisites=_ensure_prerequisites(item.get("prerequisites")),
-                event_predicate=_ensure_event_predicate(item.get("event_predicate")),
-                severity=_ensure_severity(item.get("severity")),
-                apt_stage=apt_stage_value,
-                stage=stage_value,
-                cvss=_ensure_cvss(item.get("cvss")),
-                tactic=_ensure_optional_str("tactic", item.get("tactic")),
-                technique=_ensure_optional_str("technique", item.get("technique")),
-            )
-        )
+        rules.append(_build_rule_from_yaml_item(item, idx))
 
     scoring_alpha, has_scoring_alpha = _ensure_scoring_alpha(payload.get("scoring"))
     ruleset = RuleSet(rules=rules, scoring_alpha=scoring_alpha, has_scoring_alpha=has_scoring_alpha)
     validate_ruleset(ruleset)
     return ruleset
+
+
+def load_rules_yaml(path: str | Path) -> RuleSet:
+    """Load YAML rulebook placeholder. Empty file/rules are valid."""
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Rule file not found: {p}")
+    return _load_yaml_payload(p)
+
+
+def load_rules_json(path: str | Path) -> RuleSet:
+    """Load Sigma-derived JSON rule bundles."""
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Rule file not found: {p}")
+
+    text = p.read_text(encoding="utf-8")
+    if not text.strip():
+        return RuleSet()
+
+    payload = json.loads(text)
+    if isinstance(payload, dict):
+        rule_items = payload.get("rules", [])
+    else:
+        rule_items = payload
+    if rule_items is None:
+        rule_items = []
+    if not isinstance(rule_items, list):
+        raise RuleValidationError("json rule file root must be a list or mapping with rules")
+
+    rules: list[Rule] = []
+    for idx, item in enumerate(rule_items, start=1):
+        if not isinstance(item, dict):
+            raise RuleValidationError(f"rules[{idx}] must be a mapping")
+        rules.append(_build_rule_from_json_item(item, idx))
+
+    ruleset = RuleSet(rules=rules)
+    validate_ruleset(ruleset)
+    return ruleset
+
+
+def load_rules(path: str | Path) -> RuleSet:
+    p = Path(path)
+    suffix = p.suffix.lower()
+    if suffix == ".json":
+        return load_rules_json(p)
+    if suffix in {".yaml", ".yml"}:
+        return load_rules_yaml(p)
+    raise RuleValidationError(f"unsupported rule file extension: {suffix or '<none>'}")

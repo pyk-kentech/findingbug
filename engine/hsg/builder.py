@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import json
 from pathlib import Path
+from collections import deque
 
 from engine.core.graph import ProvenanceGraph
 from engine.core.matcher import TTPMatch
+from engine.core.privilege_tracker import PrivilegeTracker
+from engine.core.taint_tracker import TaintTracker
+from engine.hsg.prerequisite_evaluator import PrerequisiteEvaluator
 from engine.hsg.prerequisite import is_path_factor_satisfied, is_prerequisite_satisfied
-from engine.rules.schema import RuleSet, path_factor_prerequisites, prerequisite_types
+from engine.rules.schema import RuleSet, infer_rule_stage, path_factor_prerequisites, prerequisite_types
 import yaml
 
 PREREQ_CONFIG = {
@@ -16,7 +21,7 @@ PREREQ_CONFIG = {
         "default": {
             "from_binding": "object",
             "to_binding": "object",
-            "min_strength": "0.0",
+            "max_path_factor": "0.0",
         },
         "by_right_rule_id": {},
         "by_pair": {},
@@ -48,6 +53,460 @@ class HSGEdge:
 class HSG:
     nodes: list[HSGNode] = field(default_factory=list)
     edges: list[HSGEdge] = field(default_factory=list)
+
+
+class IncrementalHSGBuilder:
+    def __init__(
+        self,
+        *,
+        graph: ProvenanceGraph,
+        ruleset: RuleSet,
+        paper_mode: str = "hybrid",
+        prereq_policy: str = "union",
+        resolved_effective_config: dict | None = None,
+        taint_tracker: TaintTracker | None = None,
+        privilege_tracker: PrivilegeTracker | None = None,
+        graph_path_allowlist: set[tuple[str, str]] | None = None,
+        max_graph_path_edges: int = 10000,
+        max_graph_path_candidates_per_match: int = 200,
+        pending_ttl_seconds: int | None = 30 * 24 * 60 * 60,
+        max_pending_matches: int = 100000,
+        scenario_dormancy_seconds: int | None = 60 * 24 * 60 * 60,
+    ) -> None:
+        self.graph = graph
+        self.ruleset = ruleset
+        self.paper_mode = paper_mode
+        self.prereq_policy = prereq_policy
+        self.graph_path_allowlist = graph_path_allowlist if graph_path_allowlist is not None else GRAPH_PATH_ALLOWLIST
+        self.max_graph_path_edges = max_graph_path_edges
+        self.max_graph_path_candidates_per_match = max_graph_path_candidates_per_match
+        self.pending_ttl_seconds = None if pending_ttl_seconds is None else max(0, int(pending_ttl_seconds))
+        self.max_pending_matches = max(0, int(max_pending_matches))
+        self.scenario_dormancy_seconds = (
+            None if scenario_dormancy_seconds is None else max(0, int(scenario_dormancy_seconds))
+        )
+        self.rule_by_id = {rule.rule_id: rule for rule in ruleset.rules}
+        self.evaluator = PrerequisiteEvaluator(
+            graph=graph,
+            taint_tracker=taint_tracker,
+            privilege_tracker=privilege_tracker,
+            resolved_effective_config=resolved_effective_config,
+        )
+        self.nodes: dict[str, HSGNode] = {}
+        self.edges: list[HSGEdge] = []
+        self.seen_edges: set[tuple[str, str, str]] = set()
+        self.entity_to_hsg_node: dict[str, set[str]] = defaultdict(set)
+        self.pending_entity_to_hsg_node: dict[str, set[str]] = defaultdict(set)
+        self.matches_by_id: dict[str, TTPMatch] = {}
+        self.pending_matches_by_id: dict[str, TTPMatch] = {}
+        self.pending_match_ts: dict[str, datetime] = {}
+        self.graph_path_edges_count = 0
+        self.graph_path_candidates_by_src: dict[str, int] = defaultdict(int)
+        self.pending_evicted_count = 0
+        self.pending_evicted_by_rule_id: dict[str, int] = defaultdict(int)
+        self.pending_evicted_ttl_count = 0
+        self.pending_evicted_capacity_count = 0
+        self.match_last_activity_ts: dict[str, datetime] = {}
+        self.closed_scenarios_count = 0
+        self.closed_matches_count = 0
+        self.closed_scenarios_by_id: dict[str, int] = defaultdict(int)
+
+    def _has_prereq(self, rule) -> bool:
+        return bool(
+            rule
+            and (
+                getattr(rule, "prerequisites", [])
+                or isinstance(getattr(rule, "prerequisite_ast", None), dict)
+            )
+        )
+
+    def _index_match(self, match: TTPMatch) -> None:
+        self.matches_by_id[match.match_id] = match
+        self.nodes[match.match_id] = HSGNode(
+            match_id=match.match_id,
+            rule_id=match.rule_id,
+            event_ids=list(match.event_ids),
+            entities=list(match.entities),
+        )
+        for entity in _match_entities(match):
+            self.entity_to_hsg_node[entity].add(match.match_id)
+
+    @staticmethod
+    def _scenario_id(match_ids: set[str]) -> str:
+        if not match_ids:
+            return "scenario-empty"
+        return f"scenario-{sorted(match_ids)[0]}"
+
+    @staticmethod
+    def _parse_watermark(ts: object) -> datetime | None:
+        if ts is None:
+            return None
+        if isinstance(ts, datetime):
+            return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
+        raw = str(ts).strip()
+        if not raw:
+            return None
+        try:
+            numeric = float(raw)
+            abs_numeric = abs(numeric)
+            if abs_numeric >= 1e17:
+                numeric /= 1_000_000_000.0
+            elif abs_numeric >= 1e14:
+                numeric /= 1_000_000.0
+            elif abs_numeric >= 1e11:
+                numeric /= 1_000.0
+            return datetime.fromtimestamp(numeric, tz=timezone.utc)
+        except (ValueError, OSError, OverflowError):
+            pass
+        normalized = raw.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+    def _match_watermark(self, match: TTPMatch, watermark_ts: str | None = None) -> datetime | None:
+        explicit = self._parse_watermark(watermark_ts)
+        if explicit is not None:
+            return explicit
+        for key in ("event_ts", "ts", "timestamp"):
+            parsed = self._parse_watermark(match.metadata.get(key))
+            if parsed is not None:
+                return parsed
+        return None
+
+    def _index_pending(self, match: TTPMatch, watermark: datetime | None = None) -> None:
+        self.pending_matches_by_id[match.match_id] = match
+        if watermark is not None:
+            self.pending_match_ts[match.match_id] = watermark
+        for entity in _match_entities(match):
+            self.pending_entity_to_hsg_node[entity].add(match.match_id)
+
+    def _remove_pending(self, match_id: str) -> None:
+        match = self.pending_matches_by_id.pop(match_id, None)
+        self.pending_match_ts.pop(match_id, None)
+        if match is None:
+            return
+        for entity in _match_entities(match):
+            bucket = self.pending_entity_to_hsg_node.get(entity)
+            if bucket is None:
+                continue
+            bucket.discard(match_id)
+            if not bucket:
+                self.pending_entity_to_hsg_node.pop(entity, None)
+
+    def _remove_active_match(self, match_id: str) -> None:
+        match = self.matches_by_id.pop(match_id, None)
+        self.nodes.pop(match_id, None)
+        self.match_last_activity_ts.pop(match_id, None)
+        if match is None:
+            return
+        for entity in _match_entities(match):
+            bucket = self.entity_to_hsg_node.get(entity)
+            if bucket is None:
+                continue
+            bucket.discard(match_id)
+            if not bucket:
+                self.entity_to_hsg_node.pop(entity, None)
+
+    def _record_pending_eviction(self, pending_match: TTPMatch | None, reason: str) -> None:
+        self.pending_evicted_count += 1
+        if pending_match is not None and pending_match.rule_id:
+            self.pending_evicted_by_rule_id[pending_match.rule_id] += 1
+        if reason == "ttl":
+            self.pending_evicted_ttl_count += 1
+        elif reason == "capacity":
+            self.pending_evicted_capacity_count += 1
+
+    def _evict_expired_pending(self, watermark: datetime | None) -> None:
+        if watermark is None or self.pending_ttl_seconds is None:
+            return
+        expired_ids = [
+            match_id
+            for match_id, pending_ts in self.pending_match_ts.items()
+            if (watermark - pending_ts).total_seconds() > float(self.pending_ttl_seconds)
+        ]
+        for match_id in expired_ids:
+            pending_match = self.pending_matches_by_id.get(match_id)
+            self._remove_pending(match_id)
+            self._record_pending_eviction(pending_match, "ttl")
+
+    def _evict_capacity_pending(self) -> None:
+        if self.max_pending_matches <= 0:
+            return
+        while len(self.pending_matches_by_id) > self.max_pending_matches:
+            if not self.pending_matches_by_id:
+                break
+            evict_id = min(
+                self.pending_matches_by_id,
+                key=self._pending_priority_key,
+            )
+            pending_match = self.pending_matches_by_id.get(evict_id)
+            self._remove_pending(evict_id)
+            self._record_pending_eviction(pending_match, "capacity")
+
+    def _pending_priority_key(self, match_id: str) -> tuple[int, datetime, str]:
+        match = self.pending_matches_by_id.get(match_id)
+        rule = self.rule_by_id.get(match.rule_id) if match is not None else None
+        stage = infer_rule_stage(rule) if rule is not None else 1
+        ts = self.pending_match_ts.get(match_id, datetime.max.replace(tzinfo=timezone.utc))
+        return int(stage), ts, match_id
+
+    def _component_map(self) -> dict[str, set[str]]:
+        if not self.nodes:
+            return {}
+        adjacency: dict[str, set[str]] = defaultdict(set)
+        for node_id in self.nodes:
+            adjacency.setdefault(node_id, set())
+        for edge in self.edges:
+            if edge.src not in self.nodes or edge.dst not in self.nodes:
+                continue
+            adjacency[edge.src].add(edge.dst)
+            adjacency[edge.dst].add(edge.src)
+
+        components: dict[str, set[str]] = {}
+        seen: set[str] = set()
+        for root in sorted(self.nodes):
+            if root in seen:
+                continue
+            queue: deque[str] = deque([root])
+            component: set[str] = set()
+            seen.add(root)
+            while queue:
+                cur = queue.popleft()
+                component.add(cur)
+                for nxt in adjacency.get(cur, set()):
+                    if nxt in seen:
+                        continue
+                    seen.add(nxt)
+                    queue.append(nxt)
+            components[self._scenario_id(component)] = component
+        return components
+
+    def _touch_match_activity(self, match_ids: set[str], watermark: datetime | None) -> None:
+        if watermark is None:
+            return
+        for match_id in match_ids:
+            if match_id in self.matches_by_id:
+                self.match_last_activity_ts[match_id] = watermark
+
+    def gc_dormant_scenarios(self, watermark_ts: str | None = None) -> list[str]:
+        watermark = self._parse_watermark(watermark_ts)
+        if watermark is None or self.scenario_dormancy_seconds is None:
+            return []
+        components = self._component_map()
+        closed_match_ids: list[str] = []
+        for scenario_id, match_ids in components.items():
+            last_activity = max(
+                (self.match_last_activity_ts.get(match_id) for match_id in match_ids),
+                default=None,
+            )
+            if last_activity is None:
+                continue
+            if (watermark - last_activity).total_seconds() <= float(self.scenario_dormancy_seconds):
+                continue
+            for match_id in sorted(match_ids):
+                self._remove_active_match(match_id)
+                closed_match_ids.append(match_id)
+            self.closed_scenarios_count += 1
+            self.closed_matches_count += len(match_ids)
+            self.closed_scenarios_by_id[scenario_id] += 1
+        if closed_match_ids:
+            self.edges = [e for e in self.edges if e.src in self.nodes and e.dst in self.nodes]
+            self.seen_edges = {(e.src, e.dst, e.relation) for e in self.edges}
+            self.graph_path_edges_count = len([e for e in self.edges if e.relation == "graph_path"])
+            self.graph_path_candidates_by_src = defaultdict(int)
+            for edge in self.edges:
+                if edge.relation == "graph_path":
+                    self.graph_path_candidates_by_src[edge.src] += 1
+        return closed_match_ids
+
+    def _candidate_match_ids(self, match: TTPMatch, extra_candidate_ids: set[str] | None = None) -> set[str]:
+        ids = set(extra_candidate_ids or set())
+        for entity in _match_entities(match):
+            ids |= self.entity_to_hsg_node.get(entity, set())
+            ids |= self.pending_entity_to_hsg_node.get(entity, set())
+            for ancestor in self.graph.ancestors(entity):
+                ids |= self.entity_to_hsg_node.get(ancestor, set())
+                ids |= self.pending_entity_to_hsg_node.get(ancestor, set())
+            for descendant in self.graph.descendants(entity):
+                ids |= self.entity_to_hsg_node.get(descendant, set())
+                ids |= self.pending_entity_to_hsg_node.get(descendant, set())
+        ids.discard(match.match_id)
+        return ids
+
+    def _graph_path_edge_metrics(
+        self,
+        left: TTPMatch,
+        right: TTPMatch,
+        left_rule,
+        right_rule,
+        relation: str,
+    ) -> tuple[float | None, float | None, float | None] | None:
+        config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
+        if not config:
+            return None
+        from_binding = config.get("from_binding")
+        to_binding = config.get("to_binding")
+        if not from_binding or not to_binding:
+            return None
+        from_entity = left.bindings.get(from_binding)
+        to_entity = right.bindings.get(to_binding)
+        if not from_entity or not to_entity:
+            return None
+        pf_reqs = path_factor_prerequisites_for_pair(left_rule, right_rule, self.prereq_policy)
+        if pf_reqs and any(
+            not is_path_factor_satisfied(self.graph, from_entity, to_entity, prereq.max_path_factor)
+            for prereq in pf_reqs
+        ):
+            return None
+        edge_pf = self.graph.path_factor_for_edge(from_entity, to_entity)
+        if edge_pf is None or edge_pf <= 0.0:
+            return None
+        weight = 1.0 / float(edge_pf)
+        return weight, float(edge_pf), weight
+
+    def _pair_edges(self, left: TTPMatch, right: TTPMatch) -> list[HSGEdge]:
+        left_rule = self.rule_by_id.get(left.rule_id)
+        right_rule = self.rule_by_id.get(right.rule_id)
+        prereq_types = prerequisite_relations_for_pair(left_rule, right_rule, self.prereq_policy)
+        built: list[HSGEdge] = []
+        for relation in prereq_types:
+            edge_key = (left.match_id, right.match_id, relation)
+            if edge_key in self.seen_edges:
+                continue
+            if relation == "graph_path":
+                if self.graph_path_edges_count >= self.max_graph_path_edges:
+                    continue
+                if self.graph_path_allowlist is not None and (left.rule_id, right.rule_id) not in self.graph_path_allowlist:
+                    continue
+                if self.graph_path_candidates_by_src[left.match_id] >= self.max_graph_path_candidates_per_match:
+                    continue
+                if not is_graph_path_candidate(self.graph, left, right, {}):
+                    continue
+                config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
+                if not is_prerequisite_satisfied(self.graph, left, right, relation, config):
+                    continue
+                metrics = self._graph_path_edge_metrics(left, right, left_rule, right_rule, relation)
+                if metrics is None:
+                    continue
+                edge_dependency_strength, edge_path_factor, weight = metrics
+                self.graph_path_candidates_by_src[left.match_id] += 1
+            else:
+                config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
+                if not is_prerequisite_satisfied(self.graph, left, right, relation, config):
+                    continue
+                edge_dependency_strength = None
+                edge_path_factor = None
+                weight = None
+            self.seen_edges.add(edge_key)
+            built.append(
+                HSGEdge(
+                    src=left.match_id,
+                    dst=right.match_id,
+                    relation=relation,
+                    weight=weight,
+                    path_factor=edge_path_factor,
+                    dependency_strength=edge_dependency_strength,
+                )
+            )
+            if relation == "graph_path":
+                self.graph_path_edges_count += 1
+        return built
+
+    def _pair_edges_bidirectional(self, left: TTPMatch, right: TTPMatch) -> list[HSGEdge]:
+        built = self._pair_edges(left, right)
+        built.extend([edge for edge in self._pair_edges(right, left) if edge.relation == "graph_path"])
+        return built
+
+    def _try_activate_pending_for(self, active_match: TTPMatch) -> list[HSGEdge]:
+        activated_edges: list[HSGEdge] = []
+        candidate_pending = set()
+        for entity in _match_entities(active_match):
+            candidate_pending |= self.pending_entity_to_hsg_node.get(entity, set())
+            for ancestor in self.graph.ancestors(entity):
+                candidate_pending |= self.pending_entity_to_hsg_node.get(ancestor, set())
+        for pending_id in sorted(candidate_pending):
+            pending_match = self.pending_matches_by_id.get(pending_id)
+            if pending_match is None:
+                continue
+            built_edges = self._pair_edges_bidirectional(pending_match, active_match)
+            if not built_edges:
+                continue
+            self._remove_pending(pending_id)
+            self._index_match(pending_match)
+            self.edges.extend(built_edges)
+            activated_edges.extend(built_edges)
+        return activated_edges
+
+    def add_match(
+        self,
+        match: TTPMatch,
+        extra_candidate_ids: set[str] | None = None,
+        watermark_ts: str | None = None,
+    ) -> tuple[bool, list[HSGEdge]]:
+        watermark = self._match_watermark(match, watermark_ts)
+        self._evict_expired_pending(watermark)
+        rule = self.rule_by_id.get(match.rule_id)
+        candidate_ids = self._candidate_match_ids(match, extra_candidate_ids)
+        built_edges: list[HSGEdge] = []
+        if isinstance(getattr(rule, "prerequisite_ast", None), dict):
+            prior_matches = dict(self.matches_by_id)
+            result = self.evaluator.evaluate_rule(rule, match, prior_matches)
+            if not result.satisfied:
+                if not self._has_prereq(rule):
+                    self._index_match(match)
+                    self._touch_match_activity({match.match_id}, watermark)
+                    self.gc_dormant_scenarios(watermark_ts)
+                    return True, []
+                self._index_pending(match, watermark)
+                return False, []
+            for ast_edge in result.edges:
+                edge_key = (ast_edge.src_match_id, match.match_id, ast_edge.relation)
+                if edge_key in self.seen_edges or ast_edge.src_match_id not in self.matches_by_id:
+                    continue
+                self.seen_edges.add(edge_key)
+                built_edges.append(
+                    HSGEdge(
+                        src=ast_edge.src_match_id,
+                        dst=match.match_id,
+                        relation=ast_edge.relation,
+                        weight=ast_edge.weight,
+                        path_factor=ast_edge.path_factor,
+                        dependency_strength=ast_edge.dependency_strength,
+                    )
+                )
+        else:
+            for candidate_id in sorted(candidate_ids):
+                prior = self.matches_by_id.get(candidate_id) or self.pending_matches_by_id.get(candidate_id)
+                if prior is None:
+                    continue
+                built_edges.extend(self._pair_edges_bidirectional(prior, match))
+        if self._has_prereq(rule) and not built_edges:
+            self._index_pending(match, watermark)
+            self._evict_capacity_pending()
+            return False, []
+        for edge in built_edges:
+            if edge.src in self.pending_matches_by_id:
+                pending_match = self.pending_matches_by_id.get(edge.src)
+                if pending_match is not None:
+                    self._remove_pending(edge.src)
+                    self._index_match(pending_match)
+                    self._touch_match_activity({pending_match.match_id}, watermark)
+        self._index_match(match)
+        touched_match_ids = {match.match_id}
+        touched_match_ids.update(edge.src for edge in built_edges)
+        touched_match_ids.update(edge.dst for edge in built_edges)
+        self.edges.extend(built_edges)
+        built_edges.extend(self._try_activate_pending_for(match))
+        touched_match_ids.update(edge.src for edge in built_edges)
+        touched_match_ids.update(edge.dst for edge in built_edges)
+        self._touch_match_activity(touched_match_ids, watermark)
+        self.gc_dormant_scenarios(watermark_ts)
+        return True, built_edges
+
+    def as_hsg(self) -> HSG:
+        return HSG(nodes=list(self.nodes.values()), edges=list(self.edges))
 
 
 def _entity_prefix(entity: str | None) -> str:
@@ -144,7 +603,7 @@ def _resolve_prereq_config(relation: str, left_rule_id: str, right_rule_id: str)
     if not isinstance(entry, dict):
         return None
 
-    # Backward-compatible shape: {"graph_path": {"from_binding": ..., ...}}
+    # Direct shape: {"graph_path": {"from_binding": ..., ...}}
     if "from_binding" in entry and "to_binding" in entry:
         return entry
 
@@ -196,6 +655,8 @@ def build_hsg(
     ruleset: RuleSet,
     paper_mode: str = "hybrid",
     prereq_policy: str = "union",
+    resolved_effective_config: dict | None = None,
+    taint_tracker: TaintTracker | None = None,
     graph_path_allowlist: set[tuple[str, str]] | None = None,
     max_graph_path_edges: int = 10000,
     max_graph_path_candidates_per_match: int = 200,
@@ -209,105 +670,21 @@ def build_hsg(
     if max_graph_path_candidates_per_match < 0:
         raise ValueError("max_graph_path_candidates_per_match must be >= 0")
 
-    rule_by_id = {rule.rule_id: rule for rule in ruleset.rules}
-    allowlist = graph_path_allowlist if graph_path_allowlist is not None else GRAPH_PATH_ALLOWLIST
-
-    nodes = [
-        HSGNode(
-            match_id=m.match_id,
-            rule_id=m.rule_id,
-            event_ids=list(m.event_ids),
-            entities=list(m.entities),
-        )
-        for m in matches
-    ]
-    active_nodes: set[str] = set()
-    for m in matches:
-        rule = rule_by_id.get(m.rule_id)
-        if rule is None or not getattr(rule, "prerequisites", []):
-            active_nodes.add(m.match_id)
-
-    edges: list[HSGEdge] = []
-    seen_edges: set[tuple[str, str, str]] = set()
-    descendants_cache: dict[str, set[str]] = {}
-    graph_path_edges_count = 0
-    graph_path_candidates_by_src: dict[str, int] = defaultdict(int)
-    for i in range(len(matches)):
-        for j in range(i + 1, len(matches)):
-            left = matches[i]
-            right = matches[j]
-            left_rule = rule_by_id.get(left.rule_id)
-            right_rule = rule_by_id.get(right.rule_id)
-            prereq_types = prerequisite_relations_for_pair(left_rule, right_rule, prereq_policy)
-
-            for relation in prereq_types:
-                if relation == "graph_path":
-                    if allowlist is not None and (left.rule_id, right.rule_id) not in allowlist:
-                        continue
-                    if graph_path_candidates_by_src[left.match_id] >= max_graph_path_candidates_per_match:
-                        continue
-                    if graph_path_edges_count >= max_graph_path_edges:
-                        continue
-                    if not is_graph_path_candidate(graph, left, right, descendants_cache):
-                        continue
-                    graph_path_candidates_by_src[left.match_id] += 1
-                config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
-                if is_prerequisite_satisfied(graph, left, right, relation, config):
-                    edge_key = (left.match_id, right.match_id, relation)
-                    if edge_key in seen_edges:
-                        continue
-                    weight: float | None = None
-                    edge_path_factor: float | None = None
-                    edge_dependency_strength: float | None = None
-                    if relation == "graph_path" and config:
-                        from_binding = config.get("from_binding")
-                        to_binding = config.get("to_binding")
-                        if from_binding and to_binding:
-                            from_entity = left.bindings.get(from_binding)
-                            to_entity = right.bindings.get(to_binding)
-                            if from_entity and to_entity:
-                                path_factor_reqs = path_factor_prerequisites_for_pair(left_rule, right_rule, prereq_policy)
-                                if path_factor_reqs and any(
-                                    not is_path_factor_satisfied(
-                                        graph,
-                                        from_entity,
-                                        to_entity,
-                                        prereq.threshold,
-                                        prereq.op,
-                                    )
-                                    for prereq in path_factor_reqs
-                                ):
-                                    continue
-                                dependency = graph.dependency_strength(from_entity, to_entity)
-                                edge_dependency_strength = dependency
-                                edge_pf = graph.path_factor_for_edge(from_entity, to_entity)
-                                if edge_pf is None:
-                                    continue
-                                edge_path_factor = float(edge_pf)
-                                if paper_mode == "strict":
-                                    weight = edge_path_factor
-                                else:
-                                    weight = dependency * edge_path_factor
-                    seen_edges.add(edge_key)
-                    edges.append(
-                        HSGEdge(
-                            src=left.match_id,
-                            dst=right.match_id,
-                            relation=relation,
-                            weight=weight,
-                            path_factor=edge_path_factor,
-                            dependency_strength=edge_dependency_strength,
-                        )
-                    )
-                    if relation == "graph_path":
-                        graph_path_edges_count += 1
-                    # Promote both endpoints once an inter-match prerequisite edge is satisfied.
-                    active_nodes.add(left.match_id)
-                    active_nodes.add(right.match_id)
-
-    gated_nodes = [n for n in nodes if n.match_id in active_nodes]
-    gated_edges = [e for e in edges if e.src in active_nodes and e.dst in active_nodes]
-    return HSG(nodes=gated_nodes, edges=gated_edges)
+    incremental = IncrementalHSGBuilder(
+        graph=graph,
+        ruleset=ruleset,
+        paper_mode=paper_mode,
+        prereq_policy=prereq_policy,
+        resolved_effective_config=resolved_effective_config,
+        taint_tracker=taint_tracker,
+        graph_path_allowlist=graph_path_allowlist,
+        max_graph_path_edges=max_graph_path_edges,
+        max_graph_path_candidates_per_match=max_graph_path_candidates_per_match,
+    )
+    ordered_matches = sorted(matches, key=lambda m: (int(m.sequence or 0), m.match_id))
+    for match in ordered_matches:
+        incremental.add_match(match, watermark_ts=str(match.metadata.get("event_ts") or match.metadata.get("ts") or ""))
+    return incremental.as_hsg()
 
 
 def hsg_to_dict(hsg: HSG) -> dict:

@@ -20,8 +20,8 @@ def test_path_factor_threshold_pass_and_block_without_file_io():
     right = TTPMatch(match_id="m2", rule_id="R", bindings={"object": "file:B"})
 
     assert g.path_factor(left.bindings["object"], right.bindings["object"]) == 1.0
-    assert not is_path_factor_satisfied(g, left.bindings["object"], right.bindings["object"], threshold=1.1, op=">=")
-    assert is_path_factor_satisfied(g, left.bindings["object"], right.bindings["object"], threshold=1.0, op=">=")
+    assert not is_path_factor_satisfied(g, left.bindings["object"], right.bindings["object"], max_path_factor=0)
+    assert is_path_factor_satisfied(g, left.bindings["object"], right.bindings["object"], max_path_factor=1)
 
 
 def test_rules_yaml_supports_path_factor_prerequisite_dict(tmp_path):
@@ -35,7 +35,7 @@ def test_rules_yaml_supports_path_factor_prerequisite_dict(tmp_path):
                 "    prerequisites:",
                 "      - graph_path",
                 "      - type: path_factor",
-                "        threshold: 1.0",
+                "        max_path_factor: 1",
             ]
         )
         + "\n",
@@ -46,7 +46,7 @@ def test_rules_yaml_supports_path_factor_prerequisite_dict(tmp_path):
     prereqs = ruleset.rules[0].prerequisites
 
     assert "graph_path" in prereqs
-    assert PathFactorPrerequisite(threshold=1.0, op=">=") in prereqs
+    assert PathFactorPrerequisite(max_path_factor=1) in prereqs
 
 
 def test_integration_rule_path_factor_threshold_blocks_graph_path_on_sample():
@@ -94,7 +94,7 @@ def test_integration_rule_path_factor_threshold_blocks_graph_path_on_sample():
                 name="right",
                 source_types=["file"],
                 target_types=["ip"],
-                prerequisites=["graph_path", PathFactorPrerequisite(threshold=1.1)],
+                prerequisites=["graph_path", PathFactorPrerequisite(max_path_factor=0)],
                 event_predicate={"event_type": "file_to_ip"},
             ),
         ]

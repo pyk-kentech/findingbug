@@ -1,9 +1,62 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import gzip
 import json
 from pathlib import Path
 from typing import Any
+
+from engine.io.cdr.base import map_raw_event_to_cdr
+
+BYTE_VALUE_KEYS: tuple[str, ...] = (
+    "bytes",
+    "size",
+    "len",
+    "nbytes",
+    "byte_count",
+    "total_bytes",
+    "transfer_bytes",
+    "sent_bytes",
+    "recv_bytes",
+    "write_bytes",
+    "read_bytes",
+)
+
+
+def _to_nonneg_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        out = int(value)
+        return out if out >= 0 else None
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            out = int(float(raw))
+        except ValueError:
+            return None
+        return out if out >= 0 else None
+    return None
+
+
+def extract_event_bytes(raw: dict[str, Any]) -> int | None:
+    sent = _to_nonneg_int(raw.get("sent_bytes"))
+    recv = _to_nonneg_int(raw.get("recv_bytes"))
+    if sent is not None and recv is not None:
+        return sent + recv
+
+    written = _to_nonneg_int(raw.get("write_bytes"))
+    read = _to_nonneg_int(raw.get("read_bytes"))
+    if written is not None and read is not None:
+        return written + read
+
+    for key in BYTE_VALUE_KEYS:
+        value = _to_nonneg_int(raw.get(key))
+        if value is not None:
+            return value
+    return None
 
 
 @dataclass(slots=True)
@@ -15,7 +68,8 @@ class Event:
     event_type: str
     subject: str | None
     object: str | None
-    raw: dict[str, Any]
+    bytes_transferred: int | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 class EventSchemaError(ValueError):
@@ -26,6 +80,7 @@ def normalize_event(raw: dict[str, Any], index: int) -> Event:
     """Normalize flexible input JSON into the engine Event schema."""
     if not isinstance(raw, dict):
         raise EventSchemaError(f"Event at line {index} is not a JSON object")
+    raw = map_raw_event_to_cdr(raw)
 
     event_id = str(raw.get("event_id") or raw.get("id") or f"evt-{index}")
     ts = raw.get("ts") or raw.get("timestamp")
@@ -47,6 +102,7 @@ def normalize_event(raw: dict[str, Any], index: int) -> Event:
         event_type=event_type,
         subject=subject,
         object=object_,
+        bytes_transferred=extract_event_bytes(raw),
         raw=raw,
     )
 
@@ -56,7 +112,8 @@ def load_events_jsonl(path: str | Path) -> list[Event]:
     events: list[Event] = []
     p = Path(path)
 
-    with p.open("r", encoding="utf-8") as f:
+    opener = gzip.open if p.suffix.lower() == ".gz" else Path.open
+    with opener(p, "rt", encoding="utf-8") as f:
         for idx, line in enumerate(f, start=1):
             line = line.strip()
             if not line:

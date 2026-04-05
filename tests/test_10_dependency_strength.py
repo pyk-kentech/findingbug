@@ -1,18 +1,17 @@
-import pytest
-
 from engine.core.graph import ProvenanceGraph
 from engine.io.events import Event
 
 
-def test_dependency_strength_one_hop_is_half():
+def test_dependency_strength_one_hop_is_inverse_mac_size():
     g = ProvenanceGraph()
     g.add_event(Event(event_id="e1", ts=None, event_type="flow", subject="A", object="B", raw={}))
 
     assert g.shortest_path_len("A", "B") == 1
-    assert g.dependency_strength("A", "B") == 0.5
+    assert g.exact_mac_size("A", "B") == 1
+    assert g.dependency_strength("A", "B") == 1.0
 
 
-def test_dependency_strength_two_hop_is_one_third():
+def test_dependency_strength_unique_two_hop_path_still_has_mac_size_one():
     g = ProvenanceGraph()
     g.add_events(
         [
@@ -22,7 +21,8 @@ def test_dependency_strength_two_hop_is_one_third():
     )
 
     assert g.shortest_path_len("A", "B") == 2
-    assert g.dependency_strength("A", "B") == pytest.approx(1.0 / 3.0)
+    assert g.exact_mac_size("A", "B") == 1
+    assert g.dependency_strength("A", "B") == 1.0
 
 
 def test_dependency_strength_no_path_is_zero():
@@ -34,7 +34,7 @@ def test_dependency_strength_no_path_is_zero():
     assert g.dependency_strength("C", "B") == 0.0
 
 
-def test_path_factor_final_weight_decreases_with_longer_path():
+def test_path_factor_equals_exact_mac_size():
     g = ProvenanceGraph()
     g.add_events(
         [
@@ -44,17 +44,13 @@ def test_path_factor_final_weight_decreases_with_longer_path():
         ]
     )
 
-    w_one_hop = g.dependency_strength("A", "B") * g.path_factor("A", "B")
-    w_two_hop = g.dependency_strength("A", "C") * g.path_factor("A", "C")
-
-    assert w_one_hop > w_two_hop
-    assert w_one_hop == pytest.approx(0.5)
-    assert w_two_hop == pytest.approx(1.0 / 3.0)
+    assert g.path_factor("A", "B") == 1.0
+    assert g.path_factor("A", "C") == 1.0
 
 
-def test_path_factor_no_path_is_zero():
+def test_path_factor_no_path_is_none():
     g = ProvenanceGraph()
     g.add_event(Event(event_id="e1", ts=None, event_type="flow", subject="A", object="B", raw={}))
 
-    assert g.path_factor("C", "B") == 0.0
-    assert g.dependency_strength("C", "B") * g.path_factor("C", "B") == 0.0
+    assert g.path_factor("C", "B") is None
+    assert g.path_factor_for_edge("C", "B") is None

@@ -1,0 +1,17 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "trace_e3_sample_shadow_and_connect",
+      "description": "Observed TRACE real-sample scenario where the same correlated alert chain covers /etc/shadow access followed by outbound IP connection.",
+      "dataset": "trace_e3_attack_day1",
+      "stages": [
+        "Internal Recon",
+        "Exfiltration"
+      ],
+      "contains_entities": [
+        "/etc/shadow",
+        "128.55.12.10"
+      ]
+    }
+  ]
+}

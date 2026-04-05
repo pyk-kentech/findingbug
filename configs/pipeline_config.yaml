@@ -1,0 +1,41 @@
+source:
+  events: null
+  watch_dir: null
+  follow: false
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topic: null
+  group_id: "holmes-stream"
+  auto_offset_reset: "latest"
+
+prefilter:
+  enabled: false
+
+performance:
+  parser_workers: 0
+  parser_queue_size: 1024
+  max_reorder_buffer: 1024
+  snapshot_every: 10
+  snapshot_interval_sec: 5.0
+  metrics_every_events: 1000
+  metrics_interval_sec: 60.0
+
+engine:
+  apt_alert_threshold: 80.0
+  max_pending_matches: 100000
+
+noise:
+  benign_profile: null
+
+experiments:
+  benign_events: null
+  attack_events: null
+  rules: null
+  ground_truth: null
+  out: null
+  min_count: 5
+  max_path_factors: "2,3,4"
+  alert_thresholds: "50.0,80.0,100.0"
+  top_k: 3
+  top_k_jaccard_threshold: 0.8

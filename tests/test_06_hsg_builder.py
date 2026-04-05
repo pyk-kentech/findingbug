@@ -3,7 +3,7 @@ from pathlib import Path
 from engine.core.graph import ProvenanceGraph
 from engine.core.matcher import Matcher, TTPMatch
 import engine.hsg.builder as hsg_builder
-from engine.hsg.builder import build_hsg, hsg_to_dict
+from engine.hsg.builder import IncrementalHSGBuilder, build_hsg, hsg_to_dict
 from engine.io.events import Event, load_events_jsonl
 from engine.rules.schema import Rule, RuleSet
 from engine.rules.schema import load_rules_yaml
@@ -46,7 +46,7 @@ def test_hsg_builder_includes_graph_path_relation_with_sample_and_test_rules():
     assert "graph_path" in relations
 
 
-def test_hsg_builder_graph_path_edge_exists_when_min_strength_is_zero(monkeypatch):
+def test_hsg_builder_graph_path_edge_exists_when_max_path_factor_is_zero(monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     events = load_events_jsonl(repo_root / "experiments" / "sample.jsonl")
     g = ProvenanceGraph()
@@ -57,7 +57,7 @@ def test_hsg_builder_graph_path_edge_exists_when_min_strength_is_zero(monkeypatc
     monkeypatch.setattr(
         hsg_builder,
         "PREREQ_CONFIG",
-        {"graph_path": {"from_binding": "object", "to_binding": "object", "min_strength": "0.0"}},
+        {"graph_path": {"from_binding": "object", "to_binding": "object", "max_path_factor": "0.0"}},
     )
     hsg = hsg_builder.build_hsg(matches, g, ruleset)
     relations = [edge.relation for edge in hsg.edges]
@@ -65,7 +65,7 @@ def test_hsg_builder_graph_path_edge_exists_when_min_strength_is_zero(monkeypatc
     assert "graph_path" in relations
 
 
-def test_hsg_builder_graph_path_edge_missing_when_min_strength_is_point_six(monkeypatch):
+def test_hsg_builder_graph_path_edge_missing_when_max_path_factor_is_point_six(monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     events = load_events_jsonl(repo_root / "experiments" / "sample.jsonl")
     g = ProvenanceGraph()
@@ -76,7 +76,7 @@ def test_hsg_builder_graph_path_edge_missing_when_min_strength_is_point_six(monk
     monkeypatch.setattr(
         hsg_builder,
         "PREREQ_CONFIG",
-        {"graph_path": {"from_binding": "object", "to_binding": "object", "min_strength": "0.6"}},
+        {"graph_path": {"from_binding": "object", "to_binding": "object", "max_path_factor": "0.6"}},
     )
     hsg = hsg_builder.build_hsg(matches, g, ruleset)
     relations = [edge.relation for edge in hsg.edges]
@@ -97,9 +97,9 @@ def test_hsg_builder_graph_path_right_rule_override_uses_low_threshold(monkeypat
         "PREREQ_CONFIG",
         {
             "graph_path": {
-                "default": {"from_binding": "object", "to_binding": "object", "min_strength": "0.6"},
+                "default": {"from_binding": "object", "to_binding": "object", "max_path_factor": "0.6"},
                 "by_right_rule_id": {
-                    "TEST_FILE_TO_IP": {"from_binding": "object", "to_binding": "object", "min_strength": "0.0"}
+                    "TEST_FILE_TO_IP": {"from_binding": "object", "to_binding": "object", "max_path_factor": "0.0"}
                 },
                 "by_pair": {},
             }
@@ -178,3 +178,11 @@ def test_hsg_builder_graph_path_not_created_for_disallowed_rule_pair():
     )
 
     assert all(edge.relation != "graph_path" for edge in hsg.edges)
+
+
+def test_parse_watermark_supports_epoch_ns():
+    parsed = IncrementalHSGBuilder._parse_watermark("1523627786654000000")
+
+    assert parsed is not None
+    assert parsed.year == 2018
+    assert parsed.tzinfo is not None

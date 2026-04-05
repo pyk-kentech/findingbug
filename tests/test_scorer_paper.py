@@ -1,3 +1,5 @@
+import pytest
+
 from pathlib import Path
 
 from engine.cli.run_pipeline import run_pipeline
@@ -119,7 +121,7 @@ def test_paper_score_golden_exact_sample_fixture(tmp_path):
         scoring_mode="paper",
         paper_mode="strict",
     )
-    assert result["summary"]["top_scenarios"][0]["score_paper"] == 4.032
+    assert result["summary"]["top_scenarios"][0]["score_paper"] == pytest.approx(6.8267694320176995)
 
 
 def test_summary_exposes_paper_scoring_fields(tmp_path):

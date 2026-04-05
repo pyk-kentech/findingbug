@@ -18,3 +18,12 @@ synthetic_stage_templates:
   WHY: "Raw datasets and exact campaign generation templates are not fully specified for turnkey reproduction."
   IMPACT: "Absolute numbers are for reproducibility and relative comparisons, not strict dataset-identical replication."
 
+max_pending_matches:
+  value: 100000
+  WHY: "Streaming prerequisite correlation can otherwise retain unbounded pending matches and exhaust memory on noisy or sparse data."
+  IMPACT: "Very old or low-value pending matches may be FIFO-evicted before satisfaction under sustained load."
+
+apt_alert_threshold:
+  value: 80.0
+  WHY: "A single canonical production alerting threshold is not fixed by the paper and must be calibrated to deployment data."
+  IMPACT: "Higher threshold reduces alert volume but may delay or suppress scenario-level APT alerts."

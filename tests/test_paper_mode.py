@@ -29,14 +29,14 @@ def test_graph_path_weight_differs_between_hybrid_and_strict_modes():
     edge_h = [e for e in h_hybrid.edges if e.relation == "graph_path"][0]
     edge_s = [e for e in h_strict.edges if e.relation == "graph_path"][0]
 
-    assert edge_h.dependency_strength == 0.5
-    assert edge_h.path_factor == 2.0
+    assert edge_h.dependency_strength == 1.0
+    assert edge_h.path_factor == 1.0
     assert edge_h.weight == 1.0
-    assert edge_s.weight == 2.0
-    assert edge_s.weight != edge_h.weight
+    assert edge_s.weight == 1.0
+    assert edge_s.path_factor == edge_h.path_factor
 
 
-def test_paper_mode_changes_paper_scoring_result(tmp_path):
+def test_paper_mode_keeps_same_path_factor_under_unified_mac_model(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     events_path = repo_root / "experiments" / "sample.jsonl"
     rules_path = repo_root / "rules" / "test_rules.yaml"
@@ -59,6 +59,5 @@ def test_paper_mode_changes_paper_scoring_result(tmp_path):
     h_weight = [e["weight"] for e in hybrid["hsg"]["edges"] if e["relation"] == "graph_path"][0]
     s_weight = [e["weight"] for e in strict["hsg"]["edges"] if e["relation"] == "graph_path"][0]
 
-    assert s_weight != h_weight
-    # Paper score now depends on stage-vector only; paper_mode still changes edge serialization.
+    assert s_weight == h_weight
     assert strict["summary"]["top_scenarios"][0]["score"] == hybrid["summary"]["top_scenarios"][0]["score"]

@@ -30,11 +30,13 @@ def test_run_pipeline_e2e_empty_rules_creates_output_dir_files(tmp_path):
     summary_path = out_dir / "summary.json"
     matches_path = out_dir / "matches.json"
     hsg_path = out_dir / "hsg.json"
+    dropped_path = out_dir / "debug" / "dropped_matches.jsonl"
 
     assert result_path.exists()
     assert summary_path.exists()
     assert matches_path.exists()
     assert hsg_path.exists()
+    assert dropped_path.exists()
 
     on_disk_result = json.loads(result_path.read_text(encoding="utf-8"))
     on_disk_summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -68,8 +70,8 @@ def test_run_pipeline_sample_with_test_rules_has_expected_matches_and_hsg_relati
     relations = [edge["relation"] for edge in hsg["edges"]]
     assert relations.count("shared_entity") == 1
     assert relations.count("graph_path") >= 1
-    # B3/B9 weighted score: node severities + edge weights (graph_path=0.5, shared_entity has no weight)
-    assert abs(float(summary["top_scenarios"][0]["score"]) - 3.5) <= 1e-9
+    # Unified MAC model: graph_path weight is inverse |MAC|, which is 1.0 on the sample chain.
+    assert abs(float(summary["top_scenarios"][0]["score"]) - 4.0) <= 1e-9
 
 
 def test_graph_path_directionality_by_flipped_binding_config(tmp_path, monkeypatch):
@@ -111,7 +113,7 @@ def test_graph_path_directionality_by_flipped_binding_config(tmp_path, monkeypat
     monkeypatch.setattr(
         hsg_builder,
         "PREREQ_CONFIG",
-        {"graph_path": {"from_binding": "subject", "to_binding": "object", "min_strength": "0.0"}},
+        {"graph_path": {"from_binding": "subject", "to_binding": "object", "max_path_factor": "0.0"}},
     )
     run_pipeline(str(events_path), str(rules_path), str(out_ok))
     hsg_ok = json.loads((out_ok / "hsg.json").read_text(encoding="utf-8"))
@@ -121,7 +123,7 @@ def test_graph_path_directionality_by_flipped_binding_config(tmp_path, monkeypat
     monkeypatch.setattr(
         hsg_builder,
         "PREREQ_CONFIG",
-        {"graph_path": {"from_binding": "object", "to_binding": "subject", "min_strength": "0.0"}},
+        {"graph_path": {"from_binding": "object", "to_binding": "subject", "max_path_factor": "0.0"}},
     )
     run_pipeline(str(events_path), str(rules_path), str(out_rev))
     hsg_rev = json.loads((out_rev / "hsg.json").read_text(encoding="utf-8"))
@@ -149,7 +151,7 @@ def test_graph_path_edge_weight_is_serialized_and_positive(tmp_path):
     assert target_edges
     weight = float(target_edges[0]["weight"])
     assert weight > 0.0
-    assert abs(weight - 0.5) <= 1e-9
+    assert abs(weight - 1.0) <= 1e-9
 
 
 def test_run_pipeline_alpha_changes_top_scenario_score(tmp_path):
@@ -165,5 +167,5 @@ def test_run_pipeline_alpha_changes_top_scenario_score(tmp_path):
     s2 = run_pipeline(str(events_path), str(rules_path), str(out2), alpha=2.0)["summary"]["top_scenarios"][0]["score"]
 
     assert abs(float(s0) - 3.0) <= 1e-9
-    assert abs(float(s1) - 3.5) <= 1e-9
-    assert abs(float(s2) - 4.0) <= 1e-9
+    assert abs(float(s1) - 4.0) <= 1e-9
+    assert abs(float(s2) - 5.0) <= 1e-9

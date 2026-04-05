@@ -1,0 +1,16 @@
+datasets:
+  trace_e3_benign_day:
+    file_id: "1sfIbavsUFwmB-irSGY1TZZ0Sq1dZqF9G"
+    filename: "ta1-trace-e3-official.json.tar.gz"
+    ta1: "trace"
+    notes: "TRACE primary topic spanning pre-attack benign periods before 2018-04-10 attacks."
+  trace_e3_attack_day1:
+    file_id: "1GG1aUnPjjzzdbxznVTN8X6oVfA-K4oIV"
+    filename: "ta1-trace-e3-official-1.json.tar.gz"
+    ta1: "trace"
+    notes: "TRACE topic after 2018-04-13 reboot; contains 2018-04-13 1200 Pine Backdoor with Drakon dropper."
+  theia_e3_attack_day1:
+    file_id: "1Kadc6CUTb4opVSDE4x6RFFnEy0P1cRp0"
+    filename: "ta1-theia-e3-official-6r.json.tar.gz"
+    ta1: "theia"
+    notes: "THEIA re-published topic covering the 2018-04-10 1400 Firefox Backdoor with Drakon in-memory attack window."
