@@ -153,8 +153,8 @@ Mapped Google Drive datasets:
   - filename: `ta1-theia-e3-official-6r.json.tar.gz`
 
 Data actually used during local benchmark work:
-- benign slice: `D:/DARPA_TC_E3/benchmark/trace_benign_10k.jsonl`
-- attack slice: `D:/DARPA_TC_E3/benchmark/trace_attack_5k.jsonl`
+- benign slice: `/home/work/SIGMA/datasets/darpa_tc_e3/benchmark/trace_benign_10k.jsonl`
+- attack slice: `/home/work/SIGMA/datasets/darpa_tc_e3/benchmark/trace_attack_5k.jsonl`
 - benchmark output example: `output/darpa_trace_real_benchmark_5k/`
 
 Notes:

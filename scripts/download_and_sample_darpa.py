@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
 from pathlib import Path
 import time
 
 import yaml
 
 
-DEFAULT_OUTPUT_DIR = Path("D:/DARPA_TC_E3")
+DEFAULT_OUTPUT_DIR = Path(os.environ.get("HOLMES_DATA_ROOT", "/home/work/SIGMA/datasets")) / "darpa_tc_e3"
 DEFAULT_MANIFEST_PATH = Path(__file__).resolve().parents[1] / "configs" / "darpa_manifest.yaml"
 
 
