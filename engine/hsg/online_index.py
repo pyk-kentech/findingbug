@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
+import time
 
 from engine.core.graph import EdgeType
 
@@ -31,6 +32,7 @@ class OnlineIndex:
         self._out_edge_set: dict[str, set[tuple[str, EdgeType | str]]] = defaultdict(set)
         self._local_matches: dict[str, set[str]] = defaultdict(set)
         self._local_matches_by_rule: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+        self._pending_new_edges: list[tuple[str, str, EdgeType | str]] = []
 
     def _mapper(self, node_id: str) -> NodeMapper:
         mapper = self._node_mapper.get(node_id)
@@ -102,7 +104,41 @@ class OnlineIndex:
                 if changed_for_dst:
                     q.append((dst_node_id, changed_for_dst))
 
-    def on_edge_added(self, src_node_id: str, dst_node_id: str, edge_type: EdgeType | str) -> None:
+    def _edge_cost_for(self, edge_type: EdgeType | str) -> int | None:
+        if edge_type == EdgeType.DATA_FLOW:
+            return 1
+        if edge_type == EdgeType.VERSION_TRANSITION:
+            return 0
+        return None
+
+    def _propagate_across_new_edge(
+        self,
+        src_node_id: str,
+        dst_node_id: str,
+        edge_type: EdgeType | str,
+    ) -> None:
+        edge_cost = self._edge_cost_for(edge_type)
+        if edge_cost is None:
+            return
+        src_mapper = self._mapper(src_node_id)
+        if not src_mapper.match_ids:
+            return
+        dst_mapper = self._mapper(dst_node_id)
+        changed_for_dst: set[str] = set()
+        for match_id in src_mapper.match_ids:
+            if self._merge_match_from_src(dst_mapper, src_mapper, match_id, edge_cost=edge_cost):
+                changed_for_dst.add(match_id)
+        if changed_for_dst:
+            self._propagate_delta(dst_node_id, changed_for_dst)
+
+    def on_edge_added(
+        self,
+        src_node_id: str,
+        dst_node_id: str,
+        edge_type: EdgeType | str,
+        *,
+        propagate: bool = True,
+    ) -> None:
         if isinstance(edge_type, EdgeType):
             et = edge_type
         else:
@@ -117,10 +153,18 @@ class OnlineIndex:
         if edge_tuple not in self._out_edge_set[src_node_id]:
             self._out_edge_set[src_node_id].add(edge_tuple)
             self.out_edges[src_node_id].append(edge_tuple)
+            self._pending_new_edges.append((src_node_id, dst_node_id, et))
 
-        # Trigger #1: edge add must immediately merge/propagate existing mapper of src.
-        src_mapper = self._mapper(src_node_id)
-        self._propagate_delta(src_node_id, set(src_mapper.match_ids))
+        if propagate:
+            self.flush_pending_edges()
+
+    def flush_pending_edges(self) -> None:
+        if not self._pending_new_edges:
+            return
+        pending_edges = self._pending_new_edges
+        self._pending_new_edges = []
+        for src_node_id, dst_node_id, edge_type in pending_edges:
+            self._propagate_across_new_edge(src_node_id, dst_node_id, edge_type)
 
     def on_match_added(
         self,
@@ -129,11 +173,14 @@ class OnlineIndex:
         sequence: int,
         rule_id: str | None = None,
         origin_node_id: str | None = None,
-    ) -> None:
+    ) -> tuple[bool, float, float, float]:
         effective_rule_id = rule_id if rule_id is not None else ttp_id
+        local_update_started = time.perf_counter()
         self._local_matches[node_id].add(ttp_id)
         self._local_matches_by_rule[node_id][effective_rule_id].add(ttp_id)
+        local_update_elapsed = time.perf_counter() - local_update_started
 
+        mapper_update_started = time.perf_counter()
         mapper = self._mapper(node_id)
         changed = False
         if ttp_id not in mapper.match_ids:
@@ -149,10 +196,15 @@ class OnlineIndex:
         if prev is None or sequence < prev:
             mapper.earliest_seq_by_rule[effective_rule_id] = sequence
             changed = True
+        mapper_update_elapsed = time.perf_counter() - mapper_update_started
 
         # Trigger #2: match add must immediately propagate mapper delta along existing edges.
+        propagate_elapsed = 0.0
         if changed:
+            propagate_started = time.perf_counter()
             self._propagate_delta(node_id, {ttp_id})
+            propagate_elapsed = time.perf_counter() - propagate_started
+        return changed, local_update_elapsed, mapper_update_elapsed, propagate_elapsed
 
     # Backward-compat wrappers
     def on_edge(self, src_node_id: str, dst_node_id: str, edge_cost: int) -> None:

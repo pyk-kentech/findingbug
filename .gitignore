@@ -11,3 +11,4 @@ rules/tmp_*.yaml
 out_alpha0/
 out_alpha1/
 out_alpha2/
+engine/core/_acmin_native*.so

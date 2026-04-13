@@ -306,3 +306,75 @@ def test_matcher_supports_array_traversal_field_brace_subfield(tmp_path):
 
     assert len(matches) == 1
     assert matches[0].rule_id == "sigma-brace-field"
+
+
+def test_matcher_supports_list_leaf_field_lookup(tmp_path):
+    events = [
+        Event(
+            event_id="e1",
+            ts=None,
+            event_type="event_sendmsg",
+            subject="proc:alpha",
+            object="file:/tmp/demo",
+            raw={
+                "object": "file:/tmp/demo",
+                "cdr": {
+                    "semantic_relations": [
+                        {"relation": "write", "src": "proc:alpha", "dst": "file:/tmp/demo"},
+                    ]
+                },
+            },
+        ),
+    ]
+    graph = ProvenanceGraph()
+    graph.add_events(events)
+
+    rules_path = tmp_path / "rules_list_leaf.yaml"
+    rules_path.write_text(
+        "\n".join(
+            [
+                "rules:",
+                "  - rule_id: sigma-list-leaf",
+                "    name: Sigma list leaf selector",
+                "    prerequisites: []",
+                "    match_logic:",
+                "      engine: sigma",
+                "      condition:",
+                "        compiled:",
+                "          type: logical",
+                "          operator: AND",
+                "          operands:",
+                "            - type: selector_ref",
+                "              selector: rel_write",
+                "            - type: selector_ref",
+                "              selector: target_tmp",
+                "      selectors:",
+                "        rel_write:",
+                "          type: object",
+                "          items:",
+                "            - type: field_match",
+                "              field: cdr.semantic_relations",
+                "              modifiers: [contains]",
+                "              value:",
+                "                type: literal",
+                "                value: write",
+                "        target_tmp:",
+                "          type: object",
+                "          items:",
+                "            - type: field_match",
+                "              field: object",
+                "              modifiers: [contains]",
+                "              value:",
+                "                type: literal",
+                "                value: file:/tmp/",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    ruleset = load_rules_yaml(rules_path)
+    matches = Matcher().match(graph=graph, ruleset=ruleset, events=events)
+
+    assert len(matches) == 1
+    assert matches[0].rule_id == "sigma-list-leaf"

@@ -9,7 +9,7 @@ from typing import Any
 
 from engine.core.graph import ProvenanceGraph
 from engine.core.matcher import TTPMatch
-from engine.io.events import Event
+from engine.io.events import Event, EventMeta
 from engine.rules.schema import Rule, infer_rule_stage
 
 BYTE_VALUE_KEYS: tuple[str, ...] = (
@@ -240,6 +240,9 @@ def _extract_match_bytes(match: TTPMatch, events_by_id: dict[str, Any]) -> float
     values: list[int] = []
     for event_id in match.event_ids:
         event = events_by_id.get(event_id)
+        if isinstance(event, (Event, EventMeta)) and event.bytes_transferred is not None:
+            values.append(int(event.bytes_transferred))
+            continue
         if isinstance(event, Event):
             b = extract_flow_bytes(event)
             if b is not None:

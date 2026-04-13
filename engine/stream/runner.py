@@ -18,7 +18,7 @@ from engine.hsg.paper_exact import IncrementalPaperExactScorer
 from engine.hsg.prerequisite_evaluator import PrerequisiteEvaluator
 from engine.hsg.scorer import rank_hsg_scenarios
 from engine.io.export import export_alert_scenario_artifact
-from engine.io.events import Event
+from engine.io.events import Event, EventMeta
 from engine.noise.filter import NoiseConfig, apply_noise_filter, filter_matches
 from engine.noise.model import NoiseModel, get_benign_drop_ids
 from engine.noise.profile import BenignProfile, load_benign_profile
@@ -91,6 +91,11 @@ class StreamingEngine:
         graph_path_allowlist: set[tuple[str, str]] | None = None,
         max_graph_path_edges: int = 10000,
         max_graph_path_candidates_per_match: int = 200,
+        graph_path_eval_budget_ms: float | None = None,
+        graph_path_cache_miss_policy: str = "compute",
+        ac_min_method: str = "pairwise",
+        ab_performance: str = "a",
+        ab_quality: str = "a",
         use_online_prereq: bool = True,
         resolved_effective_config: dict[str, Any] | None = None,
         global_refine_mode: str = "off",
@@ -106,6 +111,10 @@ class StreamingEngine:
         metrics_path: str | Path | None = None,
         metrics_every_events: int = 1000,
         metrics_interval_sec: float = 60.0,
+        defer_snapshot_updates: bool = False,
+        graph_gc_every_events: int = 1000,
+        ancestor_index_mode: str = "incremental",
+        online_score_refresh_every: int = 1000,
     ) -> None:
         self.ruleset = ruleset
         self.scoring_mode = scoring_mode
@@ -128,6 +137,13 @@ class StreamingEngine:
         self.graph_path_allowlist = graph_path_allowlist
         self.max_graph_path_edges = max_graph_path_edges
         self.max_graph_path_candidates_per_match = max_graph_path_candidates_per_match
+        self.graph_path_eval_budget_ms = (
+            None if graph_path_eval_budget_ms is None else max(0.0, float(graph_path_eval_budget_ms))
+        )
+        self.graph_path_cache_miss_policy = str(graph_path_cache_miss_policy)
+        self.ac_min_method = str(ac_min_method)
+        self.ab_performance = str(ab_performance)
+        self.ab_quality = str(ab_quality)
         self.use_online_prereq = bool(use_online_prereq)
         if global_refine_mode not in {"off", "snapshot", "every_n_events"}:
             raise ValueError("global_refine_mode must be one of: off, snapshot, every_n_events")
@@ -140,9 +156,16 @@ class StreamingEngine:
         self.metrics_path = Path(metrics_path) if metrics_path else None
         self.metrics_every_events = max(1, int(metrics_every_events))
         self.metrics_interval_sec = max(1.0, float(metrics_interval_sec))
+        self.defer_snapshot_updates = bool(defer_snapshot_updates)
+        self.graph_gc_every_events = max(1, int(graph_gc_every_events))
+        self.online_score_refresh_every = max(1, int(online_score_refresh_every))
         self.global_refine_ran_at_snapshots_count = 0
         self.global_refine_ran_at_events_count = 0
         self._events_processed = 0
+        self._snapshot_state_dirty = False
+        self._score_state_dirty = False
+        self._last_graph_gc_events = 0
+        self._pending_online_graph_edges: list[tuple[str, str, Any]] = []
         if resolved_effective_config is None:
             is_paper_like = scoring_mode in {"paper", "paper_exact"}
             default_path_thres = 3.0 if is_paper_like else 0.0
@@ -159,7 +182,10 @@ class StreamingEngine:
         else:
             self.resolved_effective_config = dict(resolved_effective_config)
 
-        self.graph = ProvenanceGraph()
+        self.graph = ProvenanceGraph(
+            ancestor_index_mode=ancestor_index_mode,
+            ac_min_method=self.ac_min_method,
+        )
         self.taint_tracker = TaintTracker(self.graph)
         self.privilege_tracker = PrivilegeTracker(self.graph)
         self.online_index = OnlineIndex()
@@ -187,7 +213,8 @@ class StreamingEngine:
         else:
             self.alpha = 1.0
 
-        self.events_by_id: dict[str, Event] = {}
+        self.events_by_id: dict[str, EventMeta] = {}
+        self._last_event_ts: str | None = None
         self.dropped_match_telemetry_path = Path(dropped_match_telemetry_path) if dropped_match_telemetry_path else None
         self.alerts_path = Path(alerts_path) if alerts_path else None
         self.graph_artifact_dir = (
@@ -213,7 +240,7 @@ class StreamingEngine:
         self.seen_edges: set[tuple[str, str, str]] = set()
         self._graph_path_edges_count = 0
         self._graph_path_candidates_by_src: dict[str, int] = defaultdict(int)
-        self._descendants_cache: dict[str, set[str]] = {}
+        self._descendants_cache: dict[object, object] = {}
 
         # Legacy indexes kept for output shaping.
         self.node_to_matches: dict[str, set[str]] = defaultdict(set)
@@ -243,6 +270,8 @@ class StreamingEngine:
             graph_path_allowlist=self.graph_path_allowlist,
             max_graph_path_edges=self.max_graph_path_edges,
             max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
+            graph_path_eval_budget_ms=self.graph_path_eval_budget_ms,
+            graph_path_cache_miss_policy=self.graph_path_cache_miss_policy,
             max_pending_matches=max_pending_matches,
             scenario_dormancy_seconds=self.scenario_dormancy_days * 24 * 60 * 60,
         )
@@ -252,6 +281,44 @@ class StreamingEngine:
         self._matcher_time_seconds = 0.0
         self._hsg_update_time_seconds = 0.0
         self._graph_gc_time_seconds = 0.0
+        self._graph_add_time_seconds = 0.0
+        self._tracker_update_time_seconds = 0.0
+        self._noise_filter_time_seconds = 0.0
+        self._binding_resolve_time_seconds = 0.0
+        self._taint_mark_time_seconds = 0.0
+        self._match_store_time_seconds = 0.0
+        self._online_prereq_time_seconds = 0.0
+        self._paper_exact_time_seconds = 0.0
+        self._snapshot_bookkeeping_time_seconds = 0.0
+        self._online_graph_edge_flush_time_seconds = 0.0
+        self._online_prereq_check_time_seconds = 0.0
+        self._online_builder_add_match_time_seconds = 0.0
+        self._online_pending_builder_add_match_time_seconds = 0.0
+        self._online_pending_builder_add_match_accepted_count = 0
+        self._online_pending_builder_add_match_rejected_count = 0
+        self._online_pending_builder_add_match_accepted_time_seconds = 0.0
+        self._online_pending_builder_add_match_rejected_time_seconds = 0.0
+        self._online_add_active_match_time_seconds = 0.0
+        self._online_add_active_match_list_store_time_seconds = 0.0
+        self._online_add_active_match_node_store_time_seconds = 0.0
+        self._online_add_active_match_entity_index_time_seconds = 0.0
+        self._online_add_active_match_online_index_time_seconds = 0.0
+        self._online_extend_edges_time_seconds = 0.0
+        self._online_full_resync_time_seconds = 0.0
+        self._online_score_refresh_time_seconds = 0.0
+        self._online_index_match_add_calls = 0
+        self._online_index_match_add_changed_count = 0
+        self._online_index_match_add_noop_count = 0
+        self._online_index_match_add_time_seconds = 0.0
+        self._online_index_match_add_local_update_time_seconds = 0.0
+        self._online_index_match_add_mapper_update_time_seconds = 0.0
+        self._online_index_match_add_propagate_time_seconds = 0.0
+        self._online_prereq_antecedent_total = 0
+        self._online_prereq_antecedent_max = 0
+        self._online_built_edges_total = 0
+        self._online_built_edges_max = 0
+        self._online_activated_matches_total = 0
+        self._online_activated_matches_max = 0
         self._last_metrics_emitted_at = time.monotonic()
         self._last_metrics_emitted_events = 0
         self.paper_exact = (
@@ -286,13 +353,461 @@ class StreamingEngine:
 
     def _build_performance_metrics(self) -> dict[str, Any]:
         elapsed_seconds = max(time.perf_counter() - self._processing_started_at, 1e-9)
-        hsg = self.current_hsg()
+        ancestor_cache_node_count = len(self.graph._ancestors_by_node)  # noqa: SLF001
+        ancestor_cache_entry_count = sum(len(v) for v in self.graph._ancestors_by_node.values())  # noqa: SLF001
+        min_dist_node_count = len(self.graph._min_dist_from_ancestor)  # noqa: SLF001
+        min_dist_entry_count = sum(len(v) for v in self.graph._min_dist_from_ancestor.values())  # noqa: SLF001
         return {
             "events_per_second": float(self.stats.events) / elapsed_seconds,
+            "graph_add_time_seconds": float(self._graph_add_time_seconds),
+            "graph_add_avg_ms_per_event": (float(self._graph_add_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_runtime_edge_append_time_seconds": float(self.graph._runtime_edge_append_time_seconds),  # noqa: SLF001
+            "graph_runtime_edge_append_avg_ms_per_event": (float(self.graph._runtime_edge_append_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_provenance_edge_append_time_seconds": float(self.graph._provenance_edge_append_time_seconds),  # noqa: SLF001
+            "graph_provenance_edge_append_avg_ms_per_event": (float(self.graph._provenance_edge_append_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_edge_hook_time_seconds": float(self.graph._edge_hook_time_seconds),  # noqa: SLF001
+            "graph_edge_hook_avg_ms_per_event": (float(self.graph._edge_hook_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_memory_sync_time_seconds": float(self.graph._memory_sync_time_seconds),  # noqa: SLF001
+            "graph_memory_sync_avg_ms_per_event": (float(self.graph._memory_sync_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_ensure_entity_time_seconds": float(self.graph._ensure_entity_time_seconds),  # noqa: SLF001
+            "graph_ensure_entity_avg_ms_per_event": (float(self.graph._ensure_entity_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_changed_entities_time_seconds": float(self.graph._changed_entities_time_seconds),  # noqa: SLF001
+            "graph_changed_entities_avg_ms_per_event": (float(self.graph._changed_entities_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_bump_entities_time_seconds": float(self.graph._bump_entities_time_seconds),  # noqa: SLF001
+            "graph_bump_entities_avg_ms_per_event": (float(self.graph._bump_entities_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_flow_link_time_seconds": float(self.graph._flow_link_time_seconds),  # noqa: SLF001
+            "graph_flow_link_avg_ms_per_event": (float(self.graph._flow_link_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_memory_transition_link_time_seconds": float(self.graph._memory_transition_link_time_seconds),  # noqa: SLF001
+            "graph_memory_transition_link_avg_ms_per_event": (float(self.graph._memory_transition_link_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_semantic_register_time_seconds": float(self.graph._semantic_register_time_seconds),  # noqa: SLF001
+            "graph_semantic_register_avg_ms_per_event": (float(self.graph._semantic_register_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_event_semantic_extract_time_seconds": float(self.graph._event_semantic_extract_time_seconds),  # noqa: SLF001
+            "graph_event_semantic_extract_avg_ms_per_event": (float(self.graph._event_semantic_extract_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_flow_direction_time_seconds": float(self.graph._flow_direction_time_seconds),  # noqa: SLF001
+            "graph_flow_direction_avg_ms_per_event": (float(self.graph._flow_direction_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_event_version_change_eval_time_seconds": float(self.graph._event_version_change_eval_time_seconds),  # noqa: SLF001
+            "graph_event_version_change_eval_avg_ms_per_event": (float(self.graph._event_version_change_eval_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_path_factor_cache_clear_time_seconds": float(self.graph._path_factor_cache_clear_time_seconds),  # noqa: SLF001
+            "graph_path_factor_cache_clear_avg_ms_per_event": (float(self.graph._path_factor_cache_clear_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_typed_adjacency_add_time_seconds": float(self.graph._typed_adjacency_add_time_seconds),  # noqa: SLF001
+            "graph_typed_adjacency_add_avg_ms_per_event": (float(self.graph._typed_adjacency_add_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_events_with_memory_sync": int(self.graph._events_with_memory_sync),  # noqa: SLF001
+            "graph_changed_entities_total": int(self.graph._changed_entities_total),  # noqa: SLF001
+            "graph_avg_changed_entities_per_event": (float(self.graph._changed_entities_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_max_changed_entities_in_event": int(self.graph._max_changed_entities),  # noqa: SLF001
+            "graph_edges_linked_total": int(self.graph._edges_linked_total),  # noqa: SLF001
+            "graph_avg_edges_linked_per_event": (float(self.graph._edges_linked_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_max_edges_linked_in_event": int(self.graph._max_edges_linked_in_event),  # noqa: SLF001
+            "graph_node_meta_time_seconds": float(self.graph._node_meta_time_seconds),  # noqa: SLF001
+            "graph_node_meta_avg_ms_per_event": (float(self.graph._node_meta_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_current_version_lookup_time_seconds": float(self.graph._current_version_lookup_time_seconds),  # noqa: SLF001
+            "graph_current_version_lookup_avg_ms_per_event": (float(self.graph._current_version_lookup_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_new_version_node_time_seconds": float(self.graph._new_version_node_time_seconds),  # noqa: SLF001
+            "graph_new_version_node_avg_ms_per_event": (float(self.graph._new_version_node_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "graph_semantic_current_version_lookup_time_seconds": float(self.graph._semantic_current_version_lookup_time_seconds),  # noqa: SLF001
+            "graph_semantic_current_version_lookup_avg_ms_per_event": (float(self.graph._semantic_current_version_lookup_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "tracker_update_time_seconds": float(self._tracker_update_time_seconds),
+            "tracker_update_avg_ms_per_event": (float(self._tracker_update_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
             "matcher_time_seconds": float(self._matcher_time_seconds),
             "matcher_avg_ms_per_event": (float(self._matcher_time_seconds) * 1000.0 / float(self.stats.events))
             if self.stats.events
             else 0.0,
+            "noise_filter_time_seconds": float(self._noise_filter_time_seconds),
+            "noise_filter_avg_ms_per_event": (float(self._noise_filter_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "binding_resolve_time_seconds": float(self._binding_resolve_time_seconds),
+            "binding_resolve_avg_ms_per_event": (float(self._binding_resolve_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "taint_mark_time_seconds": float(self._taint_mark_time_seconds),
+            "taint_mark_avg_ms_per_event": (float(self._taint_mark_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "match_store_time_seconds": float(self._match_store_time_seconds),
+            "match_store_avg_ms_per_event": (float(self._match_store_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_prereq_time_seconds": float(self._online_prereq_time_seconds),
+            "online_prereq_avg_ms_per_event": (float(self._online_prereq_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "paper_exact_time_seconds": float(self._paper_exact_time_seconds),
+            "paper_exact_avg_ms_per_event": (float(self._paper_exact_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "snapshot_bookkeeping_time_seconds": float(self._snapshot_bookkeeping_time_seconds),
+            "snapshot_bookkeeping_avg_ms_per_event": (float(self._snapshot_bookkeeping_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_graph_edge_flush_time_seconds": float(self._online_graph_edge_flush_time_seconds),
+            "online_graph_edge_flush_avg_ms_per_event": (float(self._online_graph_edge_flush_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_prereq_check_time_seconds": float(self._online_prereq_check_time_seconds),
+            "online_prereq_check_avg_ms_per_event": (float(self._online_prereq_check_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_builder_add_match_time_seconds": float(self._online_builder_add_match_time_seconds),
+            "online_builder_add_match_avg_ms_per_event": (float(self._online_builder_add_match_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_pending_builder_add_match_time_seconds": float(self._online_pending_builder_add_match_time_seconds),
+            "online_pending_builder_add_match_avg_ms_per_event": (
+                float(self._online_pending_builder_add_match_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_pending_builder_add_match_accepted_count": int(self._online_pending_builder_add_match_accepted_count),
+            "online_pending_builder_add_match_rejected_count": int(self._online_pending_builder_add_match_rejected_count),
+            "online_pending_builder_add_match_accepted_time_seconds": float(
+                self._online_pending_builder_add_match_accepted_time_seconds
+            ),
+            "online_pending_builder_add_match_rejected_time_seconds": float(
+                self._online_pending_builder_add_match_rejected_time_seconds
+            ),
+            "online_pending_builder_add_match_accepted_avg_ms_per_call": (
+                float(self._online_pending_builder_add_match_accepted_time_seconds)
+                * 1000.0
+                / float(self._online_pending_builder_add_match_accepted_count)
+            )
+            if self._online_pending_builder_add_match_accepted_count
+            else 0.0,
+            "online_pending_builder_add_match_rejected_avg_ms_per_call": (
+                float(self._online_pending_builder_add_match_rejected_time_seconds)
+                * 1000.0
+                / float(self._online_pending_builder_add_match_rejected_count)
+            )
+            if self._online_pending_builder_add_match_rejected_count
+            else 0.0,
+            "online_add_active_match_time_seconds": float(self._online_add_active_match_time_seconds),
+            "online_add_active_match_avg_ms_per_event": (float(self._online_add_active_match_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_add_active_match_list_store_time_seconds": float(self._online_add_active_match_list_store_time_seconds),
+            "online_add_active_match_list_store_avg_ms_per_event": (
+                float(self._online_add_active_match_list_store_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_add_active_match_node_store_time_seconds": float(self._online_add_active_match_node_store_time_seconds),
+            "online_add_active_match_node_store_avg_ms_per_event": (
+                float(self._online_add_active_match_node_store_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_add_active_match_entity_index_time_seconds": float(self._online_add_active_match_entity_index_time_seconds),
+            "online_add_active_match_entity_index_avg_ms_per_event": (
+                float(self._online_add_active_match_entity_index_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_add_active_match_online_index_time_seconds": float(self._online_add_active_match_online_index_time_seconds),
+            "online_add_active_match_online_index_avg_ms_per_event": (
+                float(self._online_add_active_match_online_index_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_index_match_add_calls": int(self._online_index_match_add_calls),
+            "online_index_match_add_changed_count": int(self._online_index_match_add_changed_count),
+            "online_index_match_add_noop_count": int(self._online_index_match_add_noop_count),
+            "online_index_match_add_change_ratio": (
+                float(self._online_index_match_add_changed_count) / float(self._online_index_match_add_calls)
+            )
+            if self._online_index_match_add_calls
+            else 0.0,
+            "online_index_match_add_time_seconds": float(self._online_index_match_add_time_seconds),
+            "online_index_match_add_avg_ms_per_call": (
+                float(self._online_index_match_add_time_seconds) * 1000.0 / float(self._online_index_match_add_calls)
+            )
+            if self._online_index_match_add_calls
+            else 0.0,
+            "online_index_match_add_avg_ms_per_event": (
+                float(self._online_index_match_add_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_index_match_add_local_update_time_seconds": float(
+                self._online_index_match_add_local_update_time_seconds
+            ),
+            "online_index_match_add_local_update_avg_ms_per_call": (
+                float(self._online_index_match_add_local_update_time_seconds)
+                * 1000.0
+                / float(self._online_index_match_add_calls)
+            )
+            if self._online_index_match_add_calls
+            else 0.0,
+            "online_index_match_add_mapper_update_time_seconds": float(
+                self._online_index_match_add_mapper_update_time_seconds
+            ),
+            "online_index_match_add_mapper_update_avg_ms_per_call": (
+                float(self._online_index_match_add_mapper_update_time_seconds)
+                * 1000.0
+                / float(self._online_index_match_add_calls)
+            )
+            if self._online_index_match_add_calls
+            else 0.0,
+            "online_index_match_add_propagate_time_seconds": float(
+                self._online_index_match_add_propagate_time_seconds
+            ),
+            "online_index_match_add_propagate_avg_ms_per_call": (
+                float(self._online_index_match_add_propagate_time_seconds)
+                * 1000.0
+                / float(self._online_index_match_add_calls)
+            )
+            if self._online_index_match_add_calls
+            else 0.0,
+            "online_index_match_add_propagate_avg_ms_per_changed_call": (
+                float(self._online_index_match_add_propagate_time_seconds)
+                * 1000.0
+                / float(self._online_index_match_add_changed_count)
+            )
+            if self._online_index_match_add_changed_count
+            else 0.0,
+            "online_extend_edges_time_seconds": float(self._online_extend_edges_time_seconds),
+            "online_extend_edges_avg_ms_per_event": (float(self._online_extend_edges_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_full_resync_time_seconds": float(self._online_full_resync_time_seconds),
+            "online_full_resync_avg_ms_per_event": (float(self._online_full_resync_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_score_refresh_time_seconds": float(self._online_score_refresh_time_seconds),
+            "online_score_refresh_avg_ms_per_event": (
+                float(self._online_score_refresh_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_component_map_time_seconds": float(self.hsg_builder.component_map_time_seconds),
+            "builder_component_map_avg_ms_per_event": (float(self.hsg_builder.component_map_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "builder_candidate_match_ids_total": int(self.hsg_builder.candidate_match_ids_total),
+            "builder_candidate_match_ids_avg_per_event": (float(self.hsg_builder.candidate_match_ids_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "builder_candidate_match_ids_max": int(self.hsg_builder.candidate_match_ids_max),
+            "builder_candidate_match_ids_filtered_no_prereq_total": int(
+                self.hsg_builder.candidate_match_ids_filtered_no_prereq_total
+            ),
+            "builder_candidate_match_ids_filtered_no_prereq_avg_per_event": (
+                float(self.hsg_builder.candidate_match_ids_filtered_no_prereq_total) / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_candidate_match_ids_filtered_rule_pair_total": int(
+                self.hsg_builder.candidate_match_ids_filtered_rule_pair_total
+            ),
+            "builder_candidate_match_ids_filtered_rule_pair_avg_per_event": (
+                float(self.hsg_builder.candidate_match_ids_filtered_rule_pair_total) / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_pending_activation_candidate_total": int(self.hsg_builder.pending_activation_candidate_total),
+            "builder_pending_activation_candidate_avg_per_event": (float(self.hsg_builder.pending_activation_candidate_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "builder_pending_activation_candidate_max": int(self.hsg_builder.pending_activation_candidate_max),
+            "builder_pending_activation_ancestor_scan_time_seconds": float(self.hsg_builder.pending_activation_ancestor_scan_time_seconds),
+            "builder_pending_activation_ancestor_scan_avg_ms_per_event": (float(self.hsg_builder.pending_activation_ancestor_scan_time_seconds) * 1000.0 / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_built_edges_total": int(self.hsg_builder.add_match_built_edges_total),
+            "builder_add_match_built_edges_avg_per_event": (float(self.hsg_builder.add_match_built_edges_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_built_edges_max": int(self.hsg_builder.add_match_built_edges_max),
+            "builder_add_match_watermark_evict_time_seconds": float(self.hsg_builder.add_match_watermark_evict_time_seconds),
+            "builder_add_match_watermark_evict_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_watermark_evict_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_candidate_ids_time_seconds": float(self.hsg_builder.add_match_candidate_ids_time_seconds),
+            "builder_add_match_candidate_ids_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_candidate_ids_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_ast_eval_time_seconds": float(self.hsg_builder.add_match_ast_eval_time_seconds),
+            "builder_add_match_ast_eval_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_ast_eval_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_pair_eval_time_seconds": float(self.hsg_builder.add_match_pair_eval_time_seconds),
+            "builder_add_match_pair_eval_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_pair_eval_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_pending_insert_time_seconds": float(self.hsg_builder.add_match_pending_insert_time_seconds),
+            "builder_add_match_pending_insert_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_pending_insert_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_pending_capacity_evict_time_seconds": float(
+                self.hsg_builder.add_match_pending_capacity_evict_time_seconds
+            ),
+            "builder_add_match_pending_capacity_evict_avg_ms_per_event": (
+                float(self.hsg_builder.add_match_pending_capacity_evict_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_pending_path_count": int(self.hsg_builder.add_match_pending_path_count),
+            "builder_add_match_pending_path_ratio": (
+                float(self.hsg_builder.add_match_pending_path_count) / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_add_match_pending_size_avg": (
+                float(self.hsg_builder.add_match_pending_size_total) / float(self.hsg_builder.add_match_pending_path_count)
+            )
+            if self.hsg_builder.add_match_pending_path_count
+            else 0.0,
+            "builder_add_match_pending_size_max": int(self.hsg_builder.add_match_pending_size_max),
+            "builder_pair_edges_relation_eval_total": int(self.hsg_builder.pair_edges_relation_eval_total),
+            "builder_pair_edges_graph_path_eval_total": int(self.hsg_builder.pair_edges_graph_path_eval_total),
+            "builder_pair_edges_non_graph_path_eval_total": int(self.hsg_builder.pair_edges_non_graph_path_eval_total),
+            "builder_pair_edges_seen_skip_total": int(self.hsg_builder.pair_edges_seen_skip_total),
+            "builder_pair_edges_graph_path_skip_max_edges_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_max_edges_total
+            ),
+            "builder_pair_edges_graph_path_skip_allowlist_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_allowlist_total
+            ),
+            "builder_pair_edges_graph_path_skip_src_cap_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_src_cap_total
+            ),
+            "builder_pair_edges_graph_path_skip_candidate_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_candidate_total
+            ),
+            "builder_pair_edges_graph_path_skip_binding_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_binding_total
+            ),
+            "builder_pair_edges_graph_path_skip_budget_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_budget_total
+            ),
+            "builder_pair_edges_graph_path_skip_cache_miss_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_cache_miss_total
+            ),
+            "builder_pair_edges_graph_path_skip_prereq_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_prereq_total
+            ),
+            "builder_pair_edges_graph_path_skip_metrics_total": int(
+                self.hsg_builder.pair_edges_graph_path_skip_metrics_total
+            ),
+            "builder_pair_edges_built_total": int(self.hsg_builder.pair_edges_built_total),
+            "builder_pair_edges_prereq_check_time_seconds": float(self.hsg_builder.pair_edges_prereq_check_time_seconds),
+            "builder_pair_edges_prereq_check_avg_ms_per_event": (
+                float(self.hsg_builder.pair_edges_prereq_check_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_pair_edges_graph_path_candidate_time_seconds": float(
+                self.hsg_builder.pair_edges_graph_path_candidate_time_seconds
+            ),
+            "builder_pair_edges_graph_path_candidate_avg_ms_per_event": (
+                float(self.hsg_builder.pair_edges_graph_path_candidate_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_pair_edges_graph_path_metrics_time_seconds": float(
+                self.hsg_builder.pair_edges_graph_path_metrics_time_seconds
+            ),
+            "builder_pair_edges_graph_path_metrics_avg_ms_per_event": (
+                float(self.hsg_builder.pair_edges_graph_path_metrics_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_pair_edges_graph_path_pf_cache_hit_total": int(
+                self.hsg_builder.pair_edges_graph_path_pf_cache_hit_total
+            ),
+            "builder_pair_edges_graph_path_pf_cache_miss_total": int(
+                self.hsg_builder.pair_edges_graph_path_pf_cache_miss_total
+            ),
+            "builder_pair_edges_graph_path_pf_cache_hit_ratio": (
+                float(self.hsg_builder.pair_edges_graph_path_pf_cache_hit_total)
+                / float(
+                    self.hsg_builder.pair_edges_graph_path_pf_cache_hit_total
+                    + self.hsg_builder.pair_edges_graph_path_pf_cache_miss_total
+                )
+            )
+            if (
+                self.hsg_builder.pair_edges_graph_path_pf_cache_hit_total
+                + self.hsg_builder.pair_edges_graph_path_pf_cache_miss_total
+            )
+            else 0.0,
+            "builder_pair_edges_graph_path_pf_compute_time_seconds": float(
+                self.hsg_builder.pair_edges_graph_path_pf_compute_time_seconds
+            ),
+            "builder_pair_edges_graph_path_pf_compute_avg_ms_per_event": (
+                float(self.hsg_builder.pair_edges_graph_path_pf_compute_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "online_prereq_antecedent_total": int(self._online_prereq_antecedent_total),
+            "online_prereq_antecedent_avg_per_event": (float(self._online_prereq_antecedent_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_prereq_antecedent_max": int(self._online_prereq_antecedent_max),
+            "online_built_edges_total": int(self._online_built_edges_total),
+            "online_built_edges_avg_per_event": (float(self._online_built_edges_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_built_edges_max": int(self._online_built_edges_max),
+            "online_activated_matches_total": int(self._online_activated_matches_total),
+            "online_activated_matches_avg_per_event": (float(self._online_activated_matches_total) / float(self.stats.events))
+            if self.stats.events
+            else 0.0,
+            "online_activated_matches_max": int(self._online_activated_matches_max),
             "hsg_update_time_seconds": float(self._hsg_update_time_seconds),
             "hsg_update_avg_ms_per_event": (float(self._hsg_update_time_seconds) * 1000.0 / float(self.stats.events))
             if self.stats.events
@@ -300,9 +815,23 @@ class StreamingEngine:
             "graph_gc_time_seconds": float(self._graph_gc_time_seconds),
             "graph_entity_count": len(self.graph.nodes),
             "graph_version_node_count": len(self.graph.version_nodes),
+            "graph_edge_count": len(self.graph.edges),
+            "graph_data_flow_adjacency_count": sum(len(v) for v in self.graph.adj_data_flow.values()),
+            "graph_version_transition_adjacency_count": sum(len(v) for v in self.graph.adj_version_transition.values()),
+            "graph_semantic_relation_count": len(self.graph.semantic_relations),
+            "graph_current_version_count": len(self.graph.current_version),
+            "graph_entity_versions_count": sum(len(v) for v in self.graph.entity_versions.values()),
+            "graph_process_parent_edge_count": sum(len(v) for v in self.graph.process_parents.values()),
+            "graph_path_factor_cache_node_count": len(self.graph._path_factor_cache),  # noqa: SLF001
+            "graph_ancestor_cache_node_count": ancestor_cache_node_count,
+            "graph_ancestor_cache_entry_count": ancestor_cache_entry_count,
+            "graph_min_dist_node_count": min_dist_node_count,
+            "graph_min_dist_entry_count": min_dist_entry_count,
+            "retained_event_meta_count": len(self.events_by_id),
             "active_match_count": len(self.matches),
-            "active_hsg_node_count": len(hsg.nodes),
-            "active_hsg_edge_count": len(hsg.edges),
+            "active_hsg_node_count": len(self.hsg_nodes),
+            "active_hsg_edge_count": len(self.hsg_edges),
+            "builder_active_match_count": len(self.hsg_builder.matches_by_id),
             "pending_match_count": len(self.hsg_builder.pending_matches_by_id),
             "reorder_buffer_saturation_count": int(self.stats.reorder_buffer_saturation_count),
             "max_observed_out_of_order_distance": int(self.stats.max_observed_out_of_order_distance),
@@ -363,20 +892,85 @@ class StreamingEngine:
                 self.node_to_matches[entity].add(match.match_id)
                 self.entity_to_hsg_node[entity].add(match.match_id)
 
+    def _add_active_match_to_online_state(self, match: TTPMatch, *, add_to_online_index: bool) -> None:
+        if match.match_id in self.match_by_id:
+            return
+        list_store_started = time.perf_counter()
+        self.matches.append(match)
+        self.match_by_id[match.match_id] = match
+        self._online_add_active_match_list_store_time_seconds += time.perf_counter() - list_store_started
+        node_store_started = time.perf_counter()
+        self.hsg_nodes[match.match_id] = HSGNode(
+            match_id=match.match_id,
+            rule_id=match.rule_id,
+            event_ids=list(match.event_ids),
+            entities=list(match.entities),
+        )
+        self._online_add_active_match_node_store_time_seconds += time.perf_counter() - node_store_started
+        entity_index_started = time.perf_counter()
+        entities = set(match.entities)
+        self.match_to_entities[match.match_id] = entities
+        for entity in entities:
+            self.node_to_matches[entity].add(match.match_id)
+            self.entity_to_hsg_node[entity].add(match.match_id)
+        self._online_add_active_match_entity_index_time_seconds += time.perf_counter() - entity_index_started
+        if add_to_online_index:
+            online_index_started = time.perf_counter()
+            for node_id in (match.subject_node_id, match.object_node_id):
+                if node_id:
+                    telemetry = self.online_index.on_match_added(
+                        node_id=node_id,
+                        ttp_id=match.match_id,
+                        rule_id=match.rule_id,
+                        sequence=int(match.sequence or self.stats.events),
+                        origin_node_id=node_id,
+                    )
+                    self._record_online_index_match_add_telemetry(telemetry)
+            self._online_add_active_match_online_index_time_seconds += time.perf_counter() - online_index_started
+
+    def _extend_online_edges(self, edges: list[HSGEdge]) -> None:
+        for edge in edges:
+            edge_key = (edge.src, edge.dst, edge.relation)
+            if edge_key in self.seen_edges:
+                continue
+            self.seen_edges.add(edge_key)
+            self.hsg_edges.append(edge)
+            if edge.relation == "graph_path":
+                self._graph_path_edges_count += 1
+
     def _rebuild_online_index_from_active_matches(self) -> None:
         self.online_index = OnlineIndex()
-        for edge in self.graph.edges:
-            self.online_index.on_edge_added(edge.src, edge.dst, edge.edge_type)
+        for edge in self.graph.runtime_edges:
+            self.online_index.on_edge_added(edge.src, edge.dst, edge.edge_type, propagate=False)
+        self.online_index.flush_pending_edges()
         for match in self.matches:
             for node_id in (match.subject_node_id, match.object_node_id):
                 if node_id:
-                    self.online_index.on_match_added(
+                    telemetry = self.online_index.on_match_added(
                         node_id=node_id,
                         ttp_id=match.match_id,
                         rule_id=match.rule_id,
                         sequence=int(match.sequence or 0),
                         origin_node_id=node_id,
                     )
+                    self._record_online_index_match_add_telemetry(telemetry)
+
+    def _record_online_index_match_add_telemetry(
+        self,
+        telemetry: tuple[bool, float, float, float],
+    ) -> None:
+        changed, local_update_seconds, mapper_update_seconds, propagate_seconds = telemetry
+        self._online_index_match_add_calls += 1
+        if changed:
+            self._online_index_match_add_changed_count += 1
+        else:
+            self._online_index_match_add_noop_count += 1
+        self._online_index_match_add_local_update_time_seconds += float(local_update_seconds)
+        self._online_index_match_add_mapper_update_time_seconds += float(mapper_update_seconds)
+        self._online_index_match_add_propagate_time_seconds += float(propagate_seconds)
+        self._online_index_match_add_time_seconds += (
+            float(local_update_seconds) + float(mapper_update_seconds) + float(propagate_seconds)
+        )
 
     def _protected_graph_entities(self) -> set[str]:
         protected: set[str] = set()
@@ -406,8 +1000,10 @@ class StreamingEngine:
                 protected.add(pending.object_node_id)
         return protected
 
-    def _run_graph_deep_gc(self, watermark_ts: str | None) -> None:
+    def _run_graph_deep_gc(self, watermark_ts: str | None, *, force: bool = False) -> None:
         if self.graph_retention_days <= 0:
+            return
+        if not force and (self.stats.events - self._last_graph_gc_events) < self.graph_gc_every_events:
             return
         started = time.perf_counter()
         pruned = self.graph.prune_stale_orphaned(
@@ -417,6 +1013,7 @@ class StreamingEngine:
             protected_version_nodes=self._protected_graph_version_nodes(),
         )
         self._graph_gc_time_seconds += time.perf_counter() - started
+        self._last_graph_gc_events = int(self.stats.events)
         self.stats.graph_pruned_entity_count += int(pruned.get("entities_removed", 0))
         self.stats.graph_pruned_version_node_count += int(pruned.get("version_nodes_removed", 0))
         self.stats.graph_pruned_edge_count += int(pruned.get("edges_removed", 0))
@@ -445,7 +1042,20 @@ class StreamingEngine:
         )
 
     def _on_graph_edge(self, edge: Edge) -> None:
-        self.online_index.on_edge_added(edge.src, edge.dst, edge.edge_type)
+        if not self.use_online_prereq:
+            return
+        self._pending_online_graph_edges.append((edge.src, edge.dst, edge.edge_type))
+
+    def _flush_pending_online_graph_edges(self) -> None:
+        if not self.use_online_prereq or not self._pending_online_graph_edges:
+            return
+        started = time.perf_counter()
+        pending = self._pending_online_graph_edges
+        self._pending_online_graph_edges = []
+        for src, dst, edge_type in pending:
+            self.online_index.on_edge_added(src, dst, edge_type, propagate=False)
+        self.online_index.flush_pending_edges()
+        self._online_graph_edge_flush_time_seconds += time.perf_counter() - started
 
     @staticmethod
     def _shared_node_id(left: TTPMatch, right: TTPMatch) -> str | None:
@@ -811,6 +1421,19 @@ class StreamingEngine:
             paper_weights=self.paper_weights,
         )
         self._update_alerts()
+        self._score_state_dirty = False
+
+    def _maybe_refresh_scores_online(self, *, force: bool = False) -> None:
+        if not self.use_online_prereq:
+            return
+        if not self._score_state_dirty and not force:
+            return
+        next_events_processed = self._events_processed + 1
+        if not force and (next_events_processed % self.online_score_refresh_every) != 0:
+            return
+        refresh_started = time.perf_counter()
+        self._refresh_scores()
+        self._online_score_refresh_time_seconds += time.perf_counter() - refresh_started
 
     def _update_alerts(self) -> None:
         if self.apt_alert_threshold <= 0.0:
@@ -894,20 +1517,82 @@ class StreamingEngine:
 
     def process_event(self, event: Event) -> None:
         self.stats.events += 1
-        self.events_by_id[event.event_id] = event
+        self.events_by_id[event.event_id] = EventMeta(
+            event_id=event.event_id,
+            ts=event.ts,
+            bytes_transferred=event.bytes_transferred,
+        )
+        self._last_event_ts = event.ts
+        graph_started = time.perf_counter()
         node_info = self.graph.add_event(event)
+        self._flush_pending_online_graph_edges()
+        self._graph_add_time_seconds += time.perf_counter() - graph_started
         if node_info is None:
             return
+        tracker_started = time.perf_counter()
         self.taint_tracker.on_graph_event(event, node_info)
         self.privilege_tracker.on_graph_event(event, node_info)
+        self._tracker_update_time_seconds += time.perf_counter() - tracker_started
 
         matcher_started = time.perf_counter()
         raw_matches = [self._reid_match(m) for m in self.matcher.match(self.graph, self.ruleset, [event])]
         self._matcher_time_seconds += time.perf_counter() - matcher_started
         self._record_binding_drop_telemetry(self.matcher.last_drop_telemetry)
         self.stats.benign_profile_drop_count += int(self.matcher.last_benign_profile_drop_count)
+        self._apply_event_matches(
+            event=event,
+            node_info=node_info,
+            raw_matches=raw_matches,
+        )
+
+    def process_event_with_precomputed_matches(
+        self,
+        event: Event,
+        raw_matches: list[TTPMatch] | None = None,
+        drop_telemetry: list[dict[str, Any]] | None = None,
+        benign_profile_drop_count: int = 0,
+        matcher_elapsed_seconds: float = 0.0,
+    ) -> None:
+        self.stats.events += 1
+        self.events_by_id[event.event_id] = EventMeta(
+            event_id=event.event_id,
+            ts=event.ts,
+            bytes_transferred=event.bytes_transferred,
+        )
+        self._last_event_ts = event.ts
+        graph_started = time.perf_counter()
+        node_info = self.graph.add_event(event)
+        self._flush_pending_online_graph_edges()
+        self._graph_add_time_seconds += time.perf_counter() - graph_started
+        if node_info is None:
+            return
+        tracker_started = time.perf_counter()
+        self.taint_tracker.on_graph_event(event, node_info)
+        self.privilege_tracker.on_graph_event(event, node_info)
+        self._tracker_update_time_seconds += time.perf_counter() - tracker_started
+
+        effective_raw_matches = [self._reid_match(m) for m in (raw_matches or [])]
+        self._matcher_time_seconds += float(matcher_elapsed_seconds)
+        self._record_binding_drop_telemetry(drop_telemetry or [])
+        self.stats.benign_profile_drop_count += int(benign_profile_drop_count)
+        self._apply_event_matches(
+            event=event,
+            node_info=node_info,
+            raw_matches=effective_raw_matches,
+        )
+
+    def _apply_event_matches(
+        self,
+        *,
+        event: Event,
+        node_info: dict[str, str],
+        raw_matches: list[TTPMatch],
+    ) -> None:
         self.stats.raw_matches += len(raw_matches)
+        online_state_changed = False
+        noise_started = time.perf_counter()
         new_matches = self._apply_noise_model(raw_matches)
+        self._noise_filter_time_seconds += time.perf_counter() - noise_started
 
         hsg_update_started = time.perf_counter()
         for new_match in new_matches:
@@ -915,6 +1600,7 @@ class StreamingEngine:
             new_match.object_node_id = node_info.get("object_node_id")
             new_match.metadata["event_ts"] = event.ts
             binding_node_ids: dict[str, str] = {}
+            binding_started = time.perf_counter()
             for symbol, entity_id in new_match.bindings.items():
                 if entity_id == event.subject and new_match.subject_node_id:
                     binding_node_ids[symbol] = new_match.subject_node_id
@@ -942,6 +1628,7 @@ class StreamingEngine:
                     ]
                 )
                 continue
+            self._binding_resolve_time_seconds += time.perf_counter() - binding_started
             new_match.binding_node_ids = binding_node_ids
             new_match.sequence = self.stats.events
             new_match.attributes = {
@@ -951,7 +1638,9 @@ class StreamingEngine:
             }
 
             if self.use_online_prereq:
+                online_prereq_started = time.perf_counter()
                 satisfied, antecedents = self._prereq_satisfied_online(new_match)
+                self._online_prereq_check_time_seconds += time.perf_counter() - online_prereq_started
                 rule = self.rule_by_id.get(new_match.rule_id)
                 has_prereq = bool(
                     rule
@@ -960,91 +1649,142 @@ class StreamingEngine:
                         or isinstance(getattr(rule, "prerequisite_ast", None), dict)
                     )
                 )
+                if has_prereq:
+                    antecedent_count = len(antecedents)
+                    self._online_prereq_antecedent_total += antecedent_count
+                    self._online_prereq_antecedent_max = max(self._online_prereq_antecedent_max, antecedent_count)
                 if has_prereq and not satisfied:
-                    self.hsg_builder.add_match(new_match, antecedents, watermark_ts=event.ts)
-                    self._sync_pending_eviction_stats_from_builder()
-                    self._sync_online_state_from_builder()
-                    self._rebuild_online_index_from_active_matches()
-                    continue
-            self.matches.append(new_match)
-            self.match_by_id[new_match.match_id] = new_match
-            self.hsg_nodes[new_match.match_id] = HSGNode(
-                match_id=new_match.match_id,
-                rule_id=new_match.rule_id,
-                event_ids=list(new_match.event_ids),
-                entities=list(new_match.entities),
-            )
-            entities = set(new_match.entities)
-            self.match_to_entities[new_match.match_id] = entities
-            for entity in entities:
-                self.node_to_matches[entity].add(new_match.match_id)
-                self.entity_to_hsg_node[entity].add(new_match.match_id)
-            for node_id in (new_match.subject_node_id, new_match.object_node_id):
-                if node_id:
-                    self.online_index.on_match_added(
-                        node_id=node_id,
-                        ttp_id=new_match.match_id,
-                        rule_id=new_match.rule_id,
-                        sequence=int(new_match.sequence or self.stats.events),
-                        origin_node_id=node_id,
+                    pending_builder_add_started = time.perf_counter()
+                    accepted, built_edges = self.hsg_builder.add_match(
+                        new_match,
+                        antecedents,
+                        watermark_ts=event.ts,
                     )
+                    pending_elapsed = time.perf_counter() - pending_builder_add_started
+                    self._online_pending_builder_add_match_time_seconds += pending_elapsed
+                    if accepted:
+                        self._online_pending_builder_add_match_accepted_count += 1
+                        self._online_pending_builder_add_match_accepted_time_seconds += pending_elapsed
+                        store_started = time.perf_counter()
+                        active_add_started = time.perf_counter()
+                        self._add_active_match_to_online_state(new_match, add_to_online_index=True)
+                        self._online_add_active_match_time_seconds += time.perf_counter() - active_add_started
+                        self._match_store_time_seconds += time.perf_counter() - store_started
+                        taint_started = time.perf_counter()
+                        self.taint_tracker.mark_initial_compromise(new_match, self.rule_by_id.get(new_match.rule_id))
+                        self._taint_mark_time_seconds += time.perf_counter() - taint_started
+
+                        activated_match_ids = set(self.hsg_builder.last_activated_match_ids)
+                        closed_match_ids = list(self.hsg_builder.last_closed_match_ids)
+                        built_edges_count = len(built_edges)
+                        activated_count = len(activated_match_ids)
+                        self._online_built_edges_total += built_edges_count
+                        self._online_built_edges_max = max(self._online_built_edges_max, built_edges_count)
+                        self._online_activated_matches_total += activated_count
+                        self._online_activated_matches_max = max(self._online_activated_matches_max, activated_count)
+                        for activated_match_id in sorted(activated_match_ids):
+                            activated_match = self.hsg_builder.matches_by_id.get(activated_match_id)
+                            if activated_match is not None:
+                                active_add_started = time.perf_counter()
+                                self._add_active_match_to_online_state(activated_match, add_to_online_index=True)
+                                self._online_add_active_match_time_seconds += time.perf_counter() - active_add_started
+                        extend_started = time.perf_counter()
+                        self._extend_online_edges(built_edges)
+                        self._online_extend_edges_time_seconds += time.perf_counter() - extend_started
+                        if closed_match_ids:
+                            full_resync_started = time.perf_counter()
+                            self._sync_online_state_from_builder()
+                            self._rebuild_online_index_from_active_matches()
+                            self._online_full_resync_time_seconds += time.perf_counter() - full_resync_started
+                    else:
+                        self._online_pending_builder_add_match_rejected_count += 1
+                        self._online_pending_builder_add_match_rejected_time_seconds += pending_elapsed
+                    self._sync_pending_eviction_stats_from_builder()
+                    online_state_changed = True
+                    self._online_builder_add_match_time_seconds += 0.0
+                    self._online_prereq_time_seconds += time.perf_counter() - online_prereq_started
+                    continue
+                self._online_prereq_time_seconds += time.perf_counter() - online_prereq_started
+            store_started = time.perf_counter()
+            if self.use_online_prereq:
+                active_add_started = time.perf_counter()
+                self._add_active_match_to_online_state(new_match, add_to_online_index=True)
+                self._online_add_active_match_time_seconds += time.perf_counter() - active_add_started
+            else:
+                self.matches.append(new_match)
+                self.match_by_id[new_match.match_id] = new_match
+                self.hsg_nodes[new_match.match_id] = HSGNode(
+                    match_id=new_match.match_id,
+                    rule_id=new_match.rule_id,
+                    event_ids=list(new_match.event_ids),
+                    entities=list(new_match.entities),
+                )
+            self._match_store_time_seconds += time.perf_counter() - store_started
+            taint_started = time.perf_counter()
             self.taint_tracker.mark_initial_compromise(new_match, self.rule_by_id.get(new_match.rule_id))
+            self._taint_mark_time_seconds += time.perf_counter() - taint_started
             if self.use_online_prereq:
                 self.stats.candidate_pairs_considered += len(antecedents)
-                _accepted, built_edges = self.hsg_builder.add_match(new_match, antecedents, watermark_ts=event.ts)
+                online_apply_started = time.perf_counter()
+                builder_add_started = time.perf_counter()
+                _accepted, built_edges = self.hsg_builder.add_match(
+                    new_match,
+                    antecedents,
+                    watermark_ts=event.ts,
+                )
+                self._online_builder_add_match_time_seconds += time.perf_counter() - builder_add_started
                 self._sync_pending_eviction_stats_from_builder()
-                self._sync_online_state_from_builder()
+                activated_match_ids = set(self.hsg_builder.last_activated_match_ids)
+                closed_match_ids = list(self.hsg_builder.last_closed_match_ids)
+                built_edges_count = len(built_edges)
+                activated_count = len(activated_match_ids)
+                self._online_built_edges_total += built_edges_count
+                self._online_built_edges_max = max(self._online_built_edges_max, built_edges_count)
+                self._online_activated_matches_total += activated_count
+                self._online_activated_matches_max = max(self._online_activated_matches_max, activated_count)
+                for activated_match_id in sorted(activated_match_ids):
+                    activated_match = self.hsg_builder.matches_by_id.get(activated_match_id)
+                    if activated_match is not None:
+                        active_add_started = time.perf_counter()
+                        self._add_active_match_to_online_state(activated_match, add_to_online_index=True)
+                        self._online_add_active_match_time_seconds += time.perf_counter() - active_add_started
+                extend_started = time.perf_counter()
+                self._extend_online_edges(built_edges)
+                self._online_extend_edges_time_seconds += time.perf_counter() - extend_started
+                if closed_match_ids:
+                    full_resync_started = time.perf_counter()
+                    self._sync_online_state_from_builder()
+                    self._rebuild_online_index_from_active_matches()
+                    self._online_full_resync_time_seconds += time.perf_counter() - full_resync_started
+                online_state_changed = True
+                self._online_prereq_time_seconds += time.perf_counter() - online_apply_started
             if self.paper_exact is not None:
+                paper_started = time.perf_counter()
                 self.paper_exact.update(
                     stage=int(self.rule_stage.get(new_match.rule_id, 1)),
                     raw_severity=self.rule_cvss.get(new_match.rule_id, self.rule_severity.get(new_match.rule_id, 1.0)),
                     event_time=event.ts,
                     sequence=new_match.sequence,
                 )
+                self._paper_exact_time_seconds += time.perf_counter() - paper_started
         if self.use_online_prereq:
-            closed_match_ids = self.hsg_builder.gc_dormant_scenarios(event.ts)
             self._sync_pending_eviction_stats_from_builder()
-            if closed_match_ids:
-                self._sync_online_state_from_builder()
-                self._rebuild_online_index_from_active_matches()
         self._run_graph_deep_gc(event.ts)
         self._hsg_update_time_seconds += time.perf_counter() - hsg_update_started
 
         if not self.use_online_prereq:
-            ordered_matches = sorted(
-                self.matches,
-                key=lambda m: (
-                    int(self.rule_order.get(m.rule_id, 10**9)),
-                    int(m.sequence or 0),
-                    m.match_id,
-                ),
-            )
-            remap: dict[str, str] = {}
-            for i, m in enumerate(ordered_matches, start=1):
-                new_id = f"m{i}"
-                remap[m.match_id] = new_id
-            for m in ordered_matches:
-                m.match_id = remap[m.match_id]
-            self.matches = ordered_matches
-            self.match_by_id = {m.match_id: m for m in ordered_matches}
-            hsg = hsg_builder.build_hsg(
-                ordered_matches,
-                self.graph,
-                self.ruleset,
-                paper_mode=self.paper_mode,
-                prereq_policy=self.prereq_policy,
-                resolved_effective_config=self.resolved_effective_config,
-                taint_tracker=self.taint_tracker,
-                graph_path_allowlist=self.graph_path_allowlist,
-                max_graph_path_edges=self.max_graph_path_edges,
-                max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
-            )
-            self.hsg_nodes = {n.match_id: n for n in hsg.nodes}
-            self.hsg_edges = list(hsg.edges)
-            self.seen_edges = {(e.src, e.dst, e.relation) for e in self.hsg_edges}
-            self._graph_path_edges_count = len([e for e in self.hsg_edges if e.relation == "graph_path"])
+            snapshot_started = time.perf_counter()
+            if self.defer_snapshot_updates:
+                self._snapshot_state_dirty = True
+            else:
+                self._rebuild_snapshot_state()
+            self._snapshot_bookkeeping_time_seconds += time.perf_counter() - snapshot_started
 
-        self._refresh_scores()
+        if self.use_online_prereq:
+            self._score_state_dirty = self._score_state_dirty or online_state_changed
+            self._maybe_refresh_scores_online(force=False)
+        elif not self.defer_snapshot_updates:
+            self._refresh_scores()
         self._events_processed += 1
         self._emit_metrics_if_due()
         if self.global_refine_mode == "every_n_events" and self._events_processed % self.global_refine_every == 0:
@@ -1074,7 +1814,47 @@ class StreamingEngine:
             count += 1
         return count
 
+    def _rebuild_snapshot_state(self) -> None:
+        ordered_matches = sorted(
+            self.matches,
+            key=lambda m: (
+                int(self.rule_order.get(m.rule_id, 10**9)),
+                int(m.sequence or 0),
+                m.match_id,
+            ),
+        )
+        remap: dict[str, str] = {}
+        for i, m in enumerate(ordered_matches, start=1):
+            new_id = f"m{i}"
+            remap[m.match_id] = new_id
+        for m in ordered_matches:
+            m.match_id = remap[m.match_id]
+        self.matches = ordered_matches
+        self.match_by_id = {m.match_id: m for m in ordered_matches}
+        hsg = hsg_builder.build_hsg(
+            ordered_matches,
+            self.graph,
+            self.ruleset,
+            paper_mode=self.paper_mode,
+            prereq_policy=self.prereq_policy,
+            resolved_effective_config=self.resolved_effective_config,
+            taint_tracker=self.taint_tracker,
+            graph_path_allowlist=self.graph_path_allowlist,
+            max_graph_path_edges=self.max_graph_path_edges,
+            max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
+        )
+        self.hsg_nodes = {n.match_id: n for n in hsg.nodes}
+        self.hsg_edges = list(hsg.edges)
+        self.seen_edges = {(e.src, e.dst, e.relation) for e in self.hsg_edges}
+        self._graph_path_edges_count = len([e for e in self.hsg_edges if e.relation == "graph_path"])
+        self._snapshot_state_dirty = False
+
+    def _ensure_snapshot_state(self) -> None:
+        if self._snapshot_state_dirty and not self.use_online_prereq:
+            self._rebuild_snapshot_state()
+
     def current_hsg(self) -> HSG:
+        self._ensure_snapshot_state()
         return HSG(nodes=list(self.hsg_nodes.values()), edges=list(self.hsg_edges))
 
     def _replace_state_from_filtered(
@@ -1133,6 +1913,8 @@ class StreamingEngine:
             graph_path_allowlist=self.graph_path_allowlist,
             max_graph_path_edges=self.max_graph_path_edges,
             max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
+            graph_path_eval_budget_ms=self.graph_path_eval_budget_ms,
+            graph_path_cache_miss_policy=self.graph_path_cache_miss_policy,
             max_pending_matches=self.hsg_builder.max_pending_matches,
             scenario_dormancy_seconds=self.hsg_builder.scenario_dormancy_seconds,
         )
@@ -1143,19 +1925,20 @@ class StreamingEngine:
         self.hsg_builder.closed_scenarios_count = self.stats.dormant_scenarios_closed_count
         self.hsg_builder.closed_matches_count = self.stats.dormant_matches_closed_count
         self.hsg_builder.closed_scenarios_by_id.update(self.stats.dormant_scenarios_closed_by_id or {})
-        for edge in self.graph.edges:
+        for edge in self.graph.runtime_edges:
             self.online_index.on_edge_added(edge.src, edge.dst, edge.edge_type)
         for m in self.matches:
             self.taint_tracker.mark_initial_compromise(m, self.rule_by_id.get(m.rule_id))
             for node_id in (m.subject_node_id, m.object_node_id):
                 if node_id:
-                    self.online_index.on_match_added(
+                    telemetry = self.online_index.on_match_added(
                         node_id=node_id,
                         ttp_id=m.match_id,
                         rule_id=m.rule_id,
                         sequence=int(m.sequence or 0),
                         origin_node_id=node_id,
                     )
+                    self._record_online_index_match_add_telemetry(telemetry)
             self.hsg_builder.add_match(m, watermark_ts=m.metadata.get("event_ts"))
         self._sync_pending_eviction_stats_from_builder()
 
@@ -1193,24 +1976,23 @@ class StreamingEngine:
         elif trigger == "periodic":
             self.global_refine_ran_at_events_count += 1
 
-    def build_result(self) -> dict[str, Any]:
-        hsg = self.current_hsg()
+    def _build_summary(self, *, hsg_nodes_count: int, hsg_edges_count: int) -> dict[str, Any]:
         before_counts = self._noise_before_override or {
             "matches": self.stats.raw_matches,
             "hsg_nodes": self.stats.raw_matches,
-            "hsg_edges": len(hsg.edges),
+            "hsg_edges": hsg_edges_count,
         }
         noise_filter = {
             "before": before_counts,
             "after": {
                 "matches": len(self.matches),
-                "hsg_nodes": len(hsg.nodes),
-                "hsg_edges": len(hsg.edges),
+                "hsg_nodes": hsg_nodes_count,
+                "hsg_edges": hsg_edges_count,
             },
             "dropped": {
                 "matches": int(before_counts["matches"]) - len(self.matches),
-                "hsg_nodes": int(before_counts["hsg_nodes"]) - len(hsg.nodes),
-                "hsg_edges": int(before_counts["hsg_edges"]) - len(hsg.edges),
+                "hsg_nodes": int(before_counts["hsg_nodes"]) - hsg_nodes_count,
+                "hsg_edges": int(before_counts["hsg_edges"]) - hsg_edges_count,
             },
         }
         legacy_snapshot_mode = (self.scoring_mode == "legacy" and not self.use_online_prereq)
@@ -1296,8 +2078,15 @@ class StreamingEngine:
             "events": self.stats.events,
             "rules": len(self.ruleset.rules),
             "matches": len(self.matches),
-            "hsg_nodes": len(hsg.nodes),
-            "hsg_edges": len(hsg.edges),
+            "hsg_nodes": hsg_nodes_count,
+            "hsg_edges": hsg_edges_count,
+            "ab_config": {
+                "performance": self.ab_performance,
+                "quality": self.ab_quality,
+                "ac_min_method": self.ac_min_method,
+                "graph_path_eval_budget_ms": self.graph_path_eval_budget_ms,
+                "graph_path_cache_miss_policy": self.graph_path_cache_miss_policy,
+            },
             "noise_filter": noise_filter,
             "resolved_effective_config": self.resolved_effective_config,
             "paper_scoring": paper_scoring,
@@ -1319,7 +2108,10 @@ class StreamingEngine:
                     "ran_at_events_count": self.global_refine_ran_at_events_count,
                 }
             }
-        matches_out = []
+        return summary
+
+    def _iter_match_rows(self):
+        legacy_snapshot_mode = (self.scoring_mode == "legacy" and not self.use_online_prereq)
         for m in self.matches:
             row = {
                 "match_id": m.match_id,
@@ -1334,13 +2126,66 @@ class StreamingEngine:
                 row["object_node_id"] = m.object_node_id
                 row["sequence"] = m.sequence
                 row["attributes"] = m.attributes
-            matches_out.append(row)
-        return {"summary": summary, "matches": matches_out, "hsg": hsg_to_dict(hsg)}
+            yield row
+
+    @staticmethod
+    def _write_json_array(path: Path, items) -> None:
+        with path.open("w", encoding="utf-8") as fh:
+            fh.write("[\n")
+            for idx, item in enumerate(items):
+                if idx:
+                    fh.write(",\n")
+                fh.write(json.dumps(item, ensure_ascii=False, indent=2))
+            fh.write("\n]\n")
+
+    @staticmethod
+    def _write_hsg_json(path: Path, *, nodes, edges) -> None:
+        with path.open("w", encoding="utf-8") as fh:
+            fh.write("{\n  \"nodes\": [\n")
+            for idx, n in enumerate(nodes):
+                if idx:
+                    fh.write(",\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "match_id": n.match_id,
+                            "rule_id": n.rule_id,
+                            "event_ids": n.event_ids,
+                            "entities": n.entities,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            fh.write("\n  ],\n  \"edges\": [\n")
+            for idx, e in enumerate(edges):
+                if idx:
+                    fh.write(",\n")
+                payload = {
+                    "src": e.src,
+                    "dst": e.dst,
+                    "relation": e.relation,
+                }
+                if e.weight is not None:
+                    payload["weight"] = e.weight
+                if e.path_factor is not None:
+                    payload["path_factor"] = e.path_factor
+                if e.dependency_strength is not None:
+                    payload["dependency_strength"] = e.dependency_strength
+                fh.write(json.dumps(payload, ensure_ascii=False, indent=2))
+            fh.write("\n  ]\n}\n")
+
+    def build_result(self) -> dict[str, Any]:
+        hsg = self.current_hsg()
+        return {
+            "summary": self._build_summary(hsg_nodes_count=len(hsg.nodes), hsg_edges_count=len(hsg.edges)),
+            "matches": list(self._iter_match_rows()),
+            "hsg": hsg_to_dict(hsg),
+        }
 
     def write_snapshot(self, out_dir: str | Path) -> dict[str, Any]:
         p = Path(out_dir)
         p.mkdir(parents=True, exist_ok=True)
-        self._emit_metrics_if_due(force=True)
         if self.dropped_match_telemetry_path is None:
             self.dropped_match_telemetry_path = p / "debug" / "dropped_matches.jsonl"
             self.dropped_match_telemetry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1356,9 +2201,14 @@ class StreamingEngine:
             self.graph_artifact_dir = p / "graph_artifacts"
             self.graph_artifact_dir.mkdir(parents=True, exist_ok=True)
         self._maybe_global_refine("snapshot")
-        result = self.build_result()
-        (p / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
-        (p / "summary.json").write_text(json.dumps(result["summary"], indent=2), encoding="utf-8")
-        (p / "matches.json").write_text(json.dumps(result["matches"], indent=2), encoding="utf-8")
-        (p / "hsg.json").write_text(json.dumps(result["hsg"], indent=2), encoding="utf-8")
-        return result
+        self._ensure_snapshot_state()
+        if self.use_online_prereq:
+            self._maybe_refresh_scores_online(force=True)
+        summary = self._build_summary(
+            hsg_nodes_count=len(self.hsg_nodes),
+            hsg_edges_count=len(self.hsg_edges),
+        )
+        (p / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        self._write_json_array(p / "matches.json", self._iter_match_rows())
+        self._write_hsg_json(p / "hsg.json", nodes=self.hsg_nodes.values(), edges=self.hsg_edges)
+        return {"summary": summary}

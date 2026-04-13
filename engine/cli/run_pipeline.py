@@ -2,16 +2,55 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import sys
+import time
 
 from engine.core.graph import ProvenanceGraph
 from engine.core.matcher import Matcher
 from engine.hsg.builder import load_graph_path_allowlist
-from engine.io.events import load_events_jsonl
+from engine.io.events import count_raw_records_jsonl, iter_raw_records_jsonl, load_events_jsonl
 from engine.noise.filter import NoiseConfig, apply_noise_filter, load_noise_config
 from engine.noise.trainer import save_benign_noise_model, train_benign_noise_model
 from engine.rules.schema import load_rules
 from engine.stream.runner import StreamingEngine
+from engine.stream.workers import iter_parsed_events_parallel
+
+
+class _ProgressBar:
+    def __init__(self, total: int, enabled: bool = True, label: str = "events") -> None:
+        self.total = max(0, int(total))
+        self.enabled = bool(enabled)
+        self.label = label
+        self.start_ts = time.perf_counter()
+        self.last_render_ts = 0.0
+
+    def render(self, current: int, *, force: bool = False) -> None:
+        if not self.enabled:
+            return
+        now = time.perf_counter()
+        if not force and (now - self.last_render_ts) < 0.2:
+            return
+        self.last_render_ts = now
+        current = max(0, min(int(current), self.total if self.total > 0 else int(current)))
+        elapsed = max(now - self.start_ts, 1e-9)
+        rate = current / elapsed
+        pct = (current / self.total) if self.total > 0 else 1.0
+        filled = int(pct * 30)
+        bar = "#" * filled + "-" * (30 - filled)
+        remain_items = max(0, self.total - current)
+        eta = (remain_items / rate) if rate > 0 else 0.0
+        msg = (
+            f"\r[{bar}] {pct*100:6.2f}% "
+            f"{current}/{self.total} {self.label} "
+            f"{rate:8.1f} ev/s ETA {eta:8.1f}s"
+        )
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+        if force:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
 
 
 def _parse_paper_weights(raw: str) -> list[float]:
@@ -75,12 +114,43 @@ def run_pipeline(
     graph_path_allowlist: str | None = "none",
     max_graph_path_edges: int = 10000,
     max_graph_path_candidates_per_match: int = 200,
+    ab_performance: str = "a",
+    ab_quality: str = "a",
+    graph_path_eval_budget_ms: float | None = None,
     use_online_prereq: bool = False,
     apt_alert_threshold: float = 80.0,
     max_pending_matches: int = 100000,
+    matcher_workers: int = 1,
+    matcher_batch_size: int = 50000,
+    ancestor_index_mode: str = "incremental",
+    progress: bool = True,
 ) -> dict:
     if prereq_policy not in {"dst_only", "union"}:
         raise ValueError("prereq_policy must be one of: dst_only, union")
+    effective_ancestor_index_mode = str(ancestor_index_mode).strip().lower()
+    if effective_ancestor_index_mode not in {"incremental", "lazy"}:
+        raise ValueError("ancestor_index_mode must be one of: incremental, lazy")
+    force_incremental_online = os.getenv("HOLMES_FORCE_INCREMENTAL_ANCESTOR_FOR_ONLINE", "1").strip().lower() not in {"0", "false", "no"}
+    if bool(use_online_prereq) and force_incremental_online and effective_ancestor_index_mode == "lazy":
+        effective_ancestor_index_mode = "incremental"
+    perf_variant = str(ab_performance).strip().lower()
+    quality_variant = str(ab_quality).strip().lower()
+    if perf_variant not in {"a", "b"}:
+        raise ValueError("ab_performance must be one of: a, b")
+    if quality_variant not in {"a", "b"}:
+        raise ValueError("ab_quality must be one of: a, b")
+    effective_ac_min_method = "set_diff" if perf_variant == "b" else "pairwise"
+    if quality_variant == "b":
+        if graph_path_eval_budget_ms is None:
+            effective_graph_path_eval_budget_ms = 1.0
+        else:
+            effective_graph_path_eval_budget_ms = max(0.0, float(graph_path_eval_budget_ms))
+            if effective_graph_path_eval_budget_ms <= 0.0:
+                effective_graph_path_eval_budget_ms = 1.0
+        effective_graph_path_cache_miss_policy = "skip"
+    else:
+        effective_graph_path_eval_budget_ms = None
+        effective_graph_path_cache_miss_policy = "compute"
     noise_signature_min_ratio = max(0.0, min(1.0, float(noise_signature_min_ratio)))
     resolved_effective_config = _resolve_effective_config(
         scoring_mode=scoring_mode,
@@ -91,7 +161,6 @@ def run_pipeline(
         path_factor_op=path_factor_op,
     )
 
-    events = load_events_jsonl(events_path)
     ruleset = load_rules(rules_path)
     allowlist = load_graph_path_allowlist(graph_path_allowlist)
     runtime_noise_config = load_noise_config(
@@ -112,16 +181,43 @@ def run_pipeline(
         graph_path_allowlist=allowlist,
         max_graph_path_edges=max_graph_path_edges,
         max_graph_path_candidates_per_match=max_graph_path_candidates_per_match,
+        graph_path_eval_budget_ms=effective_graph_path_eval_budget_ms,
+        graph_path_cache_miss_policy=effective_graph_path_cache_miss_policy,
+        ac_min_method=effective_ac_min_method,
+        ab_performance=perf_variant,
+        ab_quality=quality_variant,
         use_online_prereq=use_online_prereq,
         resolved_effective_config=resolved_effective_config,
         global_refine_mode="off",
         dropped_match_telemetry_path=Path(output_path) / "debug" / "dropped_matches.jsonl",
         alerts_path=Path(output_path) / "alerts.jsonl",
+        metrics_path=Path(output_path) / "debug" / "metrics.jsonl",
+        metrics_every_events=50000,
+        metrics_interval_sec=60.0,
         apt_alert_threshold=apt_alert_threshold,
         max_pending_matches=max_pending_matches,
+        defer_snapshot_updates=not bool(use_online_prereq),
+        graph_gc_every_events=1000 if bool(use_online_prereq) else 50000,
+        ancestor_index_mode=effective_ancestor_index_mode,
     )
-    for ev in events:
-        engine.process_event(ev)
+    parser_workers = max(1, int(matcher_workers))
+    parser_queue_size = max(1, int(matcher_batch_size))
+    total_records = count_raw_records_jsonl(events_path) if progress else 0
+    progress_bar = _ProgressBar(total=total_records, enabled=bool(progress), label="events")
+    processed = 0
+    raw_source = iter_raw_records_jsonl(events_path)
+    for processed, event in enumerate(
+        iter_parsed_events_parallel(
+            raw_source,
+            worker_count=parser_workers,
+            queue_size=parser_queue_size,
+        ),
+        start=1,
+    ):
+        engine.process_event(event)
+        progress_bar.render(processed, force=False)
+    if progress:
+        progress_bar.render(processed, force=True)
 
     resolved_path_thres = float(resolved_effective_config["path_thres"])
     resolved_path_factor_op = str(resolved_effective_config["path_factor_op"])
@@ -161,7 +257,7 @@ def train_noise_model_pipeline(
     dynamic_min_samples: int = 1,
 ) -> dict:
     signature_min_ratio = max(0.0, min(1.0, float(signature_min_ratio)))
-    events = load_events_jsonl(train_events_path)
+    events = list(load_events_jsonl(train_events_path))
     graph = ProvenanceGraph()
     graph.add_events(events)
 
@@ -382,6 +478,30 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Maximum graph_path destination candidates evaluated per source match (default: 200).",
     )
     parser.add_argument(
+        "--ab-performance",
+        dest="ab_performance",
+        choices=["a", "b", "A", "B"],
+        default="a",
+        help="Performance A/B: A=baseline ac_min(pairwise), B=ac_min(set_diff).",
+    )
+    parser.add_argument(
+        "--ab-quality",
+        dest="ab_quality",
+        choices=["a", "b", "A", "B"],
+        default="a",
+        help="Quality A/B: A=full graph_path eval, B=budgeted graph_path eval.",
+    )
+    parser.add_argument(
+        "--graph-path-eval-budget-ms",
+        dest="graph_path_eval_budget_ms",
+        type=float,
+        default=None,
+        help=(
+            "Per add_match graph_path evaluation budget in milliseconds when --ab-quality B is used. "
+            "If omitted in B mode, defaults to 1.0ms."
+        ),
+    )
+    parser.add_argument(
         "--use-online-prereq",
         dest="use_online_prereq",
         action="store_true",
@@ -400,6 +520,33 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=100000,
         help="Maximum pending prerequisite matches retained before FIFO eviction (default: 100000).",
+    )
+    parser.add_argument(
+        "--matcher-workers",
+        dest="matcher_workers",
+        type=int,
+        default=1,
+        help="Number of parser worker processes used for detect-mode JSON parsing (default: 1).",
+    )
+    parser.add_argument(
+        "--matcher-batch-size",
+        dest="matcher_batch_size",
+        type=int,
+        default=50000,
+        help="Queue size for detect-mode parser worker pipeline (default: 50000).",
+    )
+    parser.add_argument(
+        "--no-progress",
+        dest="no_progress",
+        action="store_true",
+        help="Disable realtime progress bar output.",
+    )
+    parser.add_argument(
+        "--ancestor-index-mode",
+        dest="ancestor_index_mode",
+        choices=("incremental", "lazy"),
+        default="incremental",
+        help="Graph ancestor/distance index maintenance mode. Use 'lazy' to defer heavy cache rebuilds until graph path queries are actually needed.",
     )
     return parser
 
@@ -444,9 +591,16 @@ def main() -> int:
             graph_path_allowlist=args.graph_path_allowlist,
             max_graph_path_edges=args.max_graph_path_edges,
             max_graph_path_candidates_per_match=args.max_graph_path_candidates_per_match,
+            ab_performance=str(args.ab_performance).lower(),
+            ab_quality=str(args.ab_quality).lower(),
+            graph_path_eval_budget_ms=args.graph_path_eval_budget_ms,
             use_online_prereq=bool(args.use_online_prereq),
             apt_alert_threshold=float(args.apt_alert_threshold),
             max_pending_matches=max(0, int(args.max_pending_matches)),
+            matcher_workers=max(1, int(args.matcher_workers)),
+            matcher_batch_size=max(1, int(args.matcher_batch_size)),
+            ancestor_index_mode=str(args.ancestor_index_mode),
+            progress=not bool(args.no_progress),
         )
     return 0
 

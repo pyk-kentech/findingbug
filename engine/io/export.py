@@ -79,14 +79,8 @@ def _provenance_subgraph(
         if meta is not None:
             entity_nodes.add(meta.entity_id)
 
-    edges: list[Edge] = []
-    for edge in graph.edges:
-        if edge.src in version_nodes and edge.dst in version_nodes:
-            edges.append(edge)
-            if edge.src_entity:
-                entity_nodes.add(edge.src_entity)
-            if edge.dst_entity:
-                entity_nodes.add(edge.dst_entity)
+    edges = _select_provenance_edges(graph, version_nodes)
+    _extend_entity_nodes_from_edges(entity_nodes, edges)
 
     nodes = []
     for entity in sorted(entity_nodes):
@@ -116,6 +110,27 @@ def _provenance_subgraph(
             }
         )
 
+    edge_rows = _materialize_provenance_edge_rows(edges)
+    return {"nodes": nodes, "edges": edge_rows}
+
+
+def _select_provenance_edges(graph: ProvenanceGraph, version_nodes: set[str]) -> list[Edge]:
+    selected: list[Edge] = []
+    for edge in graph.edges:
+        if edge.src in version_nodes and edge.dst in version_nodes:
+            selected.append(edge)
+    return selected
+
+
+def _extend_entity_nodes_from_edges(entity_nodes: set[str], edges: list[Edge]) -> None:
+    for edge in edges:
+        if edge.src_entity:
+            entity_nodes.add(edge.src_entity)
+        if edge.dst_entity:
+            entity_nodes.add(edge.dst_entity)
+
+
+def _materialize_provenance_edge_rows(edges: list[Edge]) -> list[dict[str, Any]]:
     edge_rows = []
     for edge in edges:
         edge_rows.append(
@@ -135,7 +150,7 @@ def _provenance_subgraph(
                 }
             }
         )
-    return {"nodes": nodes, "edges": edge_rows}
+    return edge_rows
 
 
 def export_alert_scenario_artifact(

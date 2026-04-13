@@ -4,10 +4,17 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
+import os
+import time
 from typing import Callable, Iterable
 
 from engine.io.cdr.base import canonical_relation
 from engine.io.events import Event
+
+try:
+    from engine.core import _acmin_native
+except Exception:
+    _acmin_native = None
 
 
 def path_factor_passes(pf: float | None, threshold: float, op: str = "ge") -> bool:
@@ -62,6 +69,15 @@ class Edge:
     dst_entity: str | None = None
 
 
+@dataclass(slots=True)
+class RuntimeEdge:
+    edge_id: int
+    src: str
+    dst: str
+    edge_type: EdgeType = EdgeType.DATA_FLOW
+    relation: str = "flow"
+
+
 class ProvenanceGraph:
     """
     Directed provenance graph with node versioning.
@@ -70,7 +86,16 @@ class ProvenanceGraph:
     and edge storage operate on versioned nodes.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        ancestor_index_mode: str = "incremental",
+        ac_min_method: str = "pairwise",
+    ) -> None:
+        if ancestor_index_mode not in {"incremental", "lazy"}:
+            raise ValueError("ancestor_index_mode must be one of: incremental, lazy")
+        if ac_min_method not in {"pairwise", "set_diff"}:
+            raise ValueError("ac_min_method must be one of: pairwise, set_diff")
         # Backward-compatible entity index.
         self.nodes: set[str] = set()
         # Backward-compatible union adjacency for callers that inspect `adj`.
@@ -81,6 +106,7 @@ class ProvenanceGraph:
         self.rev_adj_data_flow: dict[str, set[str]] = defaultdict(set)
         self.adj_version_transition: dict[str, set[str]] = defaultdict(set)
         self.rev_adj_version_transition: dict[str, set[str]] = defaultdict(set)
+        self.runtime_edges: list[RuntimeEdge] = []
         self.edges: list[Edge] = []
         self.version_nodes: dict[str, VersionedNode] = {}
         self.entity_versions: dict[str, list[str]] = defaultdict(list)
@@ -104,6 +130,38 @@ class ProvenanceGraph:
         self._memory_vma_current_entity: dict[str, str] = {}
         self._entity_last_seen_ts: dict[str, datetime] = {}
         self._version_last_seen_ts: dict[str, datetime] = {}
+        self.ancestor_index_mode = ancestor_index_mode
+        self.ac_min_method = ac_min_method
+        self._use_native_acmin = (
+            _acmin_native is not None and os.getenv("HOLMES_ACMIN_NATIVE", "1").strip().lower() not in {"0", "false", "no"}
+        )
+        self._ancestor_index_dirty = False
+        self._union_adj_dirty = False
+        self._edge_id_counter = 0
+        self._runtime_edge_append_time_seconds = 0.0
+        self._provenance_edge_append_time_seconds = 0.0
+        self._edge_hook_time_seconds = 0.0
+        self._memory_sync_time_seconds = 0.0
+        self._ensure_entity_time_seconds = 0.0
+        self._changed_entities_time_seconds = 0.0
+        self._bump_entities_time_seconds = 0.0
+        self._flow_link_time_seconds = 0.0
+        self._memory_transition_link_time_seconds = 0.0
+        self._semantic_register_time_seconds = 0.0
+        self._typed_adjacency_add_time_seconds = 0.0
+        self._event_semantic_extract_time_seconds = 0.0
+        self._flow_direction_time_seconds = 0.0
+        self._event_version_change_eval_time_seconds = 0.0
+        self._path_factor_cache_clear_time_seconds = 0.0
+        self._events_with_memory_sync = 0
+        self._changed_entities_total = 0
+        self._max_changed_entities = 0
+        self._edges_linked_total = 0
+        self._max_edges_linked_in_event = 0
+        self._node_meta_time_seconds = 0.0
+        self._current_version_lookup_time_seconds = 0.0
+        self._new_version_node_time_seconds = 0.0
+        self._semantic_current_version_lookup_time_seconds = 0.0
 
     def register_edge_hook(self, hook: Callable[[Edge], None]) -> None:
         self._edge_hooks.append(hook)
@@ -116,27 +174,13 @@ class ProvenanceGraph:
 
     @staticmethod
     def _semantic_relations_for_event(event: Event) -> list[tuple[str, str, str]]:
-        raw = event.raw if isinstance(event.raw, dict) else {}
-        cdr = raw.get("cdr")
-        if not isinstance(cdr, dict):
-            return []
-        relations = cdr.get("semantic_relations")
-        if not isinstance(relations, list):
-            return []
-        out: list[tuple[str, str, str]] = []
-        for item in relations:
-            if not isinstance(item, dict):
-                continue
-            relation = item.get("relation")
-            src = item.get("src")
-            dst = item.get("dst")
-            if isinstance(relation, str) and isinstance(src, str) and isinstance(dst, str):
-                out.append((canonical_relation(relation), src, dst))
-        return out
+        return list(event.semantic_relations)
 
     def _register_semantic_edge(self, relation: str, src_entity: str, dst_entity: str) -> None:
+        lookup_started = time.perf_counter()
         src_node = self.current_version_node(src_entity)
         dst_node = self.current_version_node(dst_entity)
+        self._semantic_current_version_lookup_time_seconds += time.perf_counter() - lookup_started
         if not src_node or not dst_node:
             return
         self.semantic_relations.append((canonical_relation(relation), src_entity, dst_entity))
@@ -146,7 +190,7 @@ class ProvenanceGraph:
     @staticmethod
     def _flow_direction(event: Event) -> tuple[str, str]:
         """Resolve information-flow edge direction by operation type."""
-        op = event.event_type.lower()
+        op = event.event_type_lower
 
         if op in {"write", "fork", "connect", "send"}:
             return event.subject, event.object
@@ -155,16 +199,6 @@ class ProvenanceGraph:
 
         # Fallback for unknown/custom operations: keep declared order.
         return event.subject, event.object
-
-    @staticmethod
-    def _is_truthy(value: object) -> bool:
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, (int, float)):
-            return value != 0
-        if isinstance(value, str):
-            return value.strip().lower() in {"1", "true", "yes", "y", "on"}
-        return False
 
     def _entities_requiring_new_version(self, event: Event) -> set[str]:
         """
@@ -178,7 +212,7 @@ class ProvenanceGraph:
         if not event.subject or not event.object:
             return set()
 
-        op = event.event_type.lower()
+        op = event.event_type_lower
         changed: set[str] = set()
 
         if op in {"write", "modify", "send", "proc_to_file", "proc_to_registry", "proc_to_ip", "file_to_ip"}:
@@ -189,10 +223,9 @@ class ProvenanceGraph:
             if self._is_process_node(event.subject):
                 changed.add(event.subject)
 
-        raw = event.raw if isinstance(event.raw, dict) else {}
-        if self._is_truthy(raw.get("subject_state_change")):
+        if event.subject_state_change:
             changed.add(event.subject)
-        if self._is_truthy(raw.get("object_state_change")):
+        if event.object_state_change:
             changed.add(event.object)
 
         # Safety fallback for unknown/custom operations: mutate object state so flow
@@ -232,12 +265,23 @@ class ProvenanceGraph:
         return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
     def _node_meta(self, node_id: str) -> VersionedNode:
-        return self.version_nodes[node_id]
+        started = time.perf_counter()
+        try:
+            return self.version_nodes[node_id]
+        finally:
+            self._node_meta_time_seconds += time.perf_counter() - started
 
     def _node_entity(self, node_id: str) -> str:
         return self.version_nodes[node_id].entity_id
 
-    def _new_version_node(self, entity_id: str, observed_ts: str | None = None) -> str:
+    def _new_version_node(
+        self,
+        entity_id: str,
+        observed_ts: str | None = None,
+        *,
+        observed_dt: datetime | None = None,
+    ) -> str:
+        started = time.perf_counter()
         next_version = self._version_counter[entity_id] + 1
         self._version_counter[entity_id] = next_version
         node_id = f"{entity_id}#v{next_version}"
@@ -253,18 +297,22 @@ class ProvenanceGraph:
         self.nodes.add(entity_id)
         self._ancestors_by_node[node_id] = {node_id}
         self._min_dist_from_ancestor[node_id] = {node_id: 0}
-        observed_dt = self._parse_ts(observed_ts)
         if observed_dt is not None:
             self._version_last_seen_ts[node_id] = observed_dt
             prev_entity_ts = self._entity_last_seen_ts.get(entity_id)
             if prev_entity_ts is None or observed_dt > prev_entity_ts:
                 self._entity_last_seen_ts[entity_id] = observed_dt
+        self._new_version_node_time_seconds += time.perf_counter() - started
         return node_id
 
     def current_version_node(self, entity_id: str | None) -> str | None:
         if not entity_id:
             return None
-        return self.current_version.get(entity_id)
+        started = time.perf_counter()
+        try:
+            return self.current_version.get(entity_id)
+        finally:
+            self._current_version_lookup_time_seconds += time.perf_counter() - started
 
     def _ensure_entity(self, entity_id: str) -> str:
         cur = self.current_version.get(entity_id)
@@ -282,23 +330,46 @@ class ProvenanceGraph:
         edge_type: EdgeType,
         relation: str,
     ) -> None:
-        src_meta = self._node_meta(src_node)
-        dst_meta = self._node_meta(dst_node)
+        version_nodes = self.version_nodes
+        node_meta_started = time.perf_counter()
+        try:
+            src_meta = version_nodes[src_node]
+            dst_meta = version_nodes[dst_node]
+        finally:
+            self._node_meta_time_seconds += time.perf_counter() - node_meta_started
         if src_meta.created_at >= dst_meta.created_at:
             raise ValueError("Versioned DAG invariant violated: non-forward edge creation attempted")
 
+        typed_adjacency_started = time.perf_counter()
         if edge_type == EdgeType.DATA_FLOW:
-            self.adj_data_flow[src_node].add(dst_node)
-            self.rev_adj_data_flow[dst_node].add(src_node)
+            adj_data_flow = self.adj_data_flow
+            rev_adj_data_flow = self.rev_adj_data_flow
+            adj_data_flow[src_node].add(dst_node)
+            rev_adj_data_flow[dst_node].add(src_node)
         elif edge_type == EdgeType.VERSION_TRANSITION:
-            self.adj_version_transition[src_node].add(dst_node)
-            self.rev_adj_version_transition[dst_node].add(src_node)
+            adj_version_transition = self.adj_version_transition
+            rev_adj_version_transition = self.rev_adj_version_transition
+            adj_version_transition[src_node].add(dst_node)
+            rev_adj_version_transition[dst_node].add(src_node)
         else:
             raise ValueError(f"Unsupported edge_type: {edge_type}")
+        self._typed_adjacency_add_time_seconds += time.perf_counter() - typed_adjacency_started
 
-        # Union adjacency for backward compatibility.
-        self.adj[src_node].add(dst_node)
-        self.rev_adj[dst_node].add(src_node)
+        self._union_adj_dirty = True
+        edge_id = self._edge_id_counter
+        self._edge_id_counter += 1
+        runtime_edge_started = time.perf_counter()
+        self.runtime_edges.append(
+            RuntimeEdge(
+                edge_id=edge_id,
+                src=src_node,
+                dst=dst_node,
+                edge_type=edge_type,
+                relation=relation,
+            )
+        )
+        self._runtime_edge_append_time_seconds += time.perf_counter() - runtime_edge_started
+        provenance_edge_started = time.perf_counter()
         self.edges.append(
             Edge(
                 src=src_node,
@@ -312,10 +383,38 @@ class ProvenanceGraph:
                 dst_entity=dst_meta.entity_id,
             )
         )
+        self._provenance_edge_append_time_seconds += time.perf_counter() - provenance_edge_started
         emitted = self.edges[-1]
-        self._propagate_ancestor_distance_delta(src_node, dst_node, edge_type)
+        if self.ancestor_index_mode == "incremental":
+            self._propagate_ancestor_distance_delta(src_node, dst_node, edge_type)
+        else:
+            self._ancestor_index_dirty = True
+        edge_hook_started = time.perf_counter()
         for hook in self._edge_hooks:
             hook(emitted)
+        self._edge_hook_time_seconds += time.perf_counter() - edge_hook_started
+
+    def _ensure_ancestor_index(self) -> None:
+        if self.ancestor_index_mode == "incremental" and not self._ancestor_index_dirty:
+            return
+        if self.ancestor_index_mode == "lazy" and not self._ancestor_index_dirty:
+            return
+        self._rebuild_indexes_from_current_state()
+
+    def _ensure_union_adjacency(self) -> None:
+        if not self._union_adj_dirty:
+            return
+        self.adj = defaultdict(set)
+        self.rev_adj = defaultdict(set)
+        for src, nbrs in self.adj_data_flow.items():
+            for dst in nbrs:
+                self.adj[src].add(dst)
+                self.rev_adj[dst].add(src)
+        for src, nbrs in self.adj_version_transition.items():
+            for dst in nbrs:
+                self.adj[src].add(dst)
+                self.rev_adj[dst].add(src)
+        self._union_adj_dirty = False
 
     def _propagate_ancestor_distance_delta(self, src_node: str, dst_node: str, edge_type: EdgeType) -> None:
         edge_cost = self._edge_cost(edge_type)
@@ -346,9 +445,16 @@ class ProvenanceGraph:
                 nxt_cost = self._edge_cost(nxt_type)
                 q.append((cur_dst, nxt, nxt_cost, changed_delta))
 
-    def _bump_entity(self, entity_id: str, event: Event) -> str:
-        prev = self._ensure_entity(entity_id)
-        new_node = self._new_version_node(entity_id, observed_ts=event.ts)
+    def _bump_entity(
+        self,
+        entity_id: str,
+        event: Event,
+        *,
+        event_dt: datetime | None = None,
+        prev_node: str | None = None,
+    ) -> str:
+        prev = prev_node if prev_node is not None else self._ensure_entity(entity_id)
+        new_node = self._new_version_node(entity_id, observed_ts=event.ts, observed_dt=event_dt)
         self.current_version[entity_id] = new_node
         self._link_version_edge(
             prev,
@@ -473,11 +579,25 @@ class ProvenanceGraph:
         """
         if not event.subject or not event.object:
             return None
-        event_dt = self._parse_ts(event.ts)
+        ensure_entity = self._ensure_entity
+        bump_entity = self._bump_entity
+        link_version_edge = self._link_version_edge
+        register_semantic_edge = self._register_semantic_edge
+        current_version = self.current_version
+        entity_last_seen_ts = self._entity_last_seen_ts
+        event_dt = event.parsed_ts
+        event_semantic_extract_started = time.perf_counter()
+        semantic_relations = self._semantic_relations_for_event(event)
+        self._event_semantic_extract_time_seconds += time.perf_counter() - event_semantic_extract_started
         memory_transition: tuple[str, str] | None = None
-        if event.object.startswith("mem:"):
+        edges_linked_this_event = 0
+        if event.is_memory_object:
+            memory_sync_started = time.perf_counter()
             original_object = event.object
-            synchronized_object, memory_transition = self._synchronize_memory_vma(event)
+            synchronized_object, memory_transition = self._synchronize_memory_vma(
+                event,
+                semantic_relations=semantic_relations,
+            )
             event.object = synchronized_object
             raw = event.raw if isinstance(event.raw, dict) else None
             cdr = raw.get("cdr") if isinstance(raw, dict) and isinstance(raw.get("cdr"), dict) else None
@@ -488,60 +608,97 @@ class ProvenanceGraph:
                         continue
                     if item.get("dst") == original_object:
                         item["dst"] = synchronized_object
+            if synchronized_object != original_object:
+                semantic_relations = [
+                    (relation, semantic_src, synchronized_object if semantic_dst == original_object else semantic_dst)
+                    for relation, semantic_src, semantic_dst in semantic_relations
+                ]
+            self._memory_sync_time_seconds += time.perf_counter() - memory_sync_started
+            self._events_with_memory_sync += 1
 
+        flow_direction_started = time.perf_counter()
         src_entity, dst_entity = self._flow_direction(event)
-        self._ensure_entity(src_entity)
-        self._ensure_entity(dst_entity)
+        self._flow_direction_time_seconds += time.perf_counter() - flow_direction_started
+        ensure_entity_started = time.perf_counter()
+        ensure_entity(src_entity)
+        ensure_entity(dst_entity)
+        self._ensure_entity_time_seconds += time.perf_counter() - ensure_entity_started
         if event_dt is not None:
-            self._entity_last_seen_ts[src_entity] = event_dt
-            self._entity_last_seen_ts[dst_entity] = event_dt
+            entity_last_seen_ts[src_entity] = event_dt
+            entity_last_seen_ts[dst_entity] = event_dt
 
-        pre_src = self.current_version[src_entity]
-        pre_dst = self.current_version[dst_entity]
+        pre_src = current_version[src_entity]
+        pre_dst = current_version[dst_entity]
 
+        changed_entities_started = time.perf_counter()
         changed_entities = self._entities_requiring_new_version(event)
+        self._event_version_change_eval_time_seconds += time.perf_counter() - changed_entities_started
         # Enforce receiver-post-state modeling so all flow edges stay forward in version-time.
         if dst_entity not in changed_entities:
             changed_entities.add(dst_entity)
+        self._changed_entities_total += len(changed_entities)
+        self._max_changed_entities = max(self._max_changed_entities, len(changed_entities))
+        self._changed_entities_time_seconds += time.perf_counter() - changed_entities_started
 
         post_by_entity: dict[str, str] = {}
+        prev_by_entity = {entity_id: current_version[entity_id] for entity_id in changed_entities}
+        bump_entities_started = time.perf_counter()
         for entity_id in sorted(changed_entities):
-            post_by_entity[entity_id] = self._bump_entity(entity_id, event)
+            post_by_entity[entity_id] = bump_entity(
+                entity_id,
+                event,
+                event_dt=event_dt,
+                prev_node=prev_by_entity[entity_id],
+            )
+            edges_linked_this_event += 1
+        self._bump_entities_time_seconds += time.perf_counter() - bump_entities_started
 
         flow_src = pre_src
         flow_dst = post_by_entity.get(dst_entity, pre_dst)
-        self._link_version_edge(
+        flow_link_started = time.perf_counter()
+        link_version_edge(
             flow_src,
             flow_dst,
             event,
             edge_type=EdgeType.DATA_FLOW,
             relation="flow",
         )
+        edges_linked_this_event += 1
+        self._flow_link_time_seconds += time.perf_counter() - flow_link_started
         if memory_transition is not None:
+            memory_transition_link_started = time.perf_counter()
             previous_memory_entity, current_memory_entity = memory_transition
-            previous_memory_node = self._ensure_entity(previous_memory_entity)
-            current_memory_node = self.current_version[current_memory_entity]
+            previous_memory_node = ensure_entity(previous_memory_entity)
+            current_memory_node = current_version[current_memory_entity]
             if previous_memory_node != current_memory_node:
-                self._link_version_edge(
+                link_version_edge(
                     previous_memory_node,
                     current_memory_node,
                     event,
                     edge_type=EdgeType.VERSION_TRANSITION,
                     relation="vma_prev_version",
                 )
+                edges_linked_this_event += 1
+            self._memory_transition_link_time_seconds += time.perf_counter() - memory_transition_link_started
+        self._edges_linked_total += edges_linked_this_event
+        self._max_edges_linked_in_event = max(self._max_edges_linked_in_event, edges_linked_this_event)
+        path_factor_cache_clear_started = time.perf_counter()
         self._path_factor_cache.clear()
+        self._path_factor_cache_clear_time_seconds += time.perf_counter() - path_factor_cache_clear_started
 
         # Process lineage relation for common-ancestor checks.
-        if event.event_type.lower() in {"proc_to_proc", "fork"} and self._is_process_node(event.subject) and self._is_process_node(event.object):
+        if event.event_type_lower in {"proc_to_proc", "fork"} and self._is_process_node(event.subject) and self._is_process_node(event.object):
             self.process_parents[event.object].add(event.subject)
             self._process_ancestor_cache.clear()
-        for relation, semantic_src, semantic_dst in self._semantic_relations_for_event(event):
-            self._register_semantic_edge(relation, semantic_src, semantic_dst)
+        semantic_register_started = time.perf_counter()
+        for relation, semantic_src, semantic_dst in semantic_relations:
+            register_semantic_edge(relation, semantic_src, semantic_dst)
+        self._semantic_register_time_seconds += time.perf_counter() - semantic_register_started
         return {
             "flow_src_version": flow_src,
             "flow_dst_version": flow_dst,
-            "subject_node_id": self.current_version[event.subject],
-            "object_node_id": self.current_version[event.object],
+            "subject_node_id": current_version[event.subject],
+            "object_node_id": current_version[event.object],
         }
 
     def nodes_on_shortest_version_path(self, src: str, dst: str) -> set[str]:
@@ -593,6 +750,11 @@ class ProvenanceGraph:
         }
         old_edge_count = len(self.edges)
         old_semantic_count = len(self.semantic_relations)
+        self.runtime_edges = [
+            edge
+            for edge in self.runtime_edges
+            if edge.src not in removable_version_nodes and edge.dst not in removable_version_nodes
+        ]
         self.edges = [
             edge
             for edge in self.edges
@@ -645,7 +807,7 @@ class ProvenanceGraph:
         for node_id in self.version_nodes:
             self._ancestors_by_node[node_id] = {node_id}
             self._min_dist_from_ancestor[node_id] = {node_id: 0}
-        for edge in self.edges:
+        for edge in self.runtime_edges:
             if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
                 continue
             if edge.edge_type == EdgeType.DATA_FLOW:
@@ -656,7 +818,7 @@ class ProvenanceGraph:
                 self.rev_adj_version_transition[edge.dst].add(edge.src)
             self.adj[edge.src].add(edge.dst)
             self.rev_adj[edge.dst].add(edge.src)
-        for edge in self.edges:
+        for edge in self.runtime_edges:
             if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
                 continue
             self._propagate_ancestor_distance_delta(edge.src, edge.dst, edge.edge_type)
@@ -667,6 +829,8 @@ class ProvenanceGraph:
                 continue
             self.semantic_adj[relation][src_node].add(dst_node)
             self.semantic_rev_adj[relation][dst_node].add(src_node)
+        self._ancestor_index_dirty = False
+        self._union_adj_dirty = False
 
     def add_events(self, events: Iterable[Event]) -> None:
         for event in events:
@@ -674,6 +838,48 @@ class ProvenanceGraph:
 
     def has_path(self, src: str, dst: str) -> bool:
         return self.path(src, dst) is not None
+
+    def has_path_fast(self, src: str, dst: str) -> bool:
+        """
+        Fast reachability check using cached ancestor index.
+
+        This avoids shortest-path BFS when only connectivity is needed.
+        """
+        if src == dst:
+            return True
+        self._ensure_ancestor_index()
+        src_nodes = set(self._resolve_query_nodes(src))
+        dst_nodes = self._resolve_query_nodes(dst)
+        if not src_nodes or not dst_nodes:
+            return False
+        for d in dst_nodes:
+            d_ancs = self._ancestors_by_node.get(d, set())
+            if not d_ancs.isdisjoint(src_nodes):
+                return True
+        return False
+
+    def has_any_path_fast(self, src_entities: Iterable[str], dst_entities: Iterable[str]) -> bool:
+        """
+        Batched fast reachability check.
+
+        Returns True when any src -> any dst path exists.
+        """
+        self._ensure_ancestor_index()
+        src_nodes: set[str] = set()
+        for src in src_entities:
+            if not src:
+                continue
+            src_nodes.update(self._resolve_query_nodes(src))
+        if not src_nodes:
+            return False
+        for dst in dst_entities:
+            if not dst:
+                continue
+            for d in self._resolve_query_nodes(dst):
+                d_ancs = self._ancestors_by_node.get(d, set())
+                if not d_ancs.isdisjoint(src_nodes):
+                    return True
+        return False
 
     def descendants(self, node: str) -> set[str]:
         """Entity-level reachability projection from all versions of entity `node`."""
@@ -698,6 +904,7 @@ class ProvenanceGraph:
         """
         if src == dst:
             return 0 if src in self.nodes or src in self.version_nodes else None
+        self._ensure_ancestor_index()
         return self._shortest_version_distance(src, dst)
 
     def attenuation(self, distance: int) -> float:
@@ -707,6 +914,7 @@ class ProvenanceGraph:
 
     def ac(self, x: str, y: str) -> set[str]:
         """AC(x,y): set of common ancestors over resolved version nodes."""
+        self._ensure_ancestor_index()
         x_nodes = self._resolve_query_nodes(x)
         y_nodes = self._resolve_query_nodes(y)
         if not x_nodes or not y_nodes:
@@ -723,31 +931,49 @@ class ProvenanceGraph:
         """
         AC_min(x,y): common ancestors that are not ancestors of another common ancestor.
         """
+        self._ensure_ancestor_index()
         common = self.ac(x, y)
         if not common:
             return set()
+
+        if self.ac_min_method == "pairwise":
+            result: set[str] = set()
+            for a in common:
+                is_min = True
+                for b in common:
+                    if a == b:
+                        continue
+                    if a in self._ancestors_by_node.get(b, set()):
+                        is_min = False
+                        break
+                if is_min:
+                    result.add(a)
+            return result
+
+        if self._use_native_acmin:
+            try:
+                return _acmin_native.ac_min_setdiff(common, self._ancestors_by_node)
+            except Exception:
+                # Fallback to Python path on any native error.
+                pass
+
         result = set(common)
-        common_list = list(common)
-        for a in common_list:
-            for b in common_list:
-                if a == b:
-                    continue
-                # Remove 'a' when 'a' is ancestor of another common ancestor 'b'.
-                if a in self._ancestors_by_node.get(b, set()):
-                    result.discard(a)
-                    break
+        for b in common:
+            strict_ancestors = self._ancestors_by_node.get(b, set()) - {b}
+            result.difference_update(strict_ancestors)
         return result
 
     def minimum_ancestral_cover_size(self, src: str, dst: str) -> int | None:
         return self.exact_mac_size(src, dst)
 
     def exact_mac_size(self, src: str, dst: str) -> int | None:
+        self._ensure_ancestor_index()
         if src in self.version_nodes or dst in self.version_nodes:
             cover = self.ac_min(src, dst)
             if not cover:
                 return None
             return len(cover)
-        if not self.has_path(src, dst):
+        if not self.has_path_fast(src, dst):
             return None
         cover = self.ac_min(src, dst)
         if not cover:
@@ -758,6 +984,7 @@ class ProvenanceGraph:
         """
         Backward-compatible alias derived from exact MAC size.
         """
+        self._ensure_ancestor_index()
         mac_size = self.exact_mac_size(src, dst)
         if mac_size is None or mac_size <= 0:
             return 0.0
@@ -782,13 +1009,18 @@ class ProvenanceGraph:
     def _memory_entity_with_version(base_key: str, version: int) -> str:
         return f"{base_key}:{version}"
 
-    def _synchronize_memory_vma(self, event: Event) -> tuple[str | None, tuple[str, str] | None]:
+    def _synchronize_memory_vma(
+        self,
+        event: Event,
+        *,
+        semantic_relations: list[tuple[str, str, str]] | None = None,
+    ) -> tuple[str | None, tuple[str, str] | None]:
         if not event.object or not event.object.startswith("mem:"):
             return event.object, None
         base_key = self._memory_base_key(event.object)
         if base_key is None:
             return event.object, None
-        relations = {relation for relation, _src, _dst in self._semantic_relations_for_event(event)}
+        relations = {relation for relation, _src, _dst in (semantic_relations or [])}
         current_entity = self._memory_vma_current_entity.get(base_key)
         if {"make_mem_exec", "protect_memory_exec"} & relations:
             next_version = 1
@@ -965,6 +1197,7 @@ class ProvenanceGraph:
         """
         Unified path-factor definition: exact |MAC|.
         """
+        self._ensure_ancestor_index()
         mac_size = self.exact_mac_size(src, dst)
         if mac_size is None:
             return None
@@ -1042,6 +1275,7 @@ class ProvenanceGraph:
             return False
 
     def topological_sort_version_nodes(self) -> list[str]:
+        self._ensure_union_adjacency()
         indeg: dict[str, int] = {nid: 0 for nid in self.version_nodes}
         for src, nbrs in self.adj.items():
             _ = src

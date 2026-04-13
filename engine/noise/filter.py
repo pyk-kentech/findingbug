@@ -10,7 +10,7 @@ import yaml
 from engine.core.graph import path_factor_passes
 from engine.core.matcher import TTPMatch
 from engine.hsg.builder import HSG, HSGEdge, HSGNode
-from engine.io.events import Event
+from engine.io.events import Event, EventMeta
 from engine.noise.model import NoiseModel, load_noise_model
 
 
@@ -112,13 +112,13 @@ def load_noise_config(
     return config
 
 
-def _match_bytes(match: TTPMatch, events_by_id: dict[str, Event] | None) -> int | None:
+def _match_bytes(match: TTPMatch, events_by_id: dict[str, Event | EventMeta] | None) -> int | None:
     if not events_by_id:
         return None
     values = []
     for event_id in match.event_ids:
         event = events_by_id.get(event_id)
-        if isinstance(event, Event) and event.bytes_transferred is not None:
+        if isinstance(event, (Event, EventMeta)) and event.bytes_transferred is not None:
             values.append(int(event.bytes_transferred))
     if not values:
         return None
@@ -170,7 +170,7 @@ def _should_drop_by_dynamic_threshold(
     match: TTPMatch,
     config: NoiseConfig,
     *,
-    events_by_id: dict[str, Event] | None,
+    events_by_id: dict[str, Event | EventMeta] | None,
     state: DynamicNoiseRuntimeState,
 ) -> tuple[bool, str | None]:
     key, threshold_entry = _dynamic_threshold_entry(match, config)
@@ -205,7 +205,7 @@ def filter_matches(
     matches: list[TTPMatch],
     config: NoiseConfig,
     *,
-    events_by_id: dict[str, Event] | None = None,
+    events_by_id: dict[str, Event | EventMeta] | None = None,
     reset_dynamic_state: bool = True,
 ) -> list[TTPMatch]:
     if not matches:
@@ -269,7 +269,7 @@ def apply_noise_filter(
     hsg_before: HSG,
     config: NoiseConfig,
     *,
-    events_by_id: dict[str, Event] | None = None,
+    events_by_id: dict[str, Event | EventMeta] | None = None,
 ) -> tuple[list[TTPMatch], HSG]:
     matches_after = filter_matches(matches_before, config, events_by_id=events_by_id, reset_dynamic_state=True)
     keep_ids = {m.match_id for m in matches_after}

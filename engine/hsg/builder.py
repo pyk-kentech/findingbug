@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from collections import deque
+import time
 
 from engine.core.graph import ProvenanceGraph
 from engine.core.matcher import TTPMatch
 from engine.core.privilege_tracker import PrivilegeTracker
 from engine.core.taint_tracker import TaintTracker
 from engine.hsg.prerequisite_evaluator import PrerequisiteEvaluator
-from engine.hsg.prerequisite import is_path_factor_satisfied, is_prerequisite_satisfied
+from engine.hsg.prerequisite import is_prerequisite_satisfied
 from engine.rules.schema import RuleSet, infer_rule_stage, path_factor_prerequisites, prerequisite_types
 import yaml
 
@@ -69,9 +70,12 @@ class IncrementalHSGBuilder:
         graph_path_allowlist: set[tuple[str, str]] | None = None,
         max_graph_path_edges: int = 10000,
         max_graph_path_candidates_per_match: int = 200,
+        graph_path_eval_budget_ms: float | None = None,
+        graph_path_cache_miss_policy: str = "compute",
         pending_ttl_seconds: int | None = 30 * 24 * 60 * 60,
         max_pending_matches: int = 100000,
         scenario_dormancy_seconds: int | None = 60 * 24 * 60 * 60,
+        dormant_gc_every_matches: int = 1000,
     ) -> None:
         self.graph = graph
         self.ruleset = ruleset
@@ -80,12 +84,23 @@ class IncrementalHSGBuilder:
         self.graph_path_allowlist = graph_path_allowlist if graph_path_allowlist is not None else GRAPH_PATH_ALLOWLIST
         self.max_graph_path_edges = max_graph_path_edges
         self.max_graph_path_candidates_per_match = max_graph_path_candidates_per_match
+        self.graph_path_eval_budget_ms = (
+            None if graph_path_eval_budget_ms is None else max(0.0, float(graph_path_eval_budget_ms))
+        )
+        if graph_path_cache_miss_policy not in {"compute", "skip"}:
+            raise ValueError("graph_path_cache_miss_policy must be one of: compute, skip")
+        self.graph_path_cache_miss_policy = graph_path_cache_miss_policy
         self.pending_ttl_seconds = None if pending_ttl_seconds is None else max(0, int(pending_ttl_seconds))
         self.max_pending_matches = max(0, int(max_pending_matches))
         self.scenario_dormancy_seconds = (
             None if scenario_dormancy_seconds is None else max(0, int(scenario_dormancy_seconds))
         )
+        self.dormant_gc_every_matches = max(1, int(dormant_gc_every_matches))
         self.rule_by_id = {rule.rule_id: rule for rule in ruleset.rules}
+        self.rule_has_prereq_by_id = {
+            rule.rule_id: self._has_prereq(rule)
+            for rule in ruleset.rules
+        }
         self.evaluator = PrerequisiteEvaluator(
             graph=graph,
             taint_tracker=taint_tracker,
@@ -110,6 +125,50 @@ class IncrementalHSGBuilder:
         self.closed_scenarios_count = 0
         self.closed_matches_count = 0
         self.closed_scenarios_by_id: dict[str, int] = defaultdict(int)
+        self._matches_since_dormant_gc = 0
+        self.last_activated_match_ids: set[str] = set()
+        self.last_closed_match_ids: list[str] = []
+        self.component_map_time_seconds = 0.0
+        self.candidate_match_ids_total = 0
+        self.candidate_match_ids_max = 0
+        self.candidate_match_ids_filtered_no_prereq_total = 0
+        self.candidate_match_ids_filtered_rule_pair_total = 0
+        self.pending_activation_candidate_total = 0
+        self.pending_activation_candidate_max = 0
+        self.pending_activation_ancestor_scan_time_seconds = 0.0
+        self.add_match_built_edges_total = 0
+        self.add_match_built_edges_max = 0
+        self.add_match_watermark_evict_time_seconds = 0.0
+        self.add_match_candidate_ids_time_seconds = 0.0
+        self.add_match_ast_eval_time_seconds = 0.0
+        self.add_match_pair_eval_time_seconds = 0.0
+        self.add_match_pending_insert_time_seconds = 0.0
+        self.add_match_pending_capacity_evict_time_seconds = 0.0
+        self.add_match_pending_path_count = 0
+        self.add_match_pending_size_total = 0
+        self.add_match_pending_size_max = 0
+        self.pair_edges_relation_eval_total = 0
+        self.pair_edges_graph_path_eval_total = 0
+        self.pair_edges_non_graph_path_eval_total = 0
+        self.pair_edges_seen_skip_total = 0
+        self.pair_edges_graph_path_skip_max_edges_total = 0
+        self.pair_edges_graph_path_skip_allowlist_total = 0
+        self.pair_edges_graph_path_skip_src_cap_total = 0
+        self.pair_edges_graph_path_skip_candidate_total = 0
+        self.pair_edges_graph_path_skip_prereq_total = 0
+        self.pair_edges_graph_path_skip_metrics_total = 0
+        self.pair_edges_graph_path_skip_binding_total = 0
+        self.pair_edges_graph_path_skip_budget_total = 0
+        self.pair_edges_graph_path_skip_cache_miss_total = 0
+        self.pair_edges_prereq_check_time_seconds = 0.0
+        self.pair_edges_graph_path_candidate_time_seconds = 0.0
+        self.pair_edges_graph_path_metrics_time_seconds = 0.0
+        self.pair_edges_built_total = 0
+        self.pair_edges_graph_path_pf_cache_hit_total = 0
+        self.pair_edges_graph_path_pf_cache_miss_total = 0
+        self.pair_edges_graph_path_pf_compute_time_seconds = 0.0
+        self._rule_pair_relevance_cache: dict[tuple[str, str], bool] = {}
+        self._match_entities_cache: dict[str, set[str]] = {}
 
     def _has_prereq(self, rule) -> bool:
         return bool(
@@ -122,6 +181,7 @@ class IncrementalHSGBuilder:
 
     def _index_match(self, match: TTPMatch) -> None:
         self.matches_by_id[match.match_id] = match
+        self._match_entities_cache[match.match_id] = _match_entities(match)
         self.nodes[match.match_id] = HSGNode(
             match_id=match.match_id,
             rule_id=match.rule_id,
@@ -130,6 +190,21 @@ class IncrementalHSGBuilder:
         )
         for entity in _match_entities(match):
             self.entity_to_hsg_node[entity].add(match.match_id)
+
+    def _pair_can_produce_edge(self, left_rule_id: str, right_rule_id: str) -> bool:
+        cache_key = (left_rule_id, right_rule_id)
+        cached = self._rule_pair_relevance_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        left_rule = self.rule_by_id.get(left_rule_id)
+        right_rule = self.rule_by_id.get(right_rule_id)
+        forward = prerequisite_relations_for_pair(left_rule, right_rule, self.prereq_policy)
+        reverse = prerequisite_relations_for_pair(right_rule, left_rule, self.prereq_policy)
+        # _pair_edges_bidirectional keeps every forward relation and only reverse graph_path.
+        relevant = bool(forward) or ("graph_path" in reverse)
+        self._rule_pair_relevance_cache[cache_key] = relevant
+        return relevant
 
     @staticmethod
     def _scenario_id(match_ids: set[str]) -> str:
@@ -177,6 +252,7 @@ class IncrementalHSGBuilder:
 
     def _index_pending(self, match: TTPMatch, watermark: datetime | None = None) -> None:
         self.pending_matches_by_id[match.match_id] = match
+        self._match_entities_cache[match.match_id] = _match_entities(match)
         if watermark is not None:
             self.pending_match_ts[match.match_id] = watermark
         for entity in _match_entities(match):
@@ -187,6 +263,7 @@ class IncrementalHSGBuilder:
         self.pending_match_ts.pop(match_id, None)
         if match is None:
             return
+        self._match_entities_cache.pop(match_id, None)
         for entity in _match_entities(match):
             bucket = self.pending_entity_to_hsg_node.get(entity)
             if bucket is None:
@@ -201,6 +278,7 @@ class IncrementalHSGBuilder:
         self.match_last_activity_ts.pop(match_id, None)
         if match is None:
             return
+        self._match_entities_cache.pop(match_id, None)
         for entity in _match_entities(match):
             bucket = self.entity_to_hsg_node.get(entity)
             if bucket is None:
@@ -252,36 +330,48 @@ class IncrementalHSGBuilder:
         ts = self.pending_match_ts.get(match_id, datetime.max.replace(tzinfo=timezone.utc))
         return int(stage), ts, match_id
 
-    def _component_map(self) -> dict[str, set[str]]:
-        if not self.nodes:
-            return {}
-        adjacency: dict[str, set[str]] = defaultdict(set)
-        for node_id in self.nodes:
-            adjacency.setdefault(node_id, set())
-        for edge in self.edges:
-            if edge.src not in self.nodes or edge.dst not in self.nodes:
-                continue
-            adjacency[edge.src].add(edge.dst)
-            adjacency[edge.dst].add(edge.src)
+    def _entities_of_match(self, match: TTPMatch) -> set[str]:
+        cached = self._match_entities_cache.get(match.match_id)
+        if cached is not None:
+            return cached
+        entities = _match_entities(match)
+        self._match_entities_cache[match.match_id] = entities
+        return entities
 
-        components: dict[str, set[str]] = {}
-        seen: set[str] = set()
-        for root in sorted(self.nodes):
-            if root in seen:
-                continue
-            queue: deque[str] = deque([root])
-            component: set[str] = set()
-            seen.add(root)
-            while queue:
-                cur = queue.popleft()
-                component.add(cur)
-                for nxt in adjacency.get(cur, set()):
-                    if nxt in seen:
-                        continue
-                    seen.add(nxt)
-                    queue.append(nxt)
-            components[self._scenario_id(component)] = component
-        return components
+    def _component_map(self) -> dict[str, set[str]]:
+        started = time.perf_counter()
+        try:
+            if not self.nodes:
+                return {}
+            adjacency: dict[str, set[str]] = defaultdict(set)
+            for node_id in self.nodes:
+                adjacency.setdefault(node_id, set())
+            for edge in self.edges:
+                if edge.src not in self.nodes or edge.dst not in self.nodes:
+                    continue
+                adjacency[edge.src].add(edge.dst)
+                adjacency[edge.dst].add(edge.src)
+
+            components: dict[str, set[str]] = {}
+            seen: set[str] = set()
+            for root in sorted(self.nodes):
+                if root in seen:
+                    continue
+                queue: deque[str] = deque([root])
+                component: set[str] = set()
+                seen.add(root)
+                while queue:
+                    cur = queue.popleft()
+                    component.add(cur)
+                    for nxt in adjacency.get(cur, set()):
+                        if nxt in seen:
+                            continue
+                        seen.add(nxt)
+                        queue.append(nxt)
+                components[self._scenario_id(component)] = component
+            return components
+        finally:
+            self.component_map_time_seconds += time.perf_counter() - started
 
     def _touch_match_activity(self, match_ids: set[str], watermark: datetime | None) -> None:
         if watermark is None:
@@ -326,14 +416,38 @@ class IncrementalHSGBuilder:
         for entity in _match_entities(match):
             ids |= self.entity_to_hsg_node.get(entity, set())
             ids |= self.pending_entity_to_hsg_node.get(entity, set())
-            for ancestor in self.graph.ancestors(entity):
-                ids |= self.entity_to_hsg_node.get(ancestor, set())
-                ids |= self.pending_entity_to_hsg_node.get(ancestor, set())
-            for descendant in self.graph.descendants(entity):
-                ids |= self.entity_to_hsg_node.get(descendant, set())
-                ids |= self.pending_entity_to_hsg_node.get(descendant, set())
         ids.discard(match.match_id)
+        if not self.rule_has_prereq_by_id.get(match.rule_id, False):
+            before = len(ids)
+            ids = {
+                candidate_id
+                for candidate_id in ids
+                if self.rule_has_prereq_by_id.get(
+                    (self.matches_by_id.get(candidate_id) or self.pending_matches_by_id.get(candidate_id)).rule_id,
+                    False,
+                )
+            }
+            self.candidate_match_ids_filtered_no_prereq_total += before - len(ids)
+        filtered_ids: set[str] = set()
+        before_rule_pair = len(ids)
+        for candidate_id in ids:
+            candidate_match = self.matches_by_id.get(candidate_id) or self.pending_matches_by_id.get(candidate_id)
+            if candidate_match is None:
+                continue
+            if self._pair_can_produce_edge(candidate_match.rule_id, match.rule_id):
+                filtered_ids.add(candidate_id)
+        ids = filtered_ids
+        self.candidate_match_ids_filtered_rule_pair_total += before_rule_pair - len(ids)
+        self.candidate_match_ids_total += len(ids)
+        self.candidate_match_ids_max = max(self.candidate_match_ids_max, len(ids))
         return ids
+
+    def _maybe_gc_dormant_scenarios(self, watermark_ts: str | None = None) -> list[str]:
+        self._matches_since_dormant_gc += 1
+        if self._matches_since_dormant_gc < self.dormant_gc_every_matches:
+            return []
+        self._matches_since_dormant_gc = 0
+        return self.gc_dormant_scenarios(watermark_ts)
 
     def _graph_path_edge_metrics(
         self,
@@ -342,59 +456,147 @@ class IncrementalHSGBuilder:
         left_rule,
         right_rule,
         relation: str,
+        config: dict | None = None,
+        path_factor_cache: dict[tuple[str, str], float | None] | None = None,
+        graph_path_deadline: float | None = None,
     ) -> tuple[float | None, float | None, float | None] | None:
-        config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
-        if not config:
+        if graph_path_deadline is not None and time.perf_counter() >= graph_path_deadline:
+            self.pair_edges_graph_path_skip_budget_total += 1
             return None
-        from_binding = config.get("from_binding")
-        to_binding = config.get("to_binding")
+        effective_config = config if config is not None else _resolve_prereq_config(relation, left.rule_id, right.rule_id)
+        if not effective_config:
+            return None
+        from_binding = effective_config.get("from_binding")
+        to_binding = effective_config.get("to_binding")
         if not from_binding or not to_binding:
             return None
         from_entity = left.bindings.get(from_binding)
         to_entity = right.bindings.get(to_binding)
         if not from_entity or not to_entity:
             return None
-        pf_reqs = path_factor_prerequisites_for_pair(left_rule, right_rule, self.prereq_policy)
-        if pf_reqs and any(
-            not is_path_factor_satisfied(self.graph, from_entity, to_entity, prereq.max_path_factor)
-            for prereq in pf_reqs
-        ):
-            return None
-        edge_pf = self.graph.path_factor_for_edge(from_entity, to_entity)
+        cache_key = (str(from_entity), str(to_entity))
+        edge_pf: float | None
+        if path_factor_cache is not None and cache_key in path_factor_cache:
+            self.pair_edges_graph_path_pf_cache_hit_total += 1
+            edge_pf = path_factor_cache[cache_key]
+        else:
+            self.pair_edges_graph_path_pf_cache_miss_total += 1
+            if self.graph_path_cache_miss_policy == "skip":
+                self.pair_edges_graph_path_skip_cache_miss_total += 1
+                return None
+            if graph_path_deadline is not None and time.perf_counter() >= graph_path_deadline:
+                self.pair_edges_graph_path_skip_budget_total += 1
+                return None
+            edge_pf_started = time.perf_counter()
+            edge_pf = self.graph.path_factor_for_edge(from_entity, to_entity)
+            self.pair_edges_graph_path_pf_compute_time_seconds += time.perf_counter() - edge_pf_started
+            if path_factor_cache is not None:
+                path_factor_cache[cache_key] = edge_pf
         if edge_pf is None or edge_pf <= 0.0:
+            return None
+        pf_reqs = path_factor_prerequisites_for_pair(left_rule, right_rule, self.prereq_policy)
+        if pf_reqs:
+            for prereq in pf_reqs:
+                try:
+                    threshold = float(prereq.max_path_factor)
+                except (TypeError, ValueError):
+                    return None
+                if threshold < 0.0:
+                    return None
+                if float(edge_pf) > threshold:
+                    return None
+        max_path_factor = float(effective_config.get("max_path_factor", 0.0))
+        if max_path_factor > 0.0 and float(edge_pf) > max_path_factor:
             return None
         weight = 1.0 / float(edge_pf)
         return weight, float(edge_pf), weight
 
-    def _pair_edges(self, left: TTPMatch, right: TTPMatch) -> list[HSGEdge]:
+    def _pair_edges(
+        self,
+        left: TTPMatch,
+        right: TTPMatch,
+        path_factor_cache: dict[tuple[str, str], float | None] | None = None,
+        descendants_cache: dict[tuple[str, str], bool] | None = None,
+        graph_path_deadline: float | None = None,
+    ) -> list[HSGEdge]:
         left_rule = self.rule_by_id.get(left.rule_id)
         right_rule = self.rule_by_id.get(right.rule_id)
         prereq_types = prerequisite_relations_for_pair(left_rule, right_rule, self.prereq_policy)
         built: list[HSGEdge] = []
         for relation in prereq_types:
+            self.pair_edges_relation_eval_total += 1
             edge_key = (left.match_id, right.match_id, relation)
             if edge_key in self.seen_edges:
+                self.pair_edges_seen_skip_total += 1
                 continue
             if relation == "graph_path":
+                self.pair_edges_graph_path_eval_total += 1
+                if graph_path_deadline is not None and time.perf_counter() >= graph_path_deadline:
+                    self.pair_edges_graph_path_skip_budget_total += 1
+                    continue
                 if self.graph_path_edges_count >= self.max_graph_path_edges:
+                    self.pair_edges_graph_path_skip_max_edges_total += 1
                     continue
                 if self.graph_path_allowlist is not None and (left.rule_id, right.rule_id) not in self.graph_path_allowlist:
+                    self.pair_edges_graph_path_skip_allowlist_total += 1
                     continue
                 if self.graph_path_candidates_by_src[left.match_id] >= self.max_graph_path_candidates_per_match:
-                    continue
-                if not is_graph_path_candidate(self.graph, left, right, {}):
+                    self.pair_edges_graph_path_skip_src_cap_total += 1
                     continue
                 config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
-                if not is_prerequisite_satisfied(self.graph, left, right, relation, config):
+                from_binding = str(config.get("from_binding")) if isinstance(config, dict) and config.get("from_binding") else None
+                to_binding = str(config.get("to_binding")) if isinstance(config, dict) and config.get("to_binding") else None
+                graph_path_candidate_started = time.perf_counter()
+                if from_binding is not None and to_binding is not None:
+                    from_entity = left.bindings.get(from_binding)
+                    to_entity = right.bindings.get(to_binding)
+                    if not from_entity or not to_entity:
+                        graph_path_candidate_ok = False
+                        self.pair_edges_graph_path_skip_binding_total += 1
+                    else:
+                        graph_path_candidate_ok = _reachable_entity(
+                            self.graph,
+                            str(from_entity),
+                            str(to_entity),
+                            descendants_cache if descendants_cache is not None else {},
+                        )
+                else:
+                    graph_path_candidate_ok = is_graph_path_candidate(
+                        self.graph,
+                        left,
+                        right,
+                        descendants_cache if descendants_cache is not None else {},
+                        left_entities=self._entities_of_match(left),
+                        right_entities=self._entities_of_match(right),
+                    )
+                self.pair_edges_graph_path_candidate_time_seconds += time.perf_counter() - graph_path_candidate_started
+                if not graph_path_candidate_ok:
+                    self.pair_edges_graph_path_skip_candidate_total += 1
                     continue
-                metrics = self._graph_path_edge_metrics(left, right, left_rule, right_rule, relation)
+                graph_path_metrics_started = time.perf_counter()
+                metrics = self._graph_path_edge_metrics(
+                    left,
+                    right,
+                    left_rule,
+                    right_rule,
+                    relation,
+                    config=config,
+                    path_factor_cache=path_factor_cache,
+                    graph_path_deadline=graph_path_deadline,
+                )
+                self.pair_edges_graph_path_metrics_time_seconds += time.perf_counter() - graph_path_metrics_started
                 if metrics is None:
+                    self.pair_edges_graph_path_skip_metrics_total += 1
                     continue
                 edge_dependency_strength, edge_path_factor, weight = metrics
                 self.graph_path_candidates_by_src[left.match_id] += 1
             else:
+                self.pair_edges_non_graph_path_eval_total += 1
                 config = _resolve_prereq_config(relation, left.rule_id, right.rule_id)
-                if not is_prerequisite_satisfied(self.graph, left, right, relation, config):
+                prereq_check_started = time.perf_counter()
+                prereq_ok = is_prerequisite_satisfied(self.graph, left, right, relation, config)
+                self.pair_edges_prereq_check_time_seconds += time.perf_counter() - prereq_check_started
+                if not prereq_ok:
                     continue
                 edge_dependency_strength = None
                 edge_path_factor = None
@@ -410,56 +612,121 @@ class IncrementalHSGBuilder:
                     dependency_strength=edge_dependency_strength,
                 )
             )
+            self.pair_edges_built_total += 1
             if relation == "graph_path":
                 self.graph_path_edges_count += 1
         return built
 
-    def _pair_edges_bidirectional(self, left: TTPMatch, right: TTPMatch) -> list[HSGEdge]:
-        built = self._pair_edges(left, right)
-        built.extend([edge for edge in self._pair_edges(right, left) if edge.relation == "graph_path"])
+    def _pair_edges_bidirectional(
+        self,
+        left: TTPMatch,
+        right: TTPMatch,
+        path_factor_cache: dict[tuple[str, str], float | None] | None = None,
+        descendants_cache: dict[tuple[str, str], bool] | None = None,
+        graph_path_deadline: float | None = None,
+    ) -> list[HSGEdge]:
+        built = self._pair_edges(
+            left,
+            right,
+            path_factor_cache=path_factor_cache,
+            descendants_cache=descendants_cache,
+            graph_path_deadline=graph_path_deadline,
+        )
+        built.extend(
+            [
+                edge
+                for edge in self._pair_edges(
+                    right,
+                    left,
+                    path_factor_cache=path_factor_cache,
+                    descendants_cache=descendants_cache,
+                    graph_path_deadline=graph_path_deadline,
+                )
+                if edge.relation == "graph_path"
+            ]
+        )
         return built
 
-    def _try_activate_pending_for(self, active_match: TTPMatch) -> list[HSGEdge]:
+    def _try_activate_pending_for(
+        self,
+        active_match: TTPMatch,
+        path_factor_cache: dict[tuple[str, str], float | None] | None = None,
+        descendants_cache: dict[tuple[str, str], bool] | None = None,
+        graph_path_deadline: float | None = None,
+    ) -> tuple[list[HSGEdge], set[str]]:
         activated_edges: list[HSGEdge] = []
+        activated_match_ids: set[str] = set()
         candidate_pending = set()
+        ancestor_started = time.perf_counter()
         for entity in _match_entities(active_match):
             candidate_pending |= self.pending_entity_to_hsg_node.get(entity, set())
             for ancestor in self.graph.ancestors(entity):
                 candidate_pending |= self.pending_entity_to_hsg_node.get(ancestor, set())
+        self.pending_activation_ancestor_scan_time_seconds += time.perf_counter() - ancestor_started
+        self.pending_activation_candidate_total += len(candidate_pending)
+        self.pending_activation_candidate_max = max(self.pending_activation_candidate_max, len(candidate_pending))
         for pending_id in sorted(candidate_pending):
             pending_match = self.pending_matches_by_id.get(pending_id)
             if pending_match is None:
                 continue
-            built_edges = self._pair_edges_bidirectional(pending_match, active_match)
+            built_edges = self._pair_edges_bidirectional(
+                pending_match,
+                active_match,
+                path_factor_cache=path_factor_cache,
+                descendants_cache=descendants_cache,
+                graph_path_deadline=graph_path_deadline,
+            )
             if not built_edges:
                 continue
             self._remove_pending(pending_id)
             self._index_match(pending_match)
+            activated_match_ids.add(pending_id)
             self.edges.extend(built_edges)
             activated_edges.extend(built_edges)
-        return activated_edges
+        return activated_edges, activated_match_ids
 
     def add_match(
         self,
         match: TTPMatch,
         extra_candidate_ids: set[str] | None = None,
         watermark_ts: str | None = None,
+        path_factor_cache: dict[tuple[str, str], float | None] | None = None,
+        descendants_cache: dict[tuple[str, str], bool] | None = None,
     ) -> tuple[bool, list[HSGEdge]]:
+        effective_path_factor_cache = path_factor_cache if path_factor_cache is not None else {}
+        effective_descendants_cache = descendants_cache if descendants_cache is not None else {}
+        graph_path_deadline: float | None = None
+        if self.graph_path_eval_budget_ms is not None and self.graph_path_eval_budget_ms > 0.0:
+            graph_path_deadline = time.perf_counter() + (self.graph_path_eval_budget_ms / 1000.0)
+        self.last_activated_match_ids = set()
+        self.last_closed_match_ids = []
         watermark = self._match_watermark(match, watermark_ts)
+        evict_started = time.perf_counter()
         self._evict_expired_pending(watermark)
+        self.add_match_watermark_evict_time_seconds += time.perf_counter() - evict_started
         rule = self.rule_by_id.get(match.rule_id)
+        candidate_started = time.perf_counter()
         candidate_ids = self._candidate_match_ids(match, extra_candidate_ids)
+        self.add_match_candidate_ids_time_seconds += time.perf_counter() - candidate_started
         built_edges: list[HSGEdge] = []
         if isinstance(getattr(rule, "prerequisite_ast", None), dict):
             prior_matches = dict(self.matches_by_id)
+            ast_eval_started = time.perf_counter()
             result = self.evaluator.evaluate_rule(rule, match, prior_matches)
+            self.add_match_ast_eval_time_seconds += time.perf_counter() - ast_eval_started
             if not result.satisfied:
                 if not self._has_prereq(rule):
                     self._index_match(match)
                     self._touch_match_activity({match.match_id}, watermark)
-                    self.gc_dormant_scenarios(watermark_ts)
+                    self.last_closed_match_ids = self._maybe_gc_dormant_scenarios(watermark_ts)
                     return True, []
+                pending_insert_started = time.perf_counter()
                 self._index_pending(match, watermark)
+                self.add_match_pending_insert_time_seconds += time.perf_counter() - pending_insert_started
+                self.add_match_pending_path_count += 1
+                pending_size = len(self.pending_matches_by_id)
+                self.add_match_pending_size_total += pending_size
+                self.add_match_pending_size_max = max(self.add_match_pending_size_max, pending_size)
                 return False, []
             for ast_edge in result.edges:
                 edge_key = (ast_edge.src_match_id, match.match_id, ast_edge.relation)
@@ -477,14 +744,32 @@ class IncrementalHSGBuilder:
                     )
                 )
         else:
+            pair_eval_started = time.perf_counter()
             for candidate_id in sorted(candidate_ids):
                 prior = self.matches_by_id.get(candidate_id) or self.pending_matches_by_id.get(candidate_id)
                 if prior is None:
                     continue
-                built_edges.extend(self._pair_edges_bidirectional(prior, match))
+                built_edges.extend(
+                    self._pair_edges_bidirectional(
+                        prior,
+                        match,
+                        path_factor_cache=effective_path_factor_cache,
+                        descendants_cache=effective_descendants_cache,
+                        graph_path_deadline=graph_path_deadline,
+                    )
+                )
+            self.add_match_pair_eval_time_seconds += time.perf_counter() - pair_eval_started
         if self._has_prereq(rule) and not built_edges:
+            pending_insert_started = time.perf_counter()
             self._index_pending(match, watermark)
+            self.add_match_pending_insert_time_seconds += time.perf_counter() - pending_insert_started
+            pending_capacity_started = time.perf_counter()
             self._evict_capacity_pending()
+            self.add_match_pending_capacity_evict_time_seconds += time.perf_counter() - pending_capacity_started
+            self.add_match_pending_path_count += 1
+            pending_size = len(self.pending_matches_by_id)
+            self.add_match_pending_size_total += pending_size
+            self.add_match_pending_size_max = max(self.add_match_pending_size_max, pending_size)
             return False, []
         for edge in built_edges:
             if edge.src in self.pending_matches_by_id:
@@ -498,11 +783,20 @@ class IncrementalHSGBuilder:
         touched_match_ids.update(edge.src for edge in built_edges)
         touched_match_ids.update(edge.dst for edge in built_edges)
         self.edges.extend(built_edges)
-        built_edges.extend(self._try_activate_pending_for(match))
+        activated_edges, activated_match_ids = self._try_activate_pending_for(
+            match,
+            path_factor_cache=effective_path_factor_cache,
+            descendants_cache=effective_descendants_cache,
+            graph_path_deadline=graph_path_deadline,
+        )
+        self.last_activated_match_ids = set(activated_match_ids)
+        built_edges.extend(activated_edges)
+        self.add_match_built_edges_total += len(built_edges)
+        self.add_match_built_edges_max = max(self.add_match_built_edges_max, len(built_edges))
         touched_match_ids.update(edge.src for edge in built_edges)
         touched_match_ids.update(edge.dst for edge in built_edges)
         self._touch_match_activity(touched_match_ids, watermark)
-        self.gc_dormant_scenarios(watermark_ts)
+        self.last_closed_match_ids = self._maybe_gc_dormant_scenarios(watermark_ts)
         return True, built_edges
 
     def as_hsg(self) -> HSG:
@@ -523,35 +817,84 @@ def _match_entities(match: TTPMatch) -> set[str]:
     return entities
 
 
-def _prefix_overlap(left: TTPMatch, right: TTPMatch) -> bool:
-    left_prefixes = {_entity_prefix(e) for e in _match_entities(left) if _entity_prefix(e)}
-    right_prefixes = {_entity_prefix(e) for e in _match_entities(right) if _entity_prefix(e)}
+def _prefix_overlap_entities(left_entities: set[str], right_entities: set[str]) -> bool:
+    left_prefixes = {_entity_prefix(e) for e in left_entities if _entity_prefix(e)}
+    right_prefixes = {_entity_prefix(e) for e in right_entities if _entity_prefix(e)}
     return bool(left_prefixes & right_prefixes)
 
 
 def _reachable_quick_check(
     graph: ProvenanceGraph,
-    left: TTPMatch,
-    right: TTPMatch,
-    descendants_cache: dict[str, set[str]],
+    left_entities: set[str],
+    right_entities: set[str],
+    descendants_cache: dict[object, object],
 ) -> bool:
-    for src in _match_entities(left):
+    # In lazy mode, ancestor index rebuild on every check is too expensive.
+    # Keep descendants-cache BFS projection to avoid global index rebuild churn.
+    if getattr(graph, "ancestor_index_mode", "incremental") == "lazy":
+        for src in left_entities:
+            if not src:
+                continue
+            desc_key = ("desc", src)
+            reachable = descendants_cache.get(desc_key)
+            if not isinstance(reachable, set):
+                reachable = graph.descendants(src)
+                descendants_cache[desc_key] = reachable
+            for dst in right_entities:
+                if dst in reachable:
+                    return True
+        return False
+
+    # Incremental mode: batched fast path first.
+    if graph.has_any_path_fast(left_entities, right_entities):
+        return True
+
+    # Pairwise cache fallback.
+    for src in left_entities:
         if not src:
             continue
-        if src not in descendants_cache:
-            descendants_cache[src] = graph.descendants(src)
-        reachable = descendants_cache[src]
-        for dst in _match_entities(right):
-            if dst in reachable:
+        for dst in right_entities:
+            if not dst:
+                continue
+            key = (src, dst)
+            cached = descendants_cache.get(key)
+            if cached is None:
+                cached = graph.has_path_fast(src, dst)
+                descendants_cache[key] = cached
+            if cached:
                 return True
     return False
+
+
+def _reachable_entity(
+    graph: ProvenanceGraph,
+    src_entity: str,
+    dst_entity: str,
+    descendants_cache: dict[object, object],
+) -> bool:
+    if getattr(graph, "ancestor_index_mode", "incremental") == "lazy":
+        desc_key = ("desc", src_entity)
+        reachable = descendants_cache.get(desc_key)
+        if not isinstance(reachable, set):
+            reachable = graph.descendants(src_entity)
+            descendants_cache[desc_key] = reachable
+        return dst_entity in reachable
+
+    key = (src_entity, dst_entity)
+    cached = descendants_cache.get(key)
+    if cached is None:
+        cached = graph.has_path_fast(src_entity, dst_entity)
+        descendants_cache[key] = cached
+    return cached
 
 
 def is_graph_path_candidate(
     graph: ProvenanceGraph,
     left: TTPMatch,
     right: TTPMatch,
-    descendants_cache: dict[str, set[str]] | None = None,
+    descendants_cache: dict[object, object] | None = None,
+    left_entities: set[str] | None = None,
+    right_entities: set[str] | None = None,
 ) -> bool:
     """
     Cheap pruning before expensive graph_path prerequisite evaluation.
@@ -561,7 +904,9 @@ def is_graph_path_candidate(
     - directed reachability exists from left entities to right entities.
     """
     cache = descendants_cache if descendants_cache is not None else {}
-    return _prefix_overlap(left, right) or _reachable_quick_check(graph, left, right, cache)
+    left_set = left_entities if left_entities is not None else _match_entities(left)
+    right_set = right_entities if right_entities is not None else _match_entities(right)
+    return _prefix_overlap_entities(left_set, right_set) or _reachable_quick_check(graph, left_set, right_set, cache)
 
 
 def load_graph_path_allowlist(path: str | Path | None) -> set[tuple[str, str]] | None:
