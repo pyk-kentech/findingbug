@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 import json
+import os
 from pathlib import Path
 import time
 from typing import Any
@@ -174,6 +175,37 @@ class StreamingEngine:
         self._last_graph_gc_events = 0
         self._pending_online_graph_edges: list[tuple[str, str, Any]] = []
         self.native_backend = native_backend if native_backend is not None else load_native_backend()
+        native_shadow_check_raw = os.getenv("HOLMES_NATIVE_SHADOW_CHECK", "0").strip().lower()
+        self.native_shadow_check_enabled = native_shadow_check_raw not in {"", "0", "false", "no", "off"}
+        native_read_primary_raw = os.getenv("HOLMES_NATIVE_ONLINE_READ_PRIMARY", "0").strip().lower()
+        self.native_online_read_primary_enabled = native_read_primary_raw not in {"", "0", "false", "no", "off"}
+        native_shadow_max_neighbors_raw = os.getenv("HOLMES_NATIVE_SHADOW_CHECK_MAX_NEIGHBORS", "16").strip()
+        try:
+            self.native_shadow_check_max_neighbors = max(0, int(native_shadow_max_neighbors_raw))
+        except ValueError:
+            self.native_shadow_check_max_neighbors = 16
+        self._native_shadow_check_total = 0
+        self._native_shadow_check_match_presence_mismatch_total = 0
+        self._native_shadow_check_match_count_mismatch_total = 0
+        self._native_shadow_check_downstream_total = 0
+        self._native_shadow_check_downstream_presence_mismatch_total = 0
+        self._native_shadow_check_downstream_match_count_mismatch_total = 0
+        self._native_shadow_check_query_total = 0
+        self._native_shadow_check_query_mismatch_total = 0
+        self._native_shadow_check_query_match_ids_total = 0
+        self._native_shadow_check_query_match_ids_mismatch_total = 0
+        self._native_shadow_check_query_contains_rule_total = 0
+        self._native_shadow_check_query_contains_rule_mismatch_total = 0
+        self._native_shadow_check_query_earliest_seq_total = 0
+        self._native_shadow_check_query_earliest_seq_mismatch_total = 0
+        self._native_shadow_check_query_contains_match_total = 0
+        self._native_shadow_check_query_contains_match_mismatch_total = 0
+        self._native_shadow_check_query_min_hops_total = 0
+        self._native_shadow_check_query_min_hops_mismatch_total = 0
+        self._native_shadow_check_first_match_ids_mismatch_node: str | None = None
+        self._native_shadow_check_first_match_ids_python_count = 0
+        self._native_shadow_check_first_match_ids_native_count = 0
+        self._native_online_read_fallback_total = 0
         if resolved_effective_config is None:
             is_paper_like = scoring_mode in {"paper", "paper_exact"}
             default_path_thres = 3.0 if is_paper_like else 0.0
@@ -368,6 +400,12 @@ class StreamingEngine:
         ancestor_cache_entry_count = sum(len(v) for v in self.graph._ancestors_by_node.values())  # noqa: SLF001
         min_dist_node_count = len(self.graph._min_dist_from_ancestor)  # noqa: SLF001
         min_dist_entry_count = sum(len(v) for v in self.graph._min_dist_from_ancestor.values())  # noqa: SLF001
+        native_online_node_count, native_online_depth_cutoff_total, native_online_fanout_cutoff_total, native_online_max_depth = (
+            self.native_backend.online_index_stats() if self.native_backend.available else (0, 0, 0, 0)
+        )
+        native_graph_node_count, native_graph_edge_count = (
+            self.native_backend.graph_stats() if self.native_backend.available else (0, 0)
+        )
         return {
             "events_per_second": float(self.stats.events) / elapsed_seconds,
             "graph_add_time_seconds": float(self._graph_add_time_seconds),
@@ -629,6 +667,64 @@ class StreamingEngine:
             "online_index_propagation_fanout_cutoff_total": int(
                 getattr(self.online_index, "propagation_fanout_cutoff_total", 0)
             ),
+            "native_backend_enabled": int(bool(self.native_backend.available)),
+            "native_online_read_primary_enabled": int(bool(self.native_online_read_primary_enabled)),
+            "native_online_index_node_count": int(native_online_node_count),
+            "native_online_index_propagation_max_depth": int(native_online_max_depth),
+            "native_online_index_propagation_depth_cutoff_total": int(native_online_depth_cutoff_total),
+            "native_online_index_propagation_fanout_cutoff_total": int(native_online_fanout_cutoff_total),
+            "native_graph_node_count": int(native_graph_node_count),
+            "native_graph_edge_count": int(native_graph_edge_count),
+            "native_shadow_check_enabled": int(bool(self.native_shadow_check_enabled)),
+            "native_shadow_check_max_neighbors": int(self.native_shadow_check_max_neighbors),
+            "native_shadow_check_total": int(self._native_shadow_check_total),
+            "native_shadow_check_match_presence_mismatch_total": int(
+                self._native_shadow_check_match_presence_mismatch_total
+            ),
+            "native_shadow_check_match_count_mismatch_total": int(
+                self._native_shadow_check_match_count_mismatch_total
+            ),
+            "native_shadow_check_downstream_total": int(self._native_shadow_check_downstream_total),
+            "native_shadow_check_downstream_presence_mismatch_total": int(
+                self._native_shadow_check_downstream_presence_mismatch_total
+            ),
+            "native_shadow_check_downstream_match_count_mismatch_total": int(
+                self._native_shadow_check_downstream_match_count_mismatch_total
+            ),
+            "native_shadow_check_query_total": int(self._native_shadow_check_query_total),
+            "native_shadow_check_query_mismatch_total": int(self._native_shadow_check_query_mismatch_total),
+            "native_shadow_check_query_match_ids_total": int(self._native_shadow_check_query_match_ids_total),
+            "native_shadow_check_query_match_ids_mismatch_total": int(
+                self._native_shadow_check_query_match_ids_mismatch_total
+            ),
+            "native_shadow_check_query_contains_rule_total": int(self._native_shadow_check_query_contains_rule_total),
+            "native_shadow_check_query_contains_rule_mismatch_total": int(
+                self._native_shadow_check_query_contains_rule_mismatch_total
+            ),
+            "native_shadow_check_query_earliest_seq_total": int(self._native_shadow_check_query_earliest_seq_total),
+            "native_shadow_check_query_earliest_seq_mismatch_total": int(
+                self._native_shadow_check_query_earliest_seq_mismatch_total
+            ),
+            "native_shadow_check_query_contains_match_total": int(
+                self._native_shadow_check_query_contains_match_total
+            ),
+            "native_shadow_check_query_contains_match_mismatch_total": int(
+                self._native_shadow_check_query_contains_match_mismatch_total
+            ),
+            "native_shadow_check_query_min_hops_total": int(self._native_shadow_check_query_min_hops_total),
+            "native_shadow_check_query_min_hops_mismatch_total": int(
+                self._native_shadow_check_query_min_hops_mismatch_total
+            ),
+            "native_shadow_check_first_match_ids_mismatch_node": (
+                self._native_shadow_check_first_match_ids_mismatch_node or ""
+            ),
+            "native_shadow_check_first_match_ids_python_count": int(
+                self._native_shadow_check_first_match_ids_python_count
+            ),
+            "native_shadow_check_first_match_ids_native_count": int(
+                self._native_shadow_check_first_match_ids_native_count
+            ),
+            "native_online_read_fallback_total": int(self._native_online_read_fallback_total),
             "online_extend_edges_time_seconds": float(self._online_extend_edges_time_seconds),
             "online_extend_edges_avg_ms_per_event": (float(self._online_extend_edges_time_seconds) * 1000.0 / float(self.stats.events))
             if self.stats.events
@@ -966,6 +1062,7 @@ class StreamingEngine:
                             rule_id=match.rule_id,
                             sequence=int(match.sequence or self.stats.events),
                         )
+                        self._run_native_shadow_check_for_node(node_id, match.match_id)
             self._online_add_active_match_online_index_time_seconds += time.perf_counter() - online_index_started
 
     def _extend_online_edges(self, edges: list[HSGEdge]) -> None:
@@ -1026,6 +1123,187 @@ class StreamingEngine:
         self._online_index_match_add_time_seconds += (
             float(local_update_seconds) + float(mapper_update_seconds) + float(propagate_seconds)
         )
+
+    def _run_native_shadow_check_for_node(self, node_id: str, match_id: str) -> None:
+        if not (self.native_backend.available and self.native_shadow_check_enabled and node_id):
+            return
+        self._native_shadow_check_total += 1
+        python_contains = self.online_index.mapper_contains_match(node_id, match_id)
+        native_contains = self.native_backend.online_contains_match(node_id, match_id)
+        if python_contains != native_contains:
+            self._native_shadow_check_match_presence_mismatch_total += 1
+        python_match_count = len(self.online_index.mapper_match_ids(node_id))
+        native_match_count = self.native_backend.online_node_match_count(node_id)
+        if python_match_count != native_match_count:
+            self._native_shadow_check_match_count_mismatch_total += 1
+
+        downstream_limit = self.native_shadow_check_max_neighbors
+        if downstream_limit == 0:
+            return
+        downstream_edges = self.online_index.out_edges.get(node_id, [])
+        for dst_node_id, _edge_type in downstream_edges[:downstream_limit]:
+            self._native_shadow_check_downstream_total += 1
+            python_contains = self.online_index.mapper_contains_match(dst_node_id, match_id)
+            native_contains = self.native_backend.online_contains_match(dst_node_id, match_id)
+            if python_contains != native_contains:
+                self._native_shadow_check_downstream_presence_mismatch_total += 1
+            python_match_count = len(self.online_index.mapper_match_ids(dst_node_id))
+            native_match_count = self.native_backend.online_node_match_count(dst_node_id)
+            if python_match_count != native_match_count:
+                self._native_shadow_check_downstream_match_count_mismatch_total += 1
+
+    def _run_native_shadow_check_query(self, python_value: Any, native_value: Any) -> None:
+        if not (self.native_backend.available and self.native_shadow_check_enabled):
+            return
+        self._native_shadow_check_query_total += 1
+        if python_value != native_value:
+            self._native_shadow_check_query_mismatch_total += 1
+
+    def _run_native_shadow_check_query_typed(self, kind: str, python_value: Any, native_value: Any) -> None:
+        self._run_native_shadow_check_query(python_value, native_value)
+        if not (self.native_backend.available and self.native_shadow_check_enabled):
+            return
+        if kind == "match_ids":
+            self._native_shadow_check_query_match_ids_total += 1
+            if python_value != native_value:
+                self._native_shadow_check_query_match_ids_mismatch_total += 1
+        elif kind == "contains_rule":
+            self._native_shadow_check_query_contains_rule_total += 1
+            if python_value != native_value:
+                self._native_shadow_check_query_contains_rule_mismatch_total += 1
+        elif kind == "earliest_seq":
+            self._native_shadow_check_query_earliest_seq_total += 1
+            if python_value != native_value:
+                self._native_shadow_check_query_earliest_seq_mismatch_total += 1
+        elif kind == "contains_match":
+            self._native_shadow_check_query_contains_match_total += 1
+            if python_value != native_value:
+                self._native_shadow_check_query_contains_match_mismatch_total += 1
+        elif kind == "min_hops":
+            self._native_shadow_check_query_min_hops_total += 1
+            if python_value != native_value:
+                self._native_shadow_check_query_min_hops_mismatch_total += 1
+
+    def _online_mapper_match_ids(self, node_id: str) -> set[str]:
+        python_ids = self.online_index.mapper_match_ids(node_id)
+        if not (self.native_backend.available and self.native_online_read_primary_enabled):
+            if self.native_shadow_check_enabled:
+                native_ids = self.native_backend.online_mapper_match_ids(node_id)
+                self._run_native_shadow_check_query_typed(
+                    "match_ids",
+                    python_ids,
+                    native_ids,
+                )
+                if (
+                    python_ids != native_ids
+                    and self._native_shadow_check_first_match_ids_mismatch_node is None
+                ):
+                    self._native_shadow_check_first_match_ids_mismatch_node = str(node_id)
+                    self._native_shadow_check_first_match_ids_python_count = len(python_ids)
+                    self._native_shadow_check_first_match_ids_native_count = len(native_ids)
+            return python_ids
+        native_ids = self.native_backend.online_mapper_match_ids(node_id)
+        if self.native_shadow_check_enabled:
+            self._run_native_shadow_check_query_typed("match_ids", python_ids, native_ids)
+            if (
+                python_ids != native_ids
+                and self._native_shadow_check_first_match_ids_mismatch_node is None
+            ):
+                self._native_shadow_check_first_match_ids_mismatch_node = str(node_id)
+                self._native_shadow_check_first_match_ids_python_count = len(python_ids)
+                self._native_shadow_check_first_match_ids_native_count = len(native_ids)
+            if python_ids != native_ids:
+                self._native_online_read_fallback_total += 1
+                return python_ids
+        return native_ids
+
+    def _online_mapper_contains_rule(self, node_id: str, rule_id: str) -> bool:
+        python_value = self.online_index.mapper_contains_rule(node_id, rule_id)
+        if not (self.native_backend.available and self.native_online_read_primary_enabled):
+            if self.native_shadow_check_enabled:
+                self._run_native_shadow_check_query_typed(
+                    "contains_rule",
+                    python_value,
+                    self.native_backend.online_mapper_contains_rule(node_id, rule_id),
+                )
+            return python_value
+        native_value = self.native_backend.online_mapper_contains_rule(node_id, rule_id)
+        if self.native_shadow_check_enabled:
+            self._run_native_shadow_check_query_typed("contains_rule", python_value, native_value)
+            if python_value != native_value:
+                self._native_online_read_fallback_total += 1
+                return python_value
+        return native_value
+
+    def _online_mapper_earliest_seq(self, node_id: str, rule_id: str) -> int | None:
+        python_value = self.online_index.mapper_earliest_seq(node_id, rule_id)
+        if not (self.native_backend.available and self.native_online_read_primary_enabled):
+            if self.native_shadow_check_enabled:
+                self._run_native_shadow_check_query_typed(
+                    "earliest_seq",
+                    python_value,
+                    self.native_backend.online_mapper_earliest_seq(node_id, rule_id),
+                )
+            return python_value
+        native_value = self.native_backend.online_mapper_earliest_seq(node_id, rule_id)
+        if native_value is None:
+            self._native_online_read_fallback_total += 1
+            return python_value
+        if self.native_shadow_check_enabled:
+            self._run_native_shadow_check_query_typed("earliest_seq", python_value, native_value)
+            if python_value != native_value:
+                self._native_online_read_fallback_total += 1
+                return python_value
+        return native_value
+
+    def _online_mapper_contains_match(
+        self,
+        node_id: str,
+        match_id: str,
+        *,
+        origin_node_id: str | None = None,
+    ) -> bool:
+        python_value = self.online_index.mapper_contains_match(node_id, match_id, origin_node_id=origin_node_id)
+        if not (self.native_backend.available and self.native_online_read_primary_enabled):
+            if self.native_shadow_check_enabled:
+                native_value = self.native_backend.online_mapper_min_hops(node_id, match_id, origin_node_id)
+                self._run_native_shadow_check_query_typed("contains_match", python_value, native_value is not None)
+            return python_value
+        native_hops = self.native_backend.online_mapper_min_hops(node_id, match_id, origin_node_id)
+        native_value = native_hops is not None
+        if self.native_shadow_check_enabled:
+            self._run_native_shadow_check_query_typed("contains_match", python_value, native_value)
+            if python_value != native_value:
+                self._native_online_read_fallback_total += 1
+                return python_value
+        return native_value
+
+    def _online_mapper_min_hops(
+        self,
+        node_id: str,
+        match_id: str,
+        *,
+        origin_node_id: str | None = None,
+    ) -> int | None:
+        python_value = self.online_index.mapper_min_hops(node_id, match_id, origin_node_id=origin_node_id)
+        if not (self.native_backend.available and self.native_online_read_primary_enabled):
+            if self.native_shadow_check_enabled:
+                self._run_native_shadow_check_query_typed(
+                    "min_hops",
+                    python_value,
+                    self.native_backend.online_mapper_min_hops(node_id, match_id, origin_node_id),
+                )
+            return python_value
+        native_value = self.native_backend.online_mapper_min_hops(node_id, match_id, origin_node_id)
+        if native_value is None:
+            self._native_online_read_fallback_total += 1
+            return python_value
+        if self.native_shadow_check_enabled:
+            self._run_native_shadow_check_query_typed("min_hops", python_value, native_value)
+            if python_value != native_value:
+                self._native_online_read_fallback_total += 1
+                return python_value
+        return native_value
 
     def _protected_graph_entities(self) -> set[str]:
         protected: set[str] = set()
@@ -1168,9 +1446,10 @@ class StreamingEngine:
                 to_node = self._node_for_binding(right, to_binding)
                 if not from_node or not to_node:
                     continue
-                if not self.online_index.mapper_contains_match(to_node, left.match_id, origin_node_id=from_node):
+                contains = self._online_mapper_contains_match(to_node, left.match_id, origin_node_id=from_node)
+                if not contains:
                     continue
-                hops = self.online_index.mapper_min_hops(to_node, left.match_id, origin_node_id=from_node)
+                hops = self._online_mapper_min_hops(to_node, left.match_id, origin_node_id=from_node)
                 if hops is None:
                     continue
                 edge_pf = 1.0 + float(hops)
@@ -1287,7 +1566,7 @@ class StreamingEngine:
         for node_id in (new_match.subject_node_id, new_match.object_node_id):
             if not node_id:
                 continue
-            ids |= self.online_index.mapper_match_ids(node_id)
+            ids |= self._online_mapper_match_ids(node_id)
         return ids
 
     def _candidate_antecedents_for_shared_entity(self, new_match: TTPMatch) -> set[str]:
@@ -1315,7 +1594,10 @@ class StreamingEngine:
 
         # previous-ttp prerequisite via mapper O(1)
         for required in required_ttp_ids:
-            if not new_match.object_node_id or not self.online_index.mapper_contains_rule(new_match.object_node_id, required):
+            if not new_match.object_node_id:
+                return False, set()
+            contains = self._online_mapper_contains_rule(new_match.object_node_id, required)
+            if not contains:
                 return False, set()
 
         # graph_path prerequisite via mapper lookup only (no graph traversal)
@@ -1335,7 +1617,7 @@ class StreamingEngine:
         for required in required_ttp_ids:
             if not new_match.object_node_id:
                 return False, set()
-            earliest = self.online_index.mapper_earliest_seq(new_match.object_node_id, required)
+            earliest = self._online_mapper_earliest_seq(new_match.object_node_id, required)
             if earliest is None:
                 return False, set()
             if new_match.sequence is not None and earliest >= new_match.sequence:

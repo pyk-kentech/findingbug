@@ -234,19 +234,29 @@ def run_pipeline(
     )
     parser_workers = max(1, int(matcher_workers))
     parser_queue_size = max(1, int(matcher_batch_size))
+    process_batch_size_raw = os.getenv("HOLMES_PROCESS_BATCH_SIZE", "5000").strip()
+    try:
+        process_batch_size = max(1, int(process_batch_size_raw))
+    except ValueError:
+        process_batch_size = 5000
     total_records = count_raw_records_jsonl(events_path) if progress else 0
     progress_bar = _ProgressBar(total=total_records, enabled=bool(progress), label="events")
     processed = 0
     raw_source = iter_raw_records_jsonl(events_path)
-    for processed, event in enumerate(
-        iter_parsed_events_parallel(
-            raw_source,
-            worker_count=parser_workers,
-            queue_size=parser_queue_size,
-        ),
-        start=1,
+    batch: list = []
+    for event in iter_parsed_events_parallel(
+        raw_source,
+        worker_count=parser_workers,
+        queue_size=parser_queue_size,
     ):
-        engine.process_event(event)
+        batch.append(event)
+        if len(batch) < process_batch_size:
+            continue
+        processed += engine.process_event_batch(batch)
+        batch = []
+        progress_bar.render(processed, force=False)
+    if batch:
+        processed += engine.process_event_batch(batch)
         progress_bar.render(processed, force=False)
     if progress:
         progress_bar.render(processed, force=True)

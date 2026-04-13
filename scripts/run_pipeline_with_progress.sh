@@ -45,10 +45,17 @@ if [[ -z "$OUT_DIR" ]]; then
 fi
 
 TOTAL_EVENTS=""
-if [[ -n "${TOTAL_EVENTS_OVERRIDE:-}" ]]; then
+if [[ -n "${TOTAL_EVENTS_OVERRIDE:-}" && "${TOTAL_EVENTS_OVERRIDE}" =~ ^[0-9]+$ && "${TOTAL_EVENTS_OVERRIDE}" -gt 0 ]]; then
   TOTAL_EVENTS="$TOTAL_EVENTS_OVERRIDE"
 elif [[ -n "$EVENTS_PATH" && -f "$EVENTS_PATH" ]]; then
-  TOTAL_EVENTS="$(wc -l < "$EVENTS_PATH" | tr -d ' ')"
+  TOTAL_EVENTS="$(
+    python - "$EVENTS_PATH" <<'PY'
+from engine.io.events import count_raw_records_jsonl
+import sys
+
+print(count_raw_records_jsonl(sys.argv[1]))
+PY
+  )"
 fi
 
 METRICS_PATH="$OUT_DIR/debug/metrics.jsonl"
@@ -96,14 +103,16 @@ eps = float(pm.get("events_per_second", 0.0) or 0.0)
 ts = obj.get("ts", "")
 
 if total and total > 0:
-    pct = (events / total) * 100.0
-    rem = max(total - events, 0)
+    display_total = max(total, events)
+    pct = (events / display_total) * 100.0
+    rem = max(display_total - events, 0)
     eta_sec = (rem / eps) if eps > 0 else math.inf
     if math.isfinite(eta_sec):
         eta = str(dt.timedelta(seconds=int(eta_sec)))
     else:
         eta = "unknown"
-    print(f"[progress] {ts} events={events}/{total} ({pct:.2f}%) eps={eps:.1f} eta={eta}")
+    suffix = " [total-adjusted]" if display_total != total else ""
+    print(f"[progress] {ts} events={events}/{display_total} ({pct:.2f}%) eps={eps:.1f} eta={eta}{suffix}")
 else:
     print(f"[progress] {ts} events={events} eps={eps:.1f}")
 PY

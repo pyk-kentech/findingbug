@@ -36,6 +36,27 @@ class NativeEngineBackend(Protocol):
     def online_index_stats(self) -> tuple[int, int, int, int]:
         ...
 
+    def graph_stats(self) -> tuple[int, int]:
+        ...
+
+    def online_contains_match(self, node_id: str, match_id: str) -> bool:
+        ...
+
+    def online_node_match_count(self, node_id: str) -> int:
+        ...
+
+    def online_mapper_contains_rule(self, node_id: str, rule_id: str) -> bool:
+        ...
+
+    def online_mapper_earliest_seq(self, node_id: str, rule_id: str) -> int | None:
+        ...
+
+    def online_mapper_min_hops(self, node_id: str, match_id: str, origin_node_id: str | None = None) -> int | None:
+        ...
+
+    def online_mapper_match_ids(self, node_id: str) -> set[str]:
+        ...
+
 
 class NoopNativeBackend:
     available = False
@@ -58,6 +79,27 @@ class NoopNativeBackend:
 
     def online_index_stats(self) -> tuple[int, int, int, int]:
         return (0, 0, 0, 0)
+
+    def graph_stats(self) -> tuple[int, int]:
+        return (0, 0)
+
+    def online_contains_match(self, node_id: str, match_id: str) -> bool:
+        return False
+
+    def online_node_match_count(self, node_id: str) -> int:
+        return 0
+
+    def online_mapper_contains_rule(self, node_id: str, rule_id: str) -> bool:
+        return False
+
+    def online_mapper_earliest_seq(self, node_id: str, rule_id: str) -> int | None:
+        return None
+
+    def online_mapper_min_hops(self, node_id: str, match_id: str, origin_node_id: str | None = None) -> int | None:
+        return None
+
+    def online_mapper_match_ids(self, node_id: str) -> set[str]:
+        return set()
 
 
 class RustNativeBackend:
@@ -92,7 +134,7 @@ class RustNativeBackend:
         self._engine.flush()
 
     def reset_online_index(self) -> None:
-        self._engine = self._module.NativeBatchEngine()
+        self._engine.reset_online_index()
 
     def add_online_edge(self, src: str, dst: str, edge_type: str) -> None:
         self._engine.add_online_edge(src, dst, edge_type)
@@ -102,6 +144,27 @@ class RustNativeBackend:
 
     def online_index_stats(self) -> tuple[int, int, int, int]:
         return tuple(self._engine.online_index_stats())
+
+    def graph_stats(self) -> tuple[int, int]:
+        return tuple(self._engine.graph_stats())
+
+    def online_contains_match(self, node_id: str, match_id: str) -> bool:
+        return bool(self._engine.online_contains_match(node_id, match_id))
+
+    def online_node_match_count(self, node_id: str) -> int:
+        return int(self._engine.online_node_match_count(node_id))
+
+    def online_mapper_contains_rule(self, node_id: str, rule_id: str) -> bool:
+        return bool(self._engine.online_mapper_contains_rule(node_id, rule_id))
+
+    def online_mapper_earliest_seq(self, node_id: str, rule_id: str) -> int | None:
+        return self._engine.online_mapper_earliest_seq(node_id, rule_id)
+
+    def online_mapper_min_hops(self, node_id: str, match_id: str, origin_node_id: str | None = None) -> int | None:
+        return self._engine.online_mapper_min_hops(node_id, match_id, origin_node_id)
+
+    def online_mapper_match_ids(self, node_id: str) -> set[str]:
+        return set(self._engine.online_mapper_match_ids(node_id))
 
 
 def load_native_backend() -> NativeEngineBackend:

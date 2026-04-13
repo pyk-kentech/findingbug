@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use pyo3::exceptions::PyRuntimeError;
@@ -30,6 +31,8 @@ struct NativeEdge {
 #[derive(Clone, Debug, Default)]
 struct NativeMapperNode {
     match_ids: Vec<u32>,
+    match_ids_by_rule: HashMap<u32, Vec<u32>>,
+    earliest_seq_by_rule: HashMap<u32, usize>,
     hops_by_match_origin: HashMap<(u32, u32), u32>,
 }
 
@@ -112,7 +115,11 @@ impl NativeGraphState {
 #[derive(Default)]
 struct NativeOnlineIndexState {
     mapper_by_node: Vec<NativeMapperNode>,
-    out_edges: Vec<Vec<u32>>,
+    out_edges: Vec<Vec<(u32, u8)>>,
+    out_edge_set: Vec<HashSet<(u32, u8)>>,
+    pending_new_edges: Vec<(u32, u32, u8)>,
+    rule_by_match: HashMap<u32, u32>,
+    sequence_by_match: HashMap<u32, usize>,
     max_depth: usize,
     max_fan_out: usize,
     depth_cutoff_total: usize,
@@ -124,6 +131,10 @@ impl NativeOnlineIndexState {
         Self {
             mapper_by_node: Vec::new(),
             out_edges: Vec::new(),
+            out_edge_set: Vec::new(),
+            pending_new_edges: Vec::new(),
+            rule_by_match: HashMap::new(),
+            sequence_by_match: HashMap::new(),
             max_depth,
             max_fan_out,
             depth_cutoff_total: 0,
@@ -140,25 +151,119 @@ impl NativeOnlineIndexState {
         if self.out_edges.len() < needed_len {
             self.out_edges.resize_with(needed_len, Vec::new);
         }
+        if self.out_edge_set.len() < needed_len {
+            self.out_edge_set.resize_with(needed_len, HashSet::new);
+        }
     }
 
-    fn add_edge(&mut self, src: u32, dst: u32) {
+    fn add_edge(&mut self, src: u32, dst: u32, edge_cost: u8) {
         self.ensure_node_slot(src);
         self.ensure_node_slot(dst);
-        self.out_edges[src as usize].push(dst);
+        let edge = (dst, edge_cost);
+        if self.out_edge_set[src as usize].insert(edge) {
+            self.out_edges[src as usize].push(edge);
+            self.pending_new_edges.push((src, dst, edge_cost));
+        }
     }
 
-    fn register_match(&mut self, node_id: u32, match_id: u32, origin_node_id: u32) {
+    fn propagate_across_new_edge(&mut self, src_node_id: u32, dst_node_id: u32, edge_cost: u8) {
+        let Some(src_mapper) = self.mapper_by_node.get(src_node_id as usize).cloned() else {
+            return;
+        };
+        if src_mapper.match_ids.is_empty() {
+            return;
+        }
+        self.ensure_node_slot(dst_node_id);
+        let dst_mapper = &mut self.mapper_by_node[dst_node_id as usize];
+        let mut changed_for_dst: Vec<u32> = Vec::new();
+        for match_id in &src_mapper.match_ids {
+            let Some(rule_id) = self.rule_by_match.get(match_id).copied() else {
+                continue;
+            };
+            let mut changed = false;
+            if !dst_mapper.match_ids.contains(match_id) {
+                dst_mapper.match_ids.push(*match_id);
+                changed = true;
+            }
+            let dst_rule_ids = dst_mapper.match_ids_by_rule.entry(rule_id).or_default();
+            if !dst_rule_ids.contains(match_id) {
+                dst_rule_ids.push(*match_id);
+                changed = true;
+            }
+            if let Some(sequence) = self.sequence_by_match.get(match_id).copied() {
+                match dst_mapper.earliest_seq_by_rule.get(&rule_id).copied() {
+                    Some(prev) if prev <= sequence => {}
+                    _ => {
+                        dst_mapper.earliest_seq_by_rule.insert(rule_id, sequence);
+                        changed = true;
+                    }
+                }
+            }
+            for ((src_match_id, origin_node_id), hops) in &src_mapper.hops_by_match_origin {
+                if src_match_id != match_id {
+                    continue;
+                }
+                let key = (*src_match_id, *origin_node_id);
+                let candidate_hops = *hops + u32::from(edge_cost);
+                match dst_mapper.hops_by_match_origin.get(&key) {
+                    Some(prev_hops) if *prev_hops <= candidate_hops => {}
+                    _ => {
+                        dst_mapper.hops_by_match_origin.insert(key, candidate_hops);
+                        changed = true;
+                    }
+                }
+            }
+            if changed && !changed_for_dst.contains(match_id) {
+                changed_for_dst.push(*match_id);
+            }
+        }
+        if !changed_for_dst.is_empty() {
+            self.propagate_delta(dst_node_id, changed_for_dst);
+        }
+    }
+
+    fn flush_pending_edges(&mut self) {
+        if self.pending_new_edges.is_empty() {
+            return;
+        }
+        let pending_edges = std::mem::take(&mut self.pending_new_edges);
+        for (src_node_id, dst_node_id, edge_cost) in pending_edges {
+            self.propagate_across_new_edge(src_node_id, dst_node_id, edge_cost);
+        }
+    }
+
+    fn register_match(&mut self, node_id: u32, match_id: u32, origin_node_id: u32, rule_id: u32, sequence: usize) {
         self.ensure_node_slot(node_id);
+        self.rule_by_match.insert(match_id, rule_id);
+        self.sequence_by_match.insert(match_id, sequence);
         let mapper = &mut self.mapper_by_node[node_id as usize];
+        let mut changed = false;
         if !mapper.match_ids.contains(&match_id) {
             mapper.match_ids.push(match_id);
+            changed = true;
         }
-        mapper
-            .hops_by_match_origin
-            .entry((match_id, origin_node_id))
-            .or_insert(0);
-        self.propagate_delta(node_id, vec![match_id]);
+        let by_rule = mapper.match_ids_by_rule.entry(rule_id).or_default();
+        if !by_rule.contains(&match_id) {
+            by_rule.push(match_id);
+            changed = true;
+        }
+        match mapper.earliest_seq_by_rule.get(&rule_id).copied() {
+            Some(prev) if prev <= sequence => {}
+            _ => {
+                mapper.earliest_seq_by_rule.insert(rule_id, sequence);
+                changed = true;
+            }
+        }
+        match mapper.hops_by_match_origin.get(&(match_id, origin_node_id)).copied() {
+            Some(prev) if prev <= 0 => {}
+            _ => {
+                mapper.hops_by_match_origin.insert((match_id, origin_node_id), 0);
+                changed = true;
+            }
+        }
+        if changed {
+            self.propagate_delta(node_id, vec![match_id]);
+        }
     }
 
     fn propagate_delta(&mut self, start_node_id: u32, delta_match_ids: Vec<u32>) {
@@ -186,7 +291,7 @@ impl NativeOnlineIndexState {
                 .get(src_node_id as usize)
                 .cloned()
                 .unwrap_or_default();
-            for dst_node_id in out_edges {
+            for (dst_node_id, edge_cost) in out_edges {
                 self.ensure_node_slot(dst_node_id);
                 let dst_mapper = &mut self.mapper_by_node[dst_node_id as usize];
                 let mut changed_for_dst: Vec<u32> = Vec::new();
@@ -194,22 +299,44 @@ impl NativeOnlineIndexState {
                     if !src_mapper.match_ids.contains(match_id) {
                         continue;
                     }
+                    let Some(rule_id) = self.rule_by_match.get(match_id).copied() else {
+                        continue;
+                    };
+                    let mut changed = false;
                     if !dst_mapper.match_ids.contains(match_id) {
                         dst_mapper.match_ids.push(*match_id);
-                        changed_for_dst.push(*match_id);
+                        changed = true;
+                    }
+                    let dst_rule_ids = dst_mapper.match_ids_by_rule.entry(rule_id).or_default();
+                    if !dst_rule_ids.contains(match_id) {
+                        dst_rule_ids.push(*match_id);
+                        changed = true;
+                    }
+                    if let Some(sequence) = self.sequence_by_match.get(match_id).copied() {
+                        match dst_mapper.earliest_seq_by_rule.get(&rule_id).copied() {
+                            Some(prev) if prev <= sequence => {}
+                            _ => {
+                                dst_mapper.earliest_seq_by_rule.insert(rule_id, sequence);
+                                changed = true;
+                            }
+                        }
                     }
                     for ((src_match_id, origin_node_id), hops) in &src_mapper.hops_by_match_origin {
                         if src_match_id != match_id {
                             continue;
                         }
                         let key = (*src_match_id, *origin_node_id);
-                        let candidate_hops = *hops + 1;
+                        let candidate_hops = *hops + u32::from(edge_cost);
                         match dst_mapper.hops_by_match_origin.get(&key) {
                             Some(prev_hops) if *prev_hops <= candidate_hops => {}
                             _ => {
                                 dst_mapper.hops_by_match_origin.insert(key, candidate_hops);
+                                changed = true;
                             }
                         }
+                    }
+                    if changed && !changed_for_dst.contains(match_id) {
+                        changed_for_dst.push(*match_id);
                     }
                 }
                 if !changed_for_dst.is_empty() {
@@ -294,7 +421,9 @@ impl NativeBatchEngine {
         Ok(false)
     }
 
-    fn flush(&self) {}
+    fn flush(&mut self) {
+        self.online_index.flush_pending_edges();
+    }
 
     fn stats(&self) -> (usize, usize) {
         (self.processed_batches, self.processed_events)
@@ -319,17 +448,109 @@ impl NativeBatchEngine {
         self.online_index = NativeOnlineIndexState::new(max_depth, max_fan_out);
     }
 
-    fn add_online_edge(&mut self, src: &str, dst: &str, _edge_type: &str) {
+    fn add_online_edge(&mut self, src: &str, dst: &str, edge_type: &str) {
         let src_id = self.graph.interner.intern(src);
         let dst_id = self.graph.interner.intern(dst);
-        self.online_index.add_edge(src_id, dst_id);
+        let normalized = edge_type.trim().to_ascii_lowercase();
+        let edge_cost = match normalized.as_str() {
+            "data_flow" => Some(1_u8),
+            "version_transition" | "prev_version" => Some(0_u8),
+            _ => None,
+        };
+        if let Some(cost) = edge_cost {
+            self.online_index.add_edge(src_id, dst_id, cost);
+        }
     }
 
     fn register_online_match(&mut self, node_id: &str, match_id: &str, _rule_id: &str, _sequence: usize) {
         let node_u32 = self.graph.interner.intern(node_id);
         let match_u32 = self.match_interner.intern(match_id);
+        let rule_u32 = self.match_interner.intern(_rule_id);
         self.online_index
-            .register_match(node_u32, match_u32, node_u32);
+            .register_match(node_u32, match_u32, node_u32, rule_u32, _sequence);
+    }
+
+    fn online_contains_match(&self, node_id: &str, match_id: &str) -> bool {
+        let Some(node_u32) = self.graph.interner.ids_by_value.get(node_id).copied() else {
+            return false;
+        };
+        let Some(match_u32) = self.match_interner.ids_by_value.get(match_id).copied() else {
+            return false;
+        };
+        self.online_index
+            .mapper_by_node
+            .get(node_u32 as usize)
+            .map(|mapper| mapper.match_ids.contains(&match_u32))
+            .unwrap_or(false)
+    }
+
+    fn online_node_match_count(&self, node_id: &str) -> usize {
+        let Some(node_u32) = self.graph.interner.ids_by_value.get(node_id).copied() else {
+            return 0;
+        };
+        self.online_index
+            .mapper_by_node
+            .get(node_u32 as usize)
+            .map(|mapper| mapper.match_ids.len())
+            .unwrap_or(0)
+    }
+
+    fn online_mapper_contains_rule(&self, node_id: &str, rule_id: &str) -> bool {
+        let Some(node_u32) = self.graph.interner.ids_by_value.get(node_id).copied() else {
+            return false;
+        };
+        let Some(rule_u32) = self.match_interner.ids_by_value.get(rule_id).copied() else {
+            return false;
+        };
+        self.online_index
+            .mapper_by_node
+            .get(node_u32 as usize)
+            .and_then(|mapper| mapper.match_ids_by_rule.get(&rule_u32))
+            .map(|ids| !ids.is_empty())
+            .unwrap_or(false)
+    }
+
+    fn online_mapper_earliest_seq(&self, node_id: &str, rule_id: &str) -> Option<usize> {
+        let node_u32 = self.graph.interner.ids_by_value.get(node_id).copied()?;
+        let rule_u32 = self.match_interner.ids_by_value.get(rule_id).copied()?;
+        self.online_index
+            .mapper_by_node
+            .get(node_u32 as usize)
+            .and_then(|mapper| mapper.earliest_seq_by_rule.get(&rule_u32).copied())
+    }
+
+    #[pyo3(signature = (node_id, match_id, origin_node_id=None))]
+    fn online_mapper_min_hops(&self, node_id: &str, match_id: &str, origin_node_id: Option<&str>) -> Option<usize> {
+        let node_u32 = self.graph.interner.ids_by_value.get(node_id).copied()?;
+        let match_u32 = self.match_interner.ids_by_value.get(match_id).copied()?;
+        let mapper = self.online_index.mapper_by_node.get(node_u32 as usize)?;
+        if let Some(origin) = origin_node_id {
+            let origin_u32 = self.graph.interner.ids_by_value.get(origin).copied()?;
+            return mapper
+                .hops_by_match_origin
+                .get(&(match_u32, origin_u32))
+                .copied()
+                .map(|v| v as usize);
+        }
+        mapper
+            .hops_by_match_origin
+            .iter()
+            .filter_map(|((mid, _origin), hops)| (*mid == match_u32).then_some(*hops as usize))
+            .min()
+    }
+
+    fn online_mapper_match_ids(&self, node_id: &str) -> Vec<String> {
+        let Some(node_u32) = self.graph.interner.ids_by_value.get(node_id).copied() else {
+            return Vec::new();
+        };
+        let Some(mapper) = self.online_index.mapper_by_node.get(node_u32 as usize) else {
+            return Vec::new();
+        };
+        mapper
+            .match_ids
+            .iter()
+            .filter_map(|match_u32| self.match_interner.get(*match_u32).map(|s| s.to_string()))
+            .collect()
     }
 
     fn sample_edge(&self) -> Option<(String, String, String)> {
