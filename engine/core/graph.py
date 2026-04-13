@@ -873,21 +873,20 @@ class ProvenanceGraph:
             self._min_dist_from_ancestor.pop(node_id, None)
 
         for node_id, anc_set in list(self._ancestors_by_node.items()):
-            if anc_set & removed:
-                anc_set.difference_update(removed)
-                anc_set.add(node_id)
-                self._ancestors_by_node[node_id] = anc_set
+            if anc_set.isdisjoint(removed):
+                continue
+            anc_set.difference_update(removed)
+            anc_set.add(node_id)
+            self._ancestors_by_node[node_id] = anc_set
 
         for node_id, dist in list(self._min_dist_from_ancestor.items()):
-            touched = False
-            for rid in removed:
-                if rid in dist:
+            removed_keys = removed.intersection(dist)
+            if removed_keys:
+                for rid in removed_keys:
                     dist.pop(rid, None)
-                    touched = True
-            if touched:
                 dist[node_id] = min(dist.get(node_id, 0), 0)
                 self._min_dist_from_ancestor[node_id] = dist
-            self._apply_ancestor_entry_cap(node_id)
+                self._apply_ancestor_entry_cap(node_id)
 
         # Keep indexes usable without immediate full rebuild.
         self._ancestor_index_dirty = False

@@ -22,6 +22,24 @@ python -m engine.cli.run_pipeline \
   --out out
 ```
 
+## Rust Native Skeleton
+
+A separate PyO3 skeleton is available under `native-rust/`.
+
+Build:
+
+```bash
+bash scripts/build_rust_native.sh
+```
+
+Enable loading:
+
+```bash
+export HOLMES_NATIVE_BACKEND=rust
+```
+
+Today the Rust backend is a safe scaffold only and falls back to Python semantics.
+
 ## Paper mode recommended command
 
 ```bash

@@ -228,7 +228,7 @@ def run_pipeline(
         online_score_refresh_every=(
             max(1, int(online_score_refresh_every))
             if online_score_refresh_every is not None
-            else 1000
+            else (5000 if bool(use_online_prereq) else 1000)
         ),
         ancestor_index_mode=effective_ancestor_index_mode,
     )

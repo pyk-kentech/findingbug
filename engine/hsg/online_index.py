@@ -32,8 +32,15 @@ class OnlineIndex:
             parsed_depth = int(depth_raw)
         except ValueError:
             parsed_depth = 5
+        fanout_raw = os.getenv("HOLMES_ONLINE_INDEX_MAX_FAN_OUT", "1000").strip()
+        try:
+            parsed_fanout = int(fanout_raw)
+        except ValueError:
+            parsed_fanout = 1000
         self.max_propagation_depth = max(0, parsed_depth)
+        self.max_fan_out = max(0, parsed_fanout)
         self.propagation_depth_cutoff_total = 0
+        self.propagation_fanout_cutoff_total = 0
         self._node_mapper: dict[str, NodeMapper] = {}
         # Explicit adjacency cache for propagation engine.
         self.out_edges: dict[str, list[tuple[str, EdgeType | str]]] = defaultdict(list)
@@ -42,9 +49,9 @@ class OnlineIndex:
         self._local_matches_by_rule: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         self._pending_new_edges: list[tuple[str, str, EdgeType | str]] = []
 
-    def prune(self, _removed_entities: set[str], removed_version_nodes: set[str]) -> None:
+    def prune_nodes(self, removed_version_nodes: set[str]) -> None:
         """
-        Drop references to removed graph version nodes so GC can reclaim memory.
+        Remove all references to deleted version nodes so Python GC can reclaim memory.
         """
         if not removed_version_nodes:
             return
@@ -71,6 +78,12 @@ class OnlineIndex:
             for (src, dst, et) in self._pending_new_edges
             if src not in removed and dst not in removed
         ]
+
+    def prune(self, _removed_entities: set[str], removed_version_nodes: set[str]) -> None:
+        """
+        Graph prune-hook adapter. Keeps the hook signature stable while delegating to node cleanup.
+        """
+        self.prune_nodes(removed_version_nodes)
 
     def _mapper(self, node_id: str) -> NodeMapper:
         mapper = self._node_mapper.get(node_id)
@@ -129,8 +142,12 @@ class OnlineIndex:
             if self.max_propagation_depth > 0 and current_depth >= self.max_propagation_depth:
                 self.propagation_depth_cutoff_total += 1
                 continue
+            out_edges_list = self.out_edges.get(src_node_id, [])
+            if self.max_fan_out > 0 and len(out_edges_list) > self.max_fan_out:
+                self.propagation_fanout_cutoff_total += 1
+                continue
             src_mapper = self._mapper(src_node_id)
-            for dst_node_id, edge_type in self.out_edges.get(src_node_id, []):
+            for dst_node_id, edge_type in out_edges_list:
                 if edge_type == EdgeType.DATA_FLOW:
                     edge_cost = 1
                 elif edge_type == EdgeType.VERSION_TRANSITION:

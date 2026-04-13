@@ -22,6 +22,7 @@ from engine.io.events import Event, EventMeta
 from engine.noise.filter import NoiseConfig, apply_noise_filter, filter_matches
 from engine.noise.model import NoiseModel, get_benign_drop_ids
 from engine.noise.profile import BenignProfile, load_benign_profile
+from engine.native import NativeEngineBackend, load_native_backend
 from engine.rules.schema import APT_STAGES, RuleSet, infer_rule_cvss, infer_rule_stage
 from engine.stream.workers import iter_parsed_events_parallel
 
@@ -117,6 +118,7 @@ class StreamingEngine:
         graph_gc_every_events: int = 1000,
         ancestor_index_mode: str = "incremental",
         online_score_refresh_every: int = 1000,
+        native_backend: NativeEngineBackend | None = None,
     ) -> None:
         self.ruleset = ruleset
         self.scoring_mode = scoring_mode
@@ -163,6 +165,7 @@ class StreamingEngine:
         self.defer_snapshot_updates = bool(defer_snapshot_updates)
         self.graph_gc_every_events = max(1, int(graph_gc_every_events))
         self.online_score_refresh_every = max(1, int(online_score_refresh_every))
+        self._online_score_refresh_pending_events = 0
         self.global_refine_ran_at_snapshots_count = 0
         self.global_refine_ran_at_events_count = 0
         self._events_processed = 0
@@ -170,6 +173,7 @@ class StreamingEngine:
         self._score_state_dirty = False
         self._last_graph_gc_events = 0
         self._pending_online_graph_edges: list[tuple[str, str, Any]] = []
+        self.native_backend = native_backend if native_backend is not None else load_native_backend()
         if resolved_effective_config is None:
             is_paper_like = scoring_mode in {"paper", "paper_exact"}
             default_path_thres = 3.0 if is_paper_like else 0.0
@@ -621,6 +625,10 @@ class StreamingEngine:
             "online_index_propagation_depth_cutoff_total": int(
                 getattr(self.online_index, "propagation_depth_cutoff_total", 0)
             ),
+            "online_index_propagation_max_fan_out": int(getattr(self.online_index, "max_fan_out", 0)),
+            "online_index_propagation_fanout_cutoff_total": int(
+                getattr(self.online_index, "propagation_fanout_cutoff_total", 0)
+            ),
             "online_extend_edges_time_seconds": float(self._online_extend_edges_time_seconds),
             "online_extend_edges_avg_ms_per_event": (float(self._online_extend_edges_time_seconds) * 1000.0 / float(self.stats.events))
             if self.stats.events
@@ -951,6 +959,13 @@ class StreamingEngine:
                         origin_node_id=node_id,
                     )
                     self._record_online_index_match_add_telemetry(telemetry)
+                    if self.native_backend.available:
+                        self.native_backend.register_online_match(
+                            node_id=node_id,
+                            match_id=match.match_id,
+                            rule_id=match.rule_id,
+                            sequence=int(match.sequence or self.stats.events),
+                        )
             self._online_add_active_match_online_index_time_seconds += time.perf_counter() - online_index_started
 
     def _extend_online_edges(self, edges: list[HSGEdge]) -> None:
@@ -965,8 +980,16 @@ class StreamingEngine:
 
     def _rebuild_online_index_from_active_matches(self) -> None:
         self.online_index = OnlineIndex()
+        if self.native_backend.available:
+            self.native_backend.reset_online_index()
         for edge in self.graph.runtime_edges:
             self.online_index.on_edge_added(edge.src, edge.dst, edge.edge_type, propagate=False)
+            if self.native_backend.available:
+                self.native_backend.add_online_edge(
+                    edge.src,
+                    edge.dst,
+                    self._native_edge_type_name(edge.edge_type),
+                )
         self.online_index.flush_pending_edges()
         for match in self.matches:
             for node_id in (match.subject_node_id, match.object_node_id):
@@ -979,6 +1002,13 @@ class StreamingEngine:
                         origin_node_id=node_id,
                     )
                     self._record_online_index_match_add_telemetry(telemetry)
+                    if self.native_backend.available:
+                        self.native_backend.register_online_match(
+                            node_id=node_id,
+                            match_id=match.match_id,
+                            rule_id=match.rule_id,
+                            sequence=int(match.sequence or 0),
+                        )
 
     def _record_online_index_match_add_telemetry(
         self,
@@ -1071,6 +1101,10 @@ class StreamingEngine:
             return
         self._pending_online_graph_edges.append((edge.src, edge.dst, edge.edge_type))
 
+    @staticmethod
+    def _native_edge_type_name(edge_type: Any) -> str:
+        return str(getattr(edge_type, "value", edge_type))
+
     def _flush_pending_online_graph_edges(self) -> None:
         if not self.use_online_prereq or not self._pending_online_graph_edges:
             return
@@ -1079,7 +1113,11 @@ class StreamingEngine:
         self._pending_online_graph_edges = []
         for src, dst, edge_type in pending:
             self.online_index.on_edge_added(src, dst, edge_type, propagate=False)
+            if self.native_backend.available:
+                self.native_backend.add_online_edge(src, dst, self._native_edge_type_name(edge_type))
         self.online_index.flush_pending_edges()
+        if self.native_backend.available:
+            self.native_backend.flush()
         self._online_graph_edge_flush_time_seconds += time.perf_counter() - started
 
     @staticmethod
@@ -1453,12 +1491,12 @@ class StreamingEngine:
             return
         if not self._score_state_dirty and not force:
             return
-        next_events_processed = self._events_processed + 1
-        if not force and (next_events_processed % self.online_score_refresh_every) != 0:
+        if not force and self._online_score_refresh_pending_events < self.online_score_refresh_every:
             return
         refresh_started = time.perf_counter()
         self._refresh_scores()
         self._online_score_refresh_time_seconds += time.perf_counter() - refresh_started
+        self._online_score_refresh_pending_events = 0
 
     def _update_alerts(self) -> None:
         if self.apt_alert_threshold <= 0.0:
@@ -1807,6 +1845,8 @@ class StreamingEngine:
 
         if self.use_online_prereq:
             self._score_state_dirty = self._score_state_dirty or online_state_changed
+            if online_state_changed:
+                self._online_score_refresh_pending_events += 1
             self._maybe_refresh_scores_online(force=False)
         elif not self.defer_snapshot_updates:
             self._refresh_scores()
@@ -1816,10 +1856,30 @@ class StreamingEngine:
             self._maybe_global_refine("periodic")
 
     def process_source(self, source: Any) -> int:
-        count = 0
-        for event in source:
+        return self.process_source_batched(source, batch_size=1)
+
+    def process_event_batch(self, events: list[Event]) -> int:
+        if not events:
+            return 0
+        if self.native_backend.available and self.native_backend.process_events(events):
+            self.native_backend.flush()
+            return len(events)
+        for event in events:
             self.process_event(event)
-            count += 1
+        return len(events)
+
+    def process_source_batched(self, source: Any, *, batch_size: int = 5000) -> int:
+        count = 0
+        effective_batch_size = max(1, int(batch_size))
+        batch: list[Event] = []
+        for event in source:
+            batch.append(event)
+            if len(batch) < effective_batch_size:
+                continue
+            count += self.process_event_batch(batch)
+            batch = []
+        if batch:
+            count += self.process_event_batch(batch)
         return count
 
     def process_raw_source(
