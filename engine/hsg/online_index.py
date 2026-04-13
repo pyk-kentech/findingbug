@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
+import os
 import time
 
 from engine.core.graph import EdgeType
@@ -26,6 +27,13 @@ class OnlineIndex:
     """
 
     def __init__(self) -> None:
+        depth_raw = os.getenv("HOLMES_ONLINE_INDEX_MAX_PROPAGATION_DEPTH", "5").strip()
+        try:
+            parsed_depth = int(depth_raw)
+        except ValueError:
+            parsed_depth = 5
+        self.max_propagation_depth = max(0, parsed_depth)
+        self.propagation_depth_cutoff_total = 0
         self._node_mapper: dict[str, NodeMapper] = {}
         # Explicit adjacency cache for propagation engine.
         self.out_edges: dict[str, list[tuple[str, EdgeType | str]]] = defaultdict(list)
@@ -33,6 +41,36 @@ class OnlineIndex:
         self._local_matches: dict[str, set[str]] = defaultdict(set)
         self._local_matches_by_rule: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         self._pending_new_edges: list[tuple[str, str, EdgeType | str]] = []
+
+    def prune(self, _removed_entities: set[str], removed_version_nodes: set[str]) -> None:
+        """
+        Drop references to removed graph version nodes so GC can reclaim memory.
+        """
+        if not removed_version_nodes:
+            return
+        removed = set(removed_version_nodes)
+
+        for node_id in removed:
+            self._node_mapper.pop(node_id, None)
+            self._local_matches.pop(node_id, None)
+            self._local_matches_by_rule.pop(node_id, None)
+            self.out_edges.pop(node_id, None)
+            self._out_edge_set.pop(node_id, None)
+
+        for src in list(self.out_edges.keys()):
+            filtered = [(dst, et) for (dst, et) in self.out_edges[src] if dst not in removed]
+            if filtered:
+                self.out_edges[src] = filtered
+                self._out_edge_set[src] = set(filtered)
+            else:
+                self.out_edges.pop(src, None)
+                self._out_edge_set.pop(src, None)
+
+        self._pending_new_edges = [
+            (src, dst, et)
+            for (src, dst, et) in self._pending_new_edges
+            if src not in removed and dst not in removed
+        ]
 
     def _mapper(self, node_id: str) -> NodeMapper:
         mapper = self._node_mapper.get(node_id)
@@ -85,9 +123,12 @@ class OnlineIndex:
     def _propagate_delta(self, start_node_id: str, delta_match_ids: set[str]) -> None:
         if not delta_match_ids:
             return
-        q: deque[tuple[str, set[str]]] = deque([(start_node_id, set(delta_match_ids))])
+        q: deque[tuple[str, set[str], int]] = deque([(start_node_id, set(delta_match_ids), 0)])
         while q:
-            src_node_id, delta = q.popleft()
+            src_node_id, delta, current_depth = q.popleft()
+            if self.max_propagation_depth > 0 and current_depth >= self.max_propagation_depth:
+                self.propagation_depth_cutoff_total += 1
+                continue
             src_mapper = self._mapper(src_node_id)
             for dst_node_id, edge_type in self.out_edges.get(src_node_id, []):
                 if edge_type == EdgeType.DATA_FLOW:
@@ -102,7 +143,8 @@ class OnlineIndex:
                     if self._merge_match_from_src(dst_mapper, src_mapper, match_id, edge_cost=edge_cost):
                         changed_for_dst.add(match_id)
                 if changed_for_dst:
-                    q.append((dst_node_id, changed_for_dst))
+                    next_depth = current_depth + 1
+                    q.append((dst_node_id, changed_for_dst, next_depth))
 
     def _edge_cost_for(self, edge_type: EdgeType | str) -> int | None:
         if edge_type == EdgeType.DATA_FLOW:

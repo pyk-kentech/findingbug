@@ -117,6 +117,10 @@ def run_pipeline(
     ab_performance: str = "a",
     ab_quality: str = "a",
     graph_path_eval_budget_ms: float | None = None,
+    graph_path_candidate_preselect_factor: int | None = None,
+    graph_path_edge_eviction_policy: str | None = None,
+    graph_gc_every_events: int | None = None,
+    online_score_refresh_every: int | None = None,
     use_online_prereq: bool = False,
     apt_alert_threshold: float = 80.0,
     max_pending_matches: int = 100000,
@@ -139,7 +143,8 @@ def run_pipeline(
         raise ValueError("ab_performance must be one of: a, b")
     if quality_variant not in {"a", "b"}:
         raise ValueError("ab_quality must be one of: a, b")
-    effective_ac_min_method = "set_diff" if perf_variant == "b" else "pairwise"
+    # Force set-difference AC_min path for stability in large streaming graphs.
+    effective_ac_min_method = "set_diff"
     if quality_variant == "b":
         if graph_path_eval_budget_ms is None:
             effective_graph_path_eval_budget_ms = 1.0
@@ -148,9 +153,25 @@ def run_pipeline(
             if effective_graph_path_eval_budget_ms <= 0.0:
                 effective_graph_path_eval_budget_ms = 1.0
         effective_graph_path_cache_miss_policy = "skip"
+        if graph_path_candidate_preselect_factor is None:
+            effective_graph_path_candidate_preselect_factor = 4
+        else:
+            effective_graph_path_candidate_preselect_factor = max(0, int(graph_path_candidate_preselect_factor))
+        if graph_path_edge_eviction_policy is None:
+            effective_graph_path_edge_eviction_policy = "low_weight_lru"
+        else:
+            effective_graph_path_edge_eviction_policy = str(graph_path_edge_eviction_policy).strip().lower()
     else:
         effective_graph_path_eval_budget_ms = None
         effective_graph_path_cache_miss_policy = "compute"
+        effective_graph_path_candidate_preselect_factor = max(0, int(graph_path_candidate_preselect_factor or 0))
+        effective_graph_path_edge_eviction_policy = (
+            str(graph_path_edge_eviction_policy).strip().lower()
+            if graph_path_edge_eviction_policy is not None
+            else "none"
+        )
+    if effective_graph_path_edge_eviction_policy not in {"none", "low_weight_lru"}:
+        raise ValueError("graph_path_edge_eviction_policy must be one of: none, low_weight_lru")
     noise_signature_min_ratio = max(0.0, min(1.0, float(noise_signature_min_ratio)))
     resolved_effective_config = _resolve_effective_config(
         scoring_mode=scoring_mode,
@@ -183,6 +204,8 @@ def run_pipeline(
         max_graph_path_candidates_per_match=max_graph_path_candidates_per_match,
         graph_path_eval_budget_ms=effective_graph_path_eval_budget_ms,
         graph_path_cache_miss_policy=effective_graph_path_cache_miss_policy,
+        graph_path_candidate_preselect_factor=effective_graph_path_candidate_preselect_factor,
+        graph_path_edge_eviction_policy=effective_graph_path_edge_eviction_policy,
         ac_min_method=effective_ac_min_method,
         ab_performance=perf_variant,
         ab_quality=quality_variant,
@@ -197,7 +220,16 @@ def run_pipeline(
         apt_alert_threshold=apt_alert_threshold,
         max_pending_matches=max_pending_matches,
         defer_snapshot_updates=not bool(use_online_prereq),
-        graph_gc_every_events=1000 if bool(use_online_prereq) else 50000,
+        graph_gc_every_events=(
+            max(1, int(graph_gc_every_events))
+            if graph_gc_every_events is not None
+            else (1000 if bool(use_online_prereq) else 50000)
+        ),
+        online_score_refresh_every=(
+            max(1, int(online_score_refresh_every))
+            if online_score_refresh_every is not None
+            else 1000
+        ),
         ancestor_index_mode=effective_ancestor_index_mode,
     )
     parser_workers = max(1, int(matcher_workers))
@@ -258,7 +290,7 @@ def train_noise_model_pipeline(
 ) -> dict:
     signature_min_ratio = max(0.0, min(1.0, float(signature_min_ratio)))
     events = list(load_events_jsonl(train_events_path))
-    graph = ProvenanceGraph()
+    graph = ProvenanceGraph(ac_min_method="set_diff")
     graph.add_events(events)
 
     ruleset = load_rules(rules_path)
@@ -502,6 +534,41 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--graph-path-candidate-preselect-factor",
+        dest="graph_path_candidate_preselect_factor",
+        type=int,
+        default=None,
+        help=(
+            "Preselect factor for candidate ranking before graph_path pair evaluation. "
+            "Candidate cap becomes max_graph_path_candidates_per_match * factor. "
+            "In --ab-quality B mode, defaults to 4 when omitted."
+        ),
+    )
+    parser.add_argument(
+        "--graph-path-edge-eviction-policy",
+        dest="graph_path_edge_eviction_policy",
+        choices=["none", "low_weight_lru"],
+        default=None,
+        help=(
+            "Graph-path edge cap policy when max_graph_path_edges is reached. "
+            "In --ab-quality B mode, defaults to low_weight_lru when omitted."
+        ),
+    )
+    parser.add_argument(
+        "--graph-gc-every-events",
+        dest="graph_gc_every_events",
+        type=int,
+        default=None,
+        help="Run graph prune/gc every N events (default: online=1000, offline=50000).",
+    )
+    parser.add_argument(
+        "--online-score-refresh-every",
+        dest="online_score_refresh_every",
+        type=int,
+        default=None,
+        help="Refresh online scenario scoring every N events (default: 1000).",
+    )
+    parser.add_argument(
         "--use-online-prereq",
         dest="use_online_prereq",
         action="store_true",
@@ -594,6 +661,10 @@ def main() -> int:
             ab_performance=str(args.ab_performance).lower(),
             ab_quality=str(args.ab_quality).lower(),
             graph_path_eval_budget_ms=args.graph_path_eval_budget_ms,
+            graph_path_candidate_preselect_factor=args.graph_path_candidate_preselect_factor,
+            graph_path_edge_eviction_policy=args.graph_path_edge_eviction_policy,
+            graph_gc_every_events=args.graph_gc_every_events,
+            online_score_refresh_every=args.online_score_refresh_every,
             use_online_prereq=bool(args.use_online_prereq),
             apt_alert_threshold=float(args.apt_alert_threshold),
             max_pending_matches=max(0, int(args.max_pending_matches)),

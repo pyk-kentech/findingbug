@@ -72,6 +72,8 @@ class IncrementalHSGBuilder:
         max_graph_path_candidates_per_match: int = 200,
         graph_path_eval_budget_ms: float | None = None,
         graph_path_cache_miss_policy: str = "compute",
+        graph_path_candidate_preselect_factor: int = 0,
+        graph_path_edge_eviction_policy: str = "none",
         pending_ttl_seconds: int | None = 30 * 24 * 60 * 60,
         max_pending_matches: int = 100000,
         scenario_dormancy_seconds: int | None = 60 * 24 * 60 * 60,
@@ -90,6 +92,10 @@ class IncrementalHSGBuilder:
         if graph_path_cache_miss_policy not in {"compute", "skip"}:
             raise ValueError("graph_path_cache_miss_policy must be one of: compute, skip")
         self.graph_path_cache_miss_policy = graph_path_cache_miss_policy
+        self.graph_path_candidate_preselect_factor = max(0, int(graph_path_candidate_preselect_factor))
+        if graph_path_edge_eviction_policy not in {"none", "low_weight_lru"}:
+            raise ValueError("graph_path_edge_eviction_policy must be one of: none, low_weight_lru")
+        self.graph_path_edge_eviction_policy = graph_path_edge_eviction_policy
         self.pending_ttl_seconds = None if pending_ttl_seconds is None else max(0, int(pending_ttl_seconds))
         self.max_pending_matches = max(0, int(max_pending_matches))
         self.scenario_dormancy_seconds = (
@@ -160,6 +166,9 @@ class IncrementalHSGBuilder:
         self.pair_edges_graph_path_skip_binding_total = 0
         self.pair_edges_graph_path_skip_budget_total = 0
         self.pair_edges_graph_path_skip_cache_miss_total = 0
+        self.pair_edges_graph_path_preselected_drop_total = 0
+        self.pair_edges_graph_path_evicted_total = 0
+        self.pair_edges_graph_path_eviction_time_seconds = 0.0
         self.pair_edges_prereq_check_time_seconds = 0.0
         self.pair_edges_graph_path_candidate_time_seconds = 0.0
         self.pair_edges_graph_path_metrics_time_seconds = 0.0
@@ -169,6 +178,8 @@ class IncrementalHSGBuilder:
         self.pair_edges_graph_path_pf_compute_time_seconds = 0.0
         self._rule_pair_relevance_cache: dict[tuple[str, str], bool] = {}
         self._match_entities_cache: dict[str, set[str]] = {}
+        self._graph_path_edge_touch_seq = 0
+        self._graph_path_edge_last_seen: dict[tuple[str, str, str], int] = {}
 
     def _has_prereq(self, rule) -> bool:
         return bool(
@@ -338,6 +349,76 @@ class IncrementalHSGBuilder:
         self._match_entities_cache[match.match_id] = entities
         return entities
 
+    def _graph_path_priority_key(
+        self,
+        left: TTPMatch,
+        right: TTPMatch,
+        path_factor_cache: dict[tuple[str, str], float | None] | None,
+    ) -> tuple[int, float, int, int, str]:
+        known_pf_rank = 1
+        pf_rank = float("inf")
+        config = _resolve_prereq_config("graph_path", left.rule_id, right.rule_id)
+        if isinstance(config, dict):
+            from_binding = config.get("from_binding")
+            to_binding = config.get("to_binding")
+            if from_binding and to_binding:
+                from_entity = left.bindings.get(str(from_binding))
+                to_entity = right.bindings.get(str(to_binding))
+                if isinstance(from_entity, str) and from_entity and isinstance(to_entity, str) and to_entity:
+                    cache_key = (from_entity, to_entity)
+                    if path_factor_cache is not None and cache_key in path_factor_cache:
+                        cached_pf = path_factor_cache[cache_key]
+                        if isinstance(cached_pf, (float, int)) and float(cached_pf) > 0.0:
+                            known_pf_rank = 0
+                            pf_rank = float(cached_pf)
+        shared_entities = len(self._entities_of_match(left) & self._entities_of_match(right))
+        right_is_pending = 1 if right.match_id in self.pending_matches_by_id else 0
+        return (known_pf_rank, pf_rank, right_is_pending, -shared_entities, right.match_id)
+
+    def _candidate_priority_key(
+        self,
+        current: TTPMatch,
+        candidate: TTPMatch,
+        path_factor_cache: dict[tuple[str, str], float | None] | None,
+    ) -> tuple[int, float, int, int, str]:
+        forward = self._graph_path_priority_key(candidate, current, path_factor_cache)
+        reverse = self._graph_path_priority_key(current, candidate, path_factor_cache)
+        return forward if forward <= reverse else reverse
+
+    def _evict_graph_path_edge_if_needed(self) -> bool:
+        if self.max_graph_path_edges <= 0:
+            return False
+        if self.graph_path_edges_count < self.max_graph_path_edges:
+            return True
+        if self.graph_path_edge_eviction_policy != "low_weight_lru":
+            return False
+        started = time.perf_counter()
+        victim_index: int | None = None
+        victim_score: tuple[float, int] | None = None
+        for idx, edge in enumerate(self.edges):
+            if edge.relation != "graph_path":
+                continue
+            edge_key = (edge.src, edge.dst, edge.relation)
+            last_seen = self._graph_path_edge_last_seen.get(edge_key, -1)
+            score = (float(edge.weight) if edge.weight is not None else 0.0, last_seen)
+            if victim_score is None or score < victim_score:
+                victim_score = score
+                victim_index = idx
+        if victim_index is None:
+            return False
+        victim = self.edges.pop(victim_index)
+        victim_key = (victim.src, victim.dst, victim.relation)
+        self.seen_edges.discard(victim_key)
+        self._graph_path_edge_last_seen.pop(victim_key, None)
+        if self.graph_path_candidates_by_src.get(victim.src, 0) > 0:
+            self.graph_path_candidates_by_src[victim.src] -= 1
+            if self.graph_path_candidates_by_src[victim.src] <= 0:
+                self.graph_path_candidates_by_src.pop(victim.src, None)
+        self.graph_path_edges_count = max(0, self.graph_path_edges_count - 1)
+        self.pair_edges_graph_path_evicted_total += 1
+        self.pair_edges_graph_path_eviction_time_seconds += time.perf_counter() - started
+        return self.graph_path_edges_count < self.max_graph_path_edges
+
     def _component_map(self) -> dict[str, set[str]]:
         started = time.perf_counter()
         try:
@@ -406,9 +487,13 @@ class IncrementalHSGBuilder:
             self.seen_edges = {(e.src, e.dst, e.relation) for e in self.edges}
             self.graph_path_edges_count = len([e for e in self.edges if e.relation == "graph_path"])
             self.graph_path_candidates_by_src = defaultdict(int)
+            self._graph_path_edge_last_seen = {}
+            self._graph_path_edge_touch_seq = 0
             for edge in self.edges:
                 if edge.relation == "graph_path":
                     self.graph_path_candidates_by_src[edge.src] += 1
+                    self._graph_path_edge_touch_seq += 1
+                    self._graph_path_edge_last_seen[(edge.src, edge.dst, edge.relation)] = self._graph_path_edge_touch_seq
         return closed_match_ids
 
     def _candidate_match_ids(self, match: TTPMatch, extra_candidate_ids: set[str] | None = None) -> set[str]:
@@ -534,7 +619,10 @@ class IncrementalHSGBuilder:
                 if graph_path_deadline is not None and time.perf_counter() >= graph_path_deadline:
                     self.pair_edges_graph_path_skip_budget_total += 1
                     continue
-                if self.graph_path_edges_count >= self.max_graph_path_edges:
+                if self.max_graph_path_edges <= 0:
+                    self.pair_edges_graph_path_skip_max_edges_total += 1
+                    continue
+                if self.graph_path_edges_count >= self.max_graph_path_edges and not self._evict_graph_path_edge_if_needed():
                     self.pair_edges_graph_path_skip_max_edges_total += 1
                     continue
                 if self.graph_path_allowlist is not None and (left.rule_id, right.rule_id) not in self.graph_path_allowlist:
@@ -615,6 +703,8 @@ class IncrementalHSGBuilder:
             self.pair_edges_built_total += 1
             if relation == "graph_path":
                 self.graph_path_edges_count += 1
+                self._graph_path_edge_touch_seq += 1
+                self._graph_path_edge_last_seen[edge_key] = self._graph_path_edge_touch_seq
         return built
 
     def _pair_edges_bidirectional(
@@ -745,7 +835,23 @@ class IncrementalHSGBuilder:
                 )
         else:
             pair_eval_started = time.perf_counter()
-            for candidate_id in sorted(candidate_ids):
+            ordered_candidate_ids = sorted(candidate_ids)
+            if (
+                self.graph_path_candidate_preselect_factor > 0
+                and self.max_graph_path_candidates_per_match > 0
+                and len(ordered_candidate_ids) > (self.max_graph_path_candidates_per_match * self.graph_path_candidate_preselect_factor)
+            ):
+                candidate_cap = self.max_graph_path_candidates_per_match * self.graph_path_candidate_preselect_factor
+                ordered_candidate_ids = sorted(
+                    ordered_candidate_ids,
+                    key=lambda cid: self._candidate_priority_key(
+                        match,
+                        self.matches_by_id.get(cid) or self.pending_matches_by_id.get(cid) or match,
+                        effective_path_factor_cache,
+                    ),
+                )[:candidate_cap]
+                self.pair_edges_graph_path_preselected_drop_total += max(0, len(candidate_ids) - len(ordered_candidate_ids))
+            for candidate_id in ordered_candidate_ids:
                 prior = self.matches_by_id.get(candidate_id) or self.pending_matches_by_id.get(candidate_id)
                 if prior is None:
                     continue
@@ -1005,6 +1111,8 @@ def build_hsg(
     graph_path_allowlist: set[tuple[str, str]] | None = None,
     max_graph_path_edges: int = 10000,
     max_graph_path_candidates_per_match: int = 200,
+    graph_path_candidate_preselect_factor: int = 0,
+    graph_path_edge_eviction_policy: str = "none",
 ) -> HSG:
     if paper_mode not in {"hybrid", "strict"}:
         raise ValueError("paper_mode must be 'hybrid' or 'strict'")
@@ -1014,6 +1122,8 @@ def build_hsg(
         raise ValueError("max_graph_path_edges must be >= 0")
     if max_graph_path_candidates_per_match < 0:
         raise ValueError("max_graph_path_candidates_per_match must be >= 0")
+    if graph_path_candidate_preselect_factor < 0:
+        raise ValueError("graph_path_candidate_preselect_factor must be >= 0")
 
     incremental = IncrementalHSGBuilder(
         graph=graph,
@@ -1025,6 +1135,8 @@ def build_hsg(
         graph_path_allowlist=graph_path_allowlist,
         max_graph_path_edges=max_graph_path_edges,
         max_graph_path_candidates_per_match=max_graph_path_candidates_per_match,
+        graph_path_candidate_preselect_factor=graph_path_candidate_preselect_factor,
+        graph_path_edge_eviction_policy=graph_path_edge_eviction_policy,
     )
     ordered_matches = sorted(matches, key=lambda m: (int(m.sequence or 0), m.match_id))
     for match in ordered_matches:

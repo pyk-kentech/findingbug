@@ -90,7 +90,7 @@ class ProvenanceGraph:
         self,
         *,
         ancestor_index_mode: str = "incremental",
-        ac_min_method: str = "pairwise",
+        ac_min_method: str = "set_diff",
     ) -> None:
         if ancestor_index_mode not in {"incremental", "lazy"}:
             raise ValueError("ancestor_index_mode must be one of: incremental, lazy")
@@ -162,6 +162,16 @@ class ProvenanceGraph:
         self._current_version_lookup_time_seconds = 0.0
         self._new_version_node_time_seconds = 0.0
         self._semantic_current_version_lookup_time_seconds = 0.0
+        self._use_on_demand_ancestor = os.getenv("HOLMES_USE_ON_DEMAND_ANCESTOR", "0").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        cap_raw = os.getenv("HOLMES_ANCESTOR_ENTRY_CAP", "12000").strip()
+        try:
+            self._ancestor_entry_cap = max(0, int(cap_raw))
+        except ValueError:
+            self._ancestor_entry_cap = 12000
 
     def register_edge_hook(self, hook: Callable[[Edge], None]) -> None:
         self._edge_hooks.append(hook)
@@ -295,8 +305,9 @@ class ProvenanceGraph:
         self.version_nodes[node_id] = node
         self.entity_versions[entity_id].append(node_id)
         self.nodes.add(entity_id)
-        self._ancestors_by_node[node_id] = {node_id}
-        self._min_dist_from_ancestor[node_id] = {node_id: 0}
+        if not self._use_on_demand_ancestor:
+            self._ancestors_by_node[node_id] = {node_id}
+            self._min_dist_from_ancestor[node_id] = {node_id: 0}
         if observed_dt is not None:
             self._version_last_seen_ts[node_id] = observed_dt
             prev_entity_ts = self._entity_last_seen_ts.get(entity_id)
@@ -395,6 +406,8 @@ class ProvenanceGraph:
         self._edge_hook_time_seconds += time.perf_counter() - edge_hook_started
 
     def _ensure_ancestor_index(self) -> None:
+        if self._use_on_demand_ancestor:
+            return
         if self.ancestor_index_mode == "incremental" and not self._ancestor_index_dirty:
             return
         if self.ancestor_index_mode == "lazy" and not self._ancestor_index_dirty:
@@ -417,6 +430,8 @@ class ProvenanceGraph:
         self._union_adj_dirty = False
 
     def _propagate_ancestor_distance_delta(self, src_node: str, dst_node: str, edge_type: EdgeType) -> None:
+        if self._use_on_demand_ancestor:
+            return
         edge_cost = self._edge_cost(edge_type)
         src_dist = self._min_dist_from_ancestor.get(src_node, {})
         if not src_dist:
@@ -441,9 +456,35 @@ class ProvenanceGraph:
             if not changed_delta:
                 continue
 
+            self._apply_ancestor_entry_cap(cur_dst)
+
             for nxt, nxt_type in self._iter_neighbors(cur_dst):
                 nxt_cost = self._edge_cost(nxt_type)
                 q.append((cur_dst, nxt, nxt_cost, changed_delta))
+
+    def _apply_ancestor_entry_cap(self, node_id: str) -> None:
+        cap = int(self._ancestor_entry_cap)
+        if cap <= 0:
+            return
+        dist = self._min_dist_from_ancestor.get(node_id)
+        anc = self._ancestors_by_node.get(node_id)
+        if not dist or not anc or len(dist) <= cap:
+            return
+
+        self_dist = dist.get(node_id, 0)
+        # Keep the node itself + lowest-distance ancestors.
+        items = sorted(dist.items(), key=lambda kv: (int(kv[1]), str(kv[0])))
+        kept_pairs = items[: cap]
+        kept_keys = {k for k, _ in kept_pairs}
+        if node_id not in kept_keys:
+            # Ensure self entry is retained.
+            if kept_pairs:
+                drop_key = kept_pairs[-1][0]
+                kept_keys.discard(drop_key)
+            kept_keys.add(node_id)
+
+        self._min_dist_from_ancestor[node_id] = {k: (self_dist if k == node_id else int(dist[k])) for k in kept_keys}
+        self._ancestors_by_node[node_id] = set(kept_keys)
 
     def _bump_entity(
         self,
@@ -781,7 +822,8 @@ class ProvenanceGraph:
 
         self._process_ancestor_cache.clear()
         self._path_factor_cache.clear()
-        self._rebuild_indexes_from_current_state()
+        self._rebuild_adjacency_only_from_current_state()
+        self._remove_pruned_nodes_from_indexes(removable_version_nodes)
         removed_entities_payload = set(removable_entities)
         removed_versions_payload = set(removable_version_nodes)
         for hook in self._prune_hooks:
@@ -792,6 +834,63 @@ class ProvenanceGraph:
             "edges_removed": old_edge_count - len(self.edges),
             "semantic_edges_removed": old_semantic_count - len(self.semantic_relations),
         }
+
+    def _rebuild_adjacency_only_from_current_state(self) -> None:
+        self.adj = defaultdict(set)
+        self.rev_adj = defaultdict(set)
+        self.adj_data_flow = defaultdict(set)
+        self.rev_adj_data_flow = defaultdict(set)
+        self.adj_version_transition = defaultdict(set)
+        self.rev_adj_version_transition = defaultdict(set)
+        self.semantic_adj = defaultdict(lambda: defaultdict(set))
+        self.semantic_rev_adj = defaultdict(lambda: defaultdict(set))
+        for edge in self.runtime_edges:
+            if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
+                continue
+            if edge.edge_type == EdgeType.DATA_FLOW:
+                self.adj_data_flow[edge.src].add(edge.dst)
+                self.rev_adj_data_flow[edge.dst].add(edge.src)
+            else:
+                self.adj_version_transition[edge.src].add(edge.dst)
+                self.rev_adj_version_transition[edge.dst].add(edge.src)
+            self.adj[edge.src].add(edge.dst)
+            self.rev_adj[edge.dst].add(edge.src)
+        for relation, src_entity, dst_entity in self.semantic_relations:
+            src_node = self.current_version_node(src_entity)
+            dst_node = self.current_version_node(dst_entity)
+            if not src_node or not dst_node:
+                continue
+            self.semantic_adj[relation][src_node].add(dst_node)
+            self.semantic_rev_adj[relation][dst_node].add(src_node)
+        self._union_adj_dirty = False
+
+    def _remove_pruned_nodes_from_indexes(self, removed_version_nodes: set[str]) -> None:
+        if not removed_version_nodes:
+            return
+        removed = set(removed_version_nodes)
+        for node_id in removed:
+            self._ancestors_by_node.pop(node_id, None)
+            self._min_dist_from_ancestor.pop(node_id, None)
+
+        for node_id, anc_set in list(self._ancestors_by_node.items()):
+            if anc_set & removed:
+                anc_set.difference_update(removed)
+                anc_set.add(node_id)
+                self._ancestors_by_node[node_id] = anc_set
+
+        for node_id, dist in list(self._min_dist_from_ancestor.items()):
+            touched = False
+            for rid in removed:
+                if rid in dist:
+                    dist.pop(rid, None)
+                    touched = True
+            if touched:
+                dist[node_id] = min(dist.get(node_id, 0), 0)
+                self._min_dist_from_ancestor[node_id] = dist
+            self._apply_ancestor_entry_cap(node_id)
+
+        # Keep indexes usable without immediate full rebuild.
+        self._ancestor_index_dirty = False
 
     def _rebuild_indexes_from_current_state(self) -> None:
         self.adj = defaultdict(set)
@@ -804,9 +903,10 @@ class ProvenanceGraph:
         self.semantic_rev_adj = defaultdict(lambda: defaultdict(set))
         self._ancestors_by_node = {}
         self._min_dist_from_ancestor = {}
-        for node_id in self.version_nodes:
-            self._ancestors_by_node[node_id] = {node_id}
-            self._min_dist_from_ancestor[node_id] = {node_id: 0}
+        if not self._use_on_demand_ancestor:
+            for node_id in self.version_nodes:
+                self._ancestors_by_node[node_id] = {node_id}
+                self._min_dist_from_ancestor[node_id] = {node_id: 0}
         for edge in self.runtime_edges:
             if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
                 continue
@@ -818,10 +918,11 @@ class ProvenanceGraph:
                 self.rev_adj_version_transition[edge.dst].add(edge.src)
             self.adj[edge.src].add(edge.dst)
             self.rev_adj[edge.dst].add(edge.src)
-        for edge in self.runtime_edges:
-            if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
-                continue
-            self._propagate_ancestor_distance_delta(edge.src, edge.dst, edge.edge_type)
+        if not self._use_on_demand_ancestor:
+            for edge in self.runtime_edges:
+                if edge.src not in self.version_nodes or edge.dst not in self.version_nodes:
+                    continue
+                self._propagate_ancestor_distance_delta(edge.src, edge.dst, edge.edge_type)
         for relation, src_entity, dst_entity in self.semantic_relations:
             src_node = self.current_version_node(src_entity)
             dst_node = self.current_version_node(dst_entity)
@@ -847,11 +948,13 @@ class ProvenanceGraph:
         """
         if src == dst:
             return True
-        self._ensure_ancestor_index()
         src_nodes = set(self._resolve_query_nodes(src))
-        dst_nodes = self._resolve_query_nodes(dst)
+        dst_nodes = set(self._resolve_query_nodes(dst))
         if not src_nodes or not dst_nodes:
             return False
+        if self._use_on_demand_ancestor:
+            return self._has_path_between_version_nodes(src_nodes, dst_nodes)
+        self._ensure_ancestor_index()
         for d in dst_nodes:
             d_ancs = self._ancestors_by_node.get(d, set())
             if not d_ancs.isdisjoint(src_nodes):
@@ -864,7 +967,6 @@ class ProvenanceGraph:
 
         Returns True when any src -> any dst path exists.
         """
-        self._ensure_ancestor_index()
         src_nodes: set[str] = set()
         for src in src_entities:
             if not src:
@@ -872,14 +974,42 @@ class ProvenanceGraph:
             src_nodes.update(self._resolve_query_nodes(src))
         if not src_nodes:
             return False
+        dst_nodes: set[str] = set()
         for dst in dst_entities:
             if not dst:
                 continue
-            for d in self._resolve_query_nodes(dst):
-                d_ancs = self._ancestors_by_node.get(d, set())
-                if not d_ancs.isdisjoint(src_nodes):
-                    return True
+            dst_nodes.update(self._resolve_query_nodes(dst))
+        if not dst_nodes:
+            return False
+        if self._use_on_demand_ancestor:
+            return self._has_path_between_version_nodes(src_nodes, dst_nodes)
+        self._ensure_ancestor_index()
+        for d in dst_nodes:
+            d_ancs = self._ancestors_by_node.get(d, set())
+            if not d_ancs.isdisjoint(src_nodes):
+                return True
         return False
+
+    def _has_path_between_version_nodes(self, src_nodes: set[str], dst_nodes: set[str]) -> bool:
+        if not src_nodes or not dst_nodes:
+            return False
+        q: deque[str] = deque(src_nodes)
+        seen: set[str] = set(src_nodes)
+        while q:
+            cur = q.popleft()
+            if cur in dst_nodes:
+                return True
+            for nxt, _edge_type in self._iter_neighbors(cur):
+                if nxt in seen:
+                    continue
+                seen.add(nxt)
+                q.append(nxt)
+        return False
+
+    def _all_ancestors_for_nodes(self, nodes: list[str]) -> set[str]:
+        if not nodes:
+            return set()
+        return self._bfs_anc_version(nodes)
 
     def descendants(self, node: str) -> set[str]:
         """Entity-level reachability projection from all versions of entity `node`."""
@@ -904,8 +1034,37 @@ class ProvenanceGraph:
         """
         if src == dst:
             return 0 if src in self.nodes or src in self.version_nodes else None
+        if self._use_on_demand_ancestor:
+            return self._shortest_version_distance_ondemand(src, dst)
         self._ensure_ancestor_index()
         return self._shortest_version_distance(src, dst)
+
+    def _shortest_version_distance_ondemand(self, src: str, dst: str) -> int | None:
+        starts = self._resolve_query_nodes(src)
+        targets = set(self._resolve_query_nodes(dst))
+        if not starts or not targets:
+            return None
+        dist: dict[str, int] = {}
+        dq: deque[str] = deque()
+        for s in starts:
+            dist[s] = 0
+            dq.appendleft(s)
+        while dq:
+            cur = dq.popleft()
+            cur_d = dist[cur]
+            if cur in targets:
+                return cur_d
+            for nxt, edge_type in self._iter_neighbors(cur):
+                w = self._edge_cost(edge_type)
+                cand = cur_d + w
+                prev = dist.get(nxt)
+                if prev is None or cand < prev:
+                    dist[nxt] = cand
+                    if w == 0:
+                        dq.appendleft(nxt)
+                    else:
+                        dq.append(nxt)
+        return None
 
     def attenuation(self, distance: int) -> float:
         """Paper-style distance attenuation over weighted DAG distance."""
@@ -914,11 +1073,15 @@ class ProvenanceGraph:
 
     def ac(self, x: str, y: str) -> set[str]:
         """AC(x,y): set of common ancestors over resolved version nodes."""
-        self._ensure_ancestor_index()
         x_nodes = self._resolve_query_nodes(x)
         y_nodes = self._resolve_query_nodes(y)
         if not x_nodes or not y_nodes:
             return set()
+        if self._use_on_demand_ancestor:
+            anc_x = self._all_ancestors_for_nodes(x_nodes)
+            anc_y = self._all_ancestors_for_nodes(y_nodes)
+            return anc_x & anc_y
+        self._ensure_ancestor_index()
         anc_x: set[str] = set()
         anc_y: set[str] = set()
         for xn in x_nodes:
@@ -931,10 +1094,16 @@ class ProvenanceGraph:
         """
         AC_min(x,y): common ancestors that are not ancestors of another common ancestor.
         """
-        self._ensure_ancestor_index()
         common = self.ac(x, y)
         if not common:
             return set()
+
+        if self._use_on_demand_ancestor:
+            result = set(common)
+            for b in common:
+                strict_ancestors = self._bfs_anc_version([b]) - {b}
+                result.difference_update(strict_ancestors)
+            return result
 
         if self.ac_min_method == "pairwise":
             result: set[str] = set()
@@ -967,7 +1136,8 @@ class ProvenanceGraph:
         return self.exact_mac_size(src, dst)
 
     def exact_mac_size(self, src: str, dst: str) -> int | None:
-        self._ensure_ancestor_index()
+        if not self._use_on_demand_ancestor:
+            self._ensure_ancestor_index()
         if src in self.version_nodes or dst in self.version_nodes:
             cover = self.ac_min(src, dst)
             if not cover:

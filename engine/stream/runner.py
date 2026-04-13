@@ -93,7 +93,9 @@ class StreamingEngine:
         max_graph_path_candidates_per_match: int = 200,
         graph_path_eval_budget_ms: float | None = None,
         graph_path_cache_miss_policy: str = "compute",
-        ac_min_method: str = "pairwise",
+        graph_path_candidate_preselect_factor: int = 0,
+        graph_path_edge_eviction_policy: str = "none",
+        ac_min_method: str = "set_diff",
         ab_performance: str = "a",
         ab_quality: str = "a",
         use_online_prereq: bool = True,
@@ -141,6 +143,8 @@ class StreamingEngine:
             None if graph_path_eval_budget_ms is None else max(0.0, float(graph_path_eval_budget_ms))
         )
         self.graph_path_cache_miss_policy = str(graph_path_cache_miss_policy)
+        self.graph_path_candidate_preselect_factor = max(0, int(graph_path_candidate_preselect_factor))
+        self.graph_path_edge_eviction_policy = str(graph_path_edge_eviction_policy)
         self.ac_min_method = str(ac_min_method)
         self.ab_performance = str(ab_performance)
         self.ab_quality = str(ab_quality)
@@ -193,6 +197,7 @@ class StreamingEngine:
         self.graph.clear_prune_hooks()
         self.graph.register_prune_hook(self.taint_tracker.cleanup)
         self.graph.register_prune_hook(self.privilege_tracker.cleanup)
+        self.graph.register_prune_hook(self.online_index.prune)
         self.matcher = Matcher()
         self.matcher.benign_profile = self.benign_profile
         self.prerequisite_evaluator = PrerequisiteEvaluator(
@@ -272,6 +277,8 @@ class StreamingEngine:
             max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
             graph_path_eval_budget_ms=self.graph_path_eval_budget_ms,
             graph_path_cache_miss_policy=self.graph_path_cache_miss_policy,
+            graph_path_candidate_preselect_factor=self.graph_path_candidate_preselect_factor,
+            graph_path_edge_eviction_policy=self.graph_path_edge_eviction_policy,
             max_pending_matches=max_pending_matches,
             scenario_dormancy_seconds=self.scenario_dormancy_days * 24 * 60 * 60,
         )
@@ -610,6 +617,10 @@ class StreamingEngine:
             )
             if self._online_index_match_add_changed_count
             else 0.0,
+            "online_index_propagation_max_depth": int(getattr(self.online_index, "max_propagation_depth", 0)),
+            "online_index_propagation_depth_cutoff_total": int(
+                getattr(self.online_index, "propagation_depth_cutoff_total", 0)
+            ),
             "online_extend_edges_time_seconds": float(self._online_extend_edges_time_seconds),
             "online_extend_edges_avg_ms_per_event": (float(self._online_extend_edges_time_seconds) * 1000.0 / float(self.stats.events))
             if self.stats.events
@@ -738,6 +749,12 @@ class StreamingEngine:
             "builder_pair_edges_graph_path_skip_cache_miss_total": int(
                 self.hsg_builder.pair_edges_graph_path_skip_cache_miss_total
             ),
+            "builder_pair_edges_graph_path_preselected_drop_total": int(
+                self.hsg_builder.pair_edges_graph_path_preselected_drop_total
+            ),
+            "builder_pair_edges_graph_path_evicted_total": int(
+                self.hsg_builder.pair_edges_graph_path_evicted_total
+            ),
             "builder_pair_edges_graph_path_skip_prereq_total": int(
                 self.hsg_builder.pair_edges_graph_path_skip_prereq_total
             ),
@@ -764,6 +781,14 @@ class StreamingEngine:
             ),
             "builder_pair_edges_graph_path_metrics_avg_ms_per_event": (
                 float(self.hsg_builder.pair_edges_graph_path_metrics_time_seconds) * 1000.0 / float(self.stats.events)
+            )
+            if self.stats.events
+            else 0.0,
+            "builder_pair_edges_graph_path_eviction_time_seconds": float(
+                self.hsg_builder.pair_edges_graph_path_eviction_time_seconds
+            ),
+            "builder_pair_edges_graph_path_eviction_avg_ms_per_event": (
+                float(self.hsg_builder.pair_edges_graph_path_eviction_time_seconds) * 1000.0 / float(self.stats.events)
             )
             if self.stats.events
             else 0.0,
@@ -1842,6 +1867,8 @@ class StreamingEngine:
             graph_path_allowlist=self.graph_path_allowlist,
             max_graph_path_edges=self.max_graph_path_edges,
             max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
+            graph_path_candidate_preselect_factor=self.graph_path_candidate_preselect_factor,
+            graph_path_edge_eviction_policy=self.graph_path_edge_eviction_policy,
         )
         self.hsg_nodes = {n.match_id: n for n in hsg.nodes}
         self.hsg_edges = list(hsg.edges)
@@ -1896,6 +1923,7 @@ class StreamingEngine:
         self.graph.clear_prune_hooks()
         self.graph.register_prune_hook(self.taint_tracker.cleanup)
         self.graph.register_prune_hook(self.privilege_tracker.cleanup)
+        self.graph.register_prune_hook(self.online_index.prune)
         self.prerequisite_evaluator = PrerequisiteEvaluator(
             graph=self.graph,
             taint_tracker=self.taint_tracker,
@@ -1915,6 +1943,8 @@ class StreamingEngine:
             max_graph_path_candidates_per_match=self.max_graph_path_candidates_per_match,
             graph_path_eval_budget_ms=self.graph_path_eval_budget_ms,
             graph_path_cache_miss_policy=self.graph_path_cache_miss_policy,
+            graph_path_candidate_preselect_factor=self.graph_path_candidate_preselect_factor,
+            graph_path_edge_eviction_policy=self.graph_path_edge_eviction_policy,
             max_pending_matches=self.hsg_builder.max_pending_matches,
             scenario_dormancy_seconds=self.hsg_builder.scenario_dormancy_seconds,
         )
@@ -2086,6 +2116,8 @@ class StreamingEngine:
                 "ac_min_method": self.ac_min_method,
                 "graph_path_eval_budget_ms": self.graph_path_eval_budget_ms,
                 "graph_path_cache_miss_policy": self.graph_path_cache_miss_policy,
+                "graph_path_candidate_preselect_factor": self.graph_path_candidate_preselect_factor,
+                "graph_path_edge_eviction_policy": self.graph_path_edge_eviction_policy,
             },
             "noise_filter": noise_filter,
             "resolved_effective_config": self.resolved_effective_config,
