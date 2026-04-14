@@ -172,6 +172,12 @@ class ProvenanceGraph:
             self._ancestor_entry_cap = max(0, int(cap_raw))
         except ValueError:
             self._ancestor_entry_cap = 12000
+        total_budget_raw = os.getenv("HOLMES_ANCESTOR_TOTAL_ENTRY_BUDGET", "25000000").strip()
+        try:
+            self._ancestor_total_entry_budget = max(0, int(total_budget_raw))
+        except ValueError:
+            self._ancestor_total_entry_budget = 25_000_000
+        self._ancestor_budget_switch_count = 0
 
     def register_edge_hook(self, hook: Callable[[Edge], None]) -> None:
         self._edge_hooks.append(hook)
@@ -485,6 +491,31 @@ class ProvenanceGraph:
 
         self._min_dist_from_ancestor[node_id] = {k: (self_dist if k == node_id else int(dist[k])) for k in kept_keys}
         self._ancestors_by_node[node_id] = set(kept_keys)
+
+    def ancestor_entry_counts(self) -> tuple[int, int]:
+        ancestor_entries = sum(len(v) for v in self._ancestors_by_node.values())
+        min_dist_entries = sum(len(v) for v in self._min_dist_from_ancestor.values())
+        return int(ancestor_entries), int(min_dist_entries)
+
+    def switch_to_on_demand_ancestor_mode(self) -> bool:
+        if self._use_on_demand_ancestor:
+            return False
+        self._ancestors_by_node.clear()
+        self._min_dist_from_ancestor.clear()
+        self._path_factor_cache.clear()
+        self._ancestor_index_dirty = False
+        self._use_on_demand_ancestor = True
+        self._ancestor_budget_switch_count += 1
+        return True
+
+    def maybe_switch_to_on_demand_ancestor_mode(self) -> bool:
+        budget = int(self._ancestor_total_entry_budget)
+        if budget <= 0 or self._use_on_demand_ancestor:
+            return False
+        ancestor_entries, min_dist_entries = self.ancestor_entry_counts()
+        if (ancestor_entries + min_dist_entries) <= budget:
+            return False
+        return self.switch_to_on_demand_ancestor_mode()
 
     def _bump_entity(
         self,

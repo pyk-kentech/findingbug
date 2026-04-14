@@ -76,6 +76,8 @@ class IncrementalHSGBuilder:
         graph_path_edge_eviction_policy: str = "none",
         pending_ttl_seconds: int | None = 30 * 24 * 60 * 60,
         max_pending_matches: int = 100000,
+        max_active_matches: int = 0,
+        max_total_hsg_edges: int = 0,
         scenario_dormancy_seconds: int | None = 60 * 24 * 60 * 60,
         dormant_gc_every_matches: int = 1000,
     ) -> None:
@@ -98,6 +100,8 @@ class IncrementalHSGBuilder:
         self.graph_path_edge_eviction_policy = graph_path_edge_eviction_policy
         self.pending_ttl_seconds = None if pending_ttl_seconds is None else max(0, int(pending_ttl_seconds))
         self.max_pending_matches = max(0, int(max_pending_matches))
+        self.max_active_matches = max(0, int(max_active_matches))
+        self.max_total_hsg_edges = max(0, int(max_total_hsg_edges))
         self.scenario_dormancy_seconds = (
             None if scenario_dormancy_seconds is None else max(0, int(scenario_dormancy_seconds))
         )
@@ -127,6 +131,10 @@ class IncrementalHSGBuilder:
         self.pending_evicted_by_rule_id: dict[str, int] = defaultdict(int)
         self.pending_evicted_ttl_count = 0
         self.pending_evicted_capacity_count = 0
+        self.active_evicted_count = 0
+        self.active_evicted_by_rule_id: dict[str, int] = defaultdict(int)
+        self.active_evicted_capacity_count = 0
+        self.hsg_edges_evicted_count = 0
         self.match_last_activity_ts: dict[str, datetime] = {}
         self.closed_scenarios_count = 0
         self.closed_matches_count = 0
@@ -134,6 +142,7 @@ class IncrementalHSGBuilder:
         self._matches_since_dormant_gc = 0
         self.last_activated_match_ids: set[str] = set()
         self.last_closed_match_ids: list[str] = []
+        self.last_evicted_hsg_edges_count = 0
         self.component_map_time_seconds = 0.0
         self.candidate_match_ids_total = 0
         self.candidate_match_ids_max = 0
@@ -307,6 +316,13 @@ class IncrementalHSGBuilder:
         elif reason == "capacity":
             self.pending_evicted_capacity_count += 1
 
+    def _record_active_eviction(self, active_match: TTPMatch | None, reason: str) -> None:
+        self.active_evicted_count += 1
+        if active_match is not None and active_match.rule_id:
+            self.active_evicted_by_rule_id[active_match.rule_id] += 1
+        if reason == "capacity":
+            self.active_evicted_capacity_count += 1
+
     def _evict_expired_pending(self, watermark: datetime | None) -> None:
         if watermark is None or self.pending_ttl_seconds is None:
             return
@@ -340,6 +356,17 @@ class IncrementalHSGBuilder:
         stage = infer_rule_stage(rule) if rule is not None else 1
         ts = self.pending_match_ts.get(match_id, datetime.max.replace(tzinfo=timezone.utc))
         return int(stage), ts, match_id
+
+    def _active_priority_key(self, match_id: str) -> tuple[int, datetime, int, str]:
+        match = self.matches_by_id.get(match_id)
+        rule = self.rule_by_id.get(match.rule_id) if match is not None else None
+        stage = infer_rule_stage(rule) if rule is not None else 1
+        ts = self.match_last_activity_ts.get(match_id, datetime.min.replace(tzinfo=timezone.utc))
+        edge_degree = 0
+        for edge in self.edges:
+            if edge.src == match_id or edge.dst == match_id:
+                edge_degree += 1
+        return int(stage), ts, edge_degree, match_id
 
     def _entities_of_match(self, match: TTPMatch) -> set[str]:
         cached = self._match_entities_cache.get(match.match_id)
@@ -419,6 +446,57 @@ class IncrementalHSGBuilder:
         self.pair_edges_graph_path_eviction_time_seconds += time.perf_counter() - started
         return self.graph_path_edges_count < self.max_graph_path_edges
 
+    def _rebuild_edge_indexes(self) -> None:
+        self.edges = [e for e in self.edges if e.src in self.nodes and e.dst in self.nodes]
+        self.seen_edges = {(e.src, e.dst, e.relation) for e in self.edges}
+        self.graph_path_edges_count = 0
+        self.graph_path_candidates_by_src = defaultdict(int)
+        self._graph_path_edge_last_seen = {}
+        self._graph_path_edge_touch_seq = 0
+        for edge in self.edges:
+            if edge.relation != "graph_path":
+                continue
+            self.graph_path_edges_count += 1
+            self.graph_path_candidates_by_src[edge.src] += 1
+            self._graph_path_edge_touch_seq += 1
+            self._graph_path_edge_last_seen[(edge.src, edge.dst, edge.relation)] = self._graph_path_edge_touch_seq
+
+    def _evict_capacity_active(self) -> list[str]:
+        if self.max_active_matches <= 0:
+            return []
+        closed_match_ids: list[str] = []
+        while len(self.matches_by_id) > self.max_active_matches:
+            if not self.matches_by_id:
+                break
+            evict_id = min(self.matches_by_id, key=self._active_priority_key)
+            active_match = self.matches_by_id.get(evict_id)
+            self._remove_active_match(evict_id)
+            self._record_active_eviction(active_match, "capacity")
+            closed_match_ids.append(evict_id)
+        if closed_match_ids:
+            self.closed_matches_count += len(closed_match_ids)
+            self._rebuild_edge_indexes()
+        return closed_match_ids
+
+    def _edge_eviction_priority(self, edge: HSGEdge) -> tuple[int, float, int, str, str, str]:
+        edge_key = (edge.src, edge.dst, edge.relation)
+        last_seen = self._graph_path_edge_last_seen.get(edge_key, -1)
+        if edge.relation == "graph_path":
+            return (0, float(edge.weight) if edge.weight is not None else 0.0, last_seen, edge.src, edge.dst, edge.relation)
+        return (1, 1.0, last_seen, edge.src, edge.dst, edge.relation)
+
+    def _evict_capacity_edges(self) -> int:
+        if self.max_total_hsg_edges <= 0 or len(self.edges) <= self.max_total_hsg_edges:
+            return 0
+        overflow = len(self.edges) - self.max_total_hsg_edges
+        candidates = list(enumerate(self.edges))
+        candidates.sort(key=lambda item: self._edge_eviction_priority(item[1]))
+        remove_indices = {idx for idx, _edge in candidates[:overflow]}
+        self.edges = [edge for idx, edge in enumerate(self.edges) if idx not in remove_indices]
+        self.hsg_edges_evicted_count += len(remove_indices)
+        self._rebuild_edge_indexes()
+        return len(remove_indices)
+
     def _component_map(self) -> dict[str, set[str]]:
         started = time.perf_counter()
         try:
@@ -483,17 +561,7 @@ class IncrementalHSGBuilder:
             self.closed_matches_count += len(match_ids)
             self.closed_scenarios_by_id[scenario_id] += 1
         if closed_match_ids:
-            self.edges = [e for e in self.edges if e.src in self.nodes and e.dst in self.nodes]
-            self.seen_edges = {(e.src, e.dst, e.relation) for e in self.edges}
-            self.graph_path_edges_count = len([e for e in self.edges if e.relation == "graph_path"])
-            self.graph_path_candidates_by_src = defaultdict(int)
-            self._graph_path_edge_last_seen = {}
-            self._graph_path_edge_touch_seq = 0
-            for edge in self.edges:
-                if edge.relation == "graph_path":
-                    self.graph_path_candidates_by_src[edge.src] += 1
-                    self._graph_path_edge_touch_seq += 1
-                    self._graph_path_edge_last_seen[(edge.src, edge.dst, edge.relation)] = self._graph_path_edge_touch_seq
+            self._rebuild_edge_indexes()
         return closed_match_ids
 
     def _candidate_match_ids(self, match: TTPMatch, extra_candidate_ids: set[str] | None = None) -> set[str]:
@@ -790,6 +858,7 @@ class IncrementalHSGBuilder:
             graph_path_deadline = time.perf_counter() + (self.graph_path_eval_budget_ms / 1000.0)
         self.last_activated_match_ids = set()
         self.last_closed_match_ids = []
+        self.last_evicted_hsg_edges_count = 0
         watermark = self._match_watermark(match, watermark_ts)
         evict_started = time.perf_counter()
         self._evict_expired_pending(watermark)
@@ -809,6 +878,8 @@ class IncrementalHSGBuilder:
                     self._index_match(match)
                     self._touch_match_activity({match.match_id}, watermark)
                     self.last_closed_match_ids = self._maybe_gc_dormant_scenarios(watermark_ts)
+                    self.last_closed_match_ids.extend(self._evict_capacity_active())
+                    self.last_evicted_hsg_edges_count = self._evict_capacity_edges()
                     return True, []
                 pending_insert_started = time.perf_counter()
                 self._index_pending(match, watermark)
@@ -903,6 +974,8 @@ class IncrementalHSGBuilder:
         touched_match_ids.update(edge.dst for edge in built_edges)
         self._touch_match_activity(touched_match_ids, watermark)
         self.last_closed_match_ids = self._maybe_gc_dormant_scenarios(watermark_ts)
+        self.last_closed_match_ids.extend(self._evict_capacity_active())
+        self.last_evicted_hsg_edges_count = self._evict_capacity_edges()
         return True, built_edges
 
     def as_hsg(self) -> HSG:

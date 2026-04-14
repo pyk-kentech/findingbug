@@ -45,6 +45,10 @@ class StreamingStats:
     pending_evicted_by_rule_id: dict[str, int] | None = None
     pending_evicted_ttl_count: int = 0
     pending_evicted_capacity_count: int = 0
+    active_evicted_count: int = 0
+    active_evicted_by_rule_id: dict[str, int] | None = None
+    active_evicted_capacity_count: int = 0
+    hsg_edges_evicted_count: int = 0
     dormant_scenarios_closed_count: int = 0
     dormant_matches_closed_count: int = 0
     dormant_scenarios_closed_by_id: dict[str, int] | None = None
@@ -52,6 +56,7 @@ class StreamingStats:
     graph_pruned_version_node_count: int = 0
     graph_pruned_edge_count: int = 0
     graph_pruned_semantic_edge_count: int = 0
+    pruned_event_meta_count: int = 0
     benign_profile_drop_count: int = 0
     reorder_buffer_saturation_count: int = 0
     max_observed_out_of_order_distance: int = 0
@@ -108,6 +113,8 @@ class StreamingEngine:
         apt_alert_threshold: float = 80.0,
         alerts_path: str | Path | None = None,
         max_pending_matches: int = 100000,
+        max_active_matches: int = 0,
+        max_hsg_edges: int = 0,
         scenario_dormancy_days: int = 60,
         graph_retention_days: int = 60,
         benign_profile: BenignProfile | None = None,
@@ -157,6 +164,8 @@ class StreamingEngine:
         self.global_refine_mode = global_refine_mode
         self.global_refine_every = max(1, int(global_refine_every))
         self.apt_alert_threshold = float(apt_alert_threshold)
+        self.max_active_matches = max(0, int(max_active_matches))
+        self.max_hsg_edges = max(0, int(max_hsg_edges))
         self.scenario_dormancy_days = max(0, int(scenario_dormancy_days))
         self.graph_retention_days = max(0, int(graph_retention_days))
         self.benign_profile = benign_profile or (load_benign_profile(benign_profile_path) if benign_profile_path else None)
@@ -206,6 +215,11 @@ class StreamingEngine:
         self._native_shadow_check_first_match_ids_python_count = 0
         self._native_shadow_check_first_match_ids_native_count = 0
         self._native_online_read_fallback_total = 0
+        event_meta_soft_limit_raw = os.getenv("HOLMES_EVENT_META_SOFT_LIMIT", "1000000").strip()
+        try:
+            self.event_meta_soft_limit = max(0, int(event_meta_soft_limit_raw))
+        except ValueError:
+            self.event_meta_soft_limit = 1_000_000
         if resolved_effective_config is None:
             is_paper_like = scoring_mode in {"paper", "paper_exact"}
             default_path_thres = 3.0 if is_paper_like else 0.0
@@ -294,6 +308,7 @@ class StreamingEngine:
             dynamic_threshold_by_rule_id={},
             binding_drop_by_rule_id={},
             pending_evicted_by_rule_id={},
+            active_evicted_by_rule_id={},
             dormant_scenarios_closed_by_id={},
         )
         self.top_scenarios: list[dict[str, Any]] = []
@@ -316,10 +331,14 @@ class StreamingEngine:
             graph_path_candidate_preselect_factor=self.graph_path_candidate_preselect_factor,
             graph_path_edge_eviction_policy=self.graph_path_edge_eviction_policy,
             max_pending_matches=max_pending_matches,
+            max_active_matches=self.max_active_matches,
+            max_total_hsg_edges=self.max_hsg_edges,
             scenario_dormancy_seconds=self.scenario_dormancy_days * 24 * 60 * 60,
         )
         self.hsg_builder.pending_evicted_count = self.stats.pending_evicted_count
         self.hsg_builder.pending_evicted_by_rule_id.update(self.stats.pending_evicted_by_rule_id or {})
+        self.hsg_builder.active_evicted_count = self.stats.active_evicted_count
+        self.hsg_builder.active_evicted_by_rule_id.update(self.stats.active_evicted_by_rule_id or {})
         self._processing_started_at = time.perf_counter()
         self._matcher_time_seconds = 0.0
         self._hsg_update_time_seconds = 0.0
@@ -952,16 +971,23 @@ class StreamingEngine:
             "graph_entity_versions_count": sum(len(v) for v in self.graph.entity_versions.values()),
             "graph_process_parent_edge_count": sum(len(v) for v in self.graph.process_parents.values()),
             "graph_path_factor_cache_node_count": len(self.graph._path_factor_cache),  # noqa: SLF001
+            "graph_on_demand_ancestor_enabled": int(bool(self.graph._use_on_demand_ancestor)),  # noqa: SLF001
+            "graph_ancestor_total_entry_budget": int(self.graph._ancestor_total_entry_budget),  # noqa: SLF001
+            "graph_ancestor_budget_switch_count": int(self.graph._ancestor_budget_switch_count),  # noqa: SLF001
             "graph_ancestor_cache_node_count": ancestor_cache_node_count,
             "graph_ancestor_cache_entry_count": ancestor_cache_entry_count,
             "graph_min_dist_node_count": min_dist_node_count,
             "graph_min_dist_entry_count": min_dist_entry_count,
             "retained_event_meta_count": len(self.events_by_id),
+            "pruned_event_meta_count": int(self.stats.pruned_event_meta_count),
             "active_match_count": len(self.matches),
             "active_hsg_node_count": len(self.hsg_nodes),
             "active_hsg_edge_count": len(self.hsg_edges),
             "builder_active_match_count": len(self.hsg_builder.matches_by_id),
             "pending_match_count": len(self.hsg_builder.pending_matches_by_id),
+            "active_evicted_count": int(self.stats.active_evicted_count),
+            "active_evicted_capacity_count": int(self.stats.active_evicted_capacity_count),
+            "hsg_edges_evicted_count": int(self.stats.hsg_edges_evicted_count),
             "reorder_buffer_saturation_count": int(self.stats.reorder_buffer_saturation_count),
             "max_observed_out_of_order_distance": int(self.stats.max_observed_out_of_order_distance),
             "stall_duration_seconds": float(self.stats.stall_duration_seconds),
@@ -995,6 +1021,13 @@ class StreamingEngine:
         self.stats.pending_evicted_by_rule_id = merged
         self.stats.pending_evicted_ttl_count = int(self.hsg_builder.pending_evicted_ttl_count)
         self.stats.pending_evicted_capacity_count = int(self.hsg_builder.pending_evicted_capacity_count)
+        active_merged = dict(self.stats.active_evicted_by_rule_id or {})
+        for rule_id, count in self.hsg_builder.active_evicted_by_rule_id.items():
+            active_merged[rule_id] = int(count)
+        self.stats.active_evicted_count = int(self.hsg_builder.active_evicted_count)
+        self.stats.active_evicted_by_rule_id = active_merged
+        self.stats.active_evicted_capacity_count = int(self.hsg_builder.active_evicted_capacity_count)
+        self.stats.hsg_edges_evicted_count = int(self.hsg_builder.hsg_edges_evicted_count)
         self.stats.dormant_scenarios_closed_count = int(self.hsg_builder.closed_scenarios_count)
         self.stats.dormant_matches_closed_count = int(self.hsg_builder.closed_matches_count)
         self.stats.dormant_scenarios_closed_by_id = dict(self.hsg_builder.closed_scenarios_by_id)
@@ -1351,8 +1384,31 @@ class StreamingEngine:
         self.stats.graph_pruned_version_node_count += int(pruned.get("version_nodes_removed", 0))
         self.stats.graph_pruned_edge_count += int(pruned.get("edges_removed", 0))
         self.stats.graph_pruned_semantic_edge_count += int(pruned.get("semantic_edges_removed", 0))
+        self.stats.pruned_event_meta_count += int(self._prune_event_meta_store())
+        if self.graph.maybe_switch_to_on_demand_ancestor_mode():
+            self._snapshot_state_dirty = True
         if any(int(pruned.get(key, 0)) > 0 for key in ("entities_removed", "version_nodes_removed", "edges_removed", "semantic_edges_removed")):
             self._rebuild_online_index_from_active_matches()
+
+    def _prune_event_meta_store(self) -> int:
+        soft_limit = int(self.event_meta_soft_limit)
+        if soft_limit <= 0 or len(self.events_by_id) <= soft_limit:
+            return 0
+        keep_ids: set[str] = set()
+        for match in self.matches:
+            keep_ids.update(str(event_id) for event_id in match.event_ids if isinstance(event_id, str))
+        for pending in self.hsg_builder.pending_matches_by_id.values():
+            keep_ids.update(str(event_id) for event_id in pending.event_ids if isinstance(event_id, str))
+        removable = [event_id for event_id in self.events_by_id.keys() if event_id not in keep_ids]
+        if not removable:
+            return 0
+        removed = 0
+        for event_id in removable:
+            if len(self.events_by_id) <= soft_limit:
+                break
+            self.events_by_id.pop(event_id, None)
+            removed += 1
+        return removed
 
     def _next_match_id(self) -> str:
         mid = f"m{self._match_serial}"
@@ -2021,6 +2077,7 @@ class StreamingEngine:
 
                         activated_match_ids = set(self.hsg_builder.last_activated_match_ids)
                         closed_match_ids = list(self.hsg_builder.last_closed_match_ids)
+                        evicted_hsg_edges_count = int(self.hsg_builder.last_evicted_hsg_edges_count)
                         built_edges_count = len(built_edges)
                         activated_count = len(activated_match_ids)
                         self._online_built_edges_total += built_edges_count
@@ -2036,7 +2093,7 @@ class StreamingEngine:
                         extend_started = time.perf_counter()
                         self._extend_online_edges(built_edges)
                         self._online_extend_edges_time_seconds += time.perf_counter() - extend_started
-                        if closed_match_ids:
+                        if closed_match_ids or evicted_hsg_edges_count > 0:
                             full_resync_started = time.perf_counter()
                             self._sync_online_state_from_builder()
                             self._rebuild_online_index_from_active_matches()
@@ -2081,6 +2138,7 @@ class StreamingEngine:
                 self._sync_pending_eviction_stats_from_builder()
                 activated_match_ids = set(self.hsg_builder.last_activated_match_ids)
                 closed_match_ids = list(self.hsg_builder.last_closed_match_ids)
+                evicted_hsg_edges_count = int(self.hsg_builder.last_evicted_hsg_edges_count)
                 built_edges_count = len(built_edges)
                 activated_count = len(activated_match_ids)
                 self._online_built_edges_total += built_edges_count
@@ -2096,7 +2154,7 @@ class StreamingEngine:
                 extend_started = time.perf_counter()
                 self._extend_online_edges(built_edges)
                 self._online_extend_edges_time_seconds += time.perf_counter() - extend_started
-                if closed_match_ids:
+                if closed_match_ids or evicted_hsg_edges_count > 0:
                     full_resync_started = time.perf_counter()
                     self._sync_online_state_from_builder()
                     self._rebuild_online_index_from_active_matches()
@@ -2288,12 +2346,18 @@ class StreamingEngine:
             graph_path_candidate_preselect_factor=self.graph_path_candidate_preselect_factor,
             graph_path_edge_eviction_policy=self.graph_path_edge_eviction_policy,
             max_pending_matches=self.hsg_builder.max_pending_matches,
+            max_active_matches=self.hsg_builder.max_active_matches,
+            max_total_hsg_edges=self.hsg_builder.max_total_hsg_edges,
             scenario_dormancy_seconds=self.hsg_builder.scenario_dormancy_seconds,
         )
         self.hsg_builder.pending_evicted_count = self.stats.pending_evicted_count
         self.hsg_builder.pending_evicted_by_rule_id.update(self.stats.pending_evicted_by_rule_id or {})
         self.hsg_builder.pending_evicted_ttl_count = self.stats.pending_evicted_ttl_count
         self.hsg_builder.pending_evicted_capacity_count = self.stats.pending_evicted_capacity_count
+        self.hsg_builder.active_evicted_count = self.stats.active_evicted_count
+        self.hsg_builder.active_evicted_by_rule_id.update(self.stats.active_evicted_by_rule_id or {})
+        self.hsg_builder.active_evicted_capacity_count = self.stats.active_evicted_capacity_count
+        self.hsg_builder.hsg_edges_evicted_count = self.stats.hsg_edges_evicted_count
         self.hsg_builder.closed_scenarios_count = self.stats.dormant_scenarios_closed_count
         self.hsg_builder.closed_matches_count = self.stats.dormant_matches_closed_count
         self.hsg_builder.closed_scenarios_by_id.update(self.stats.dormant_scenarios_closed_by_id or {})
@@ -2398,6 +2462,14 @@ class StreamingEngine:
             "pending_ttl_seconds": self.hsg_builder.pending_ttl_seconds,
             "max_pending_matches": self.hsg_builder.max_pending_matches,
         }
+        active_eviction_telemetry = {
+            "active_evicted_count": int(self.stats.active_evicted_count),
+            "active_evicted_by_rule_id": dict(self.stats.active_evicted_by_rule_id or {}),
+            "active_evicted_capacity_count": int(self.stats.active_evicted_capacity_count),
+            "max_active_matches": int(self.hsg_builder.max_active_matches),
+            "hsg_edges_evicted_count": int(self.stats.hsg_edges_evicted_count),
+            "max_hsg_edges": int(self.hsg_builder.max_total_hsg_edges),
+        }
         dormant_scenario_telemetry = {
             "closed_scenarios_count": int(self.stats.dormant_scenarios_closed_count),
             "closed_matches_count": int(self.stats.dormant_matches_closed_count),
@@ -2410,6 +2482,7 @@ class StreamingEngine:
             "version_nodes_removed": int(self.stats.graph_pruned_version_node_count),
             "edges_removed": int(self.stats.graph_pruned_edge_count),
             "semantic_edges_removed": int(self.stats.graph_pruned_semantic_edge_count),
+            "event_meta_removed": int(self.stats.pruned_event_meta_count),
         }
         alerts_summary = {
             "count": len(self.alerts),
@@ -2467,6 +2540,7 @@ class StreamingEngine:
             "top_scenarios": self.top_scenarios,
             "dropped_match_telemetry": dropped_match_telemetry,
             "pending_eviction_telemetry": pending_eviction_telemetry,
+            "active_eviction_telemetry": active_eviction_telemetry,
             "dormant_scenario_telemetry": dormant_scenario_telemetry,
             "graph_gc_telemetry": graph_gc_telemetry,
             "alerts": alerts_summary,

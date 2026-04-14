@@ -124,6 +124,8 @@ def run_pipeline(
     use_online_prereq: bool = False,
     apt_alert_threshold: float = 80.0,
     max_pending_matches: int = 100000,
+    max_active_matches: int = 0,
+    max_hsg_edges: int = 0,
     matcher_workers: int = 1,
     matcher_batch_size: int = 50000,
     ancestor_index_mode: str = "incremental",
@@ -219,6 +221,8 @@ def run_pipeline(
         metrics_interval_sec=60.0,
         apt_alert_threshold=apt_alert_threshold,
         max_pending_matches=max_pending_matches,
+        max_active_matches=max_active_matches,
+        max_hsg_edges=max_hsg_edges,
         defer_snapshot_updates=not bool(use_online_prereq),
         graph_gc_every_events=(
             max(1, int(graph_gc_every_events))
@@ -599,6 +603,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Maximum pending prerequisite matches retained before FIFO eviction (default: 100000).",
     )
     parser.add_argument(
+        "--max-active-matches",
+        dest="max_active_matches",
+        type=int,
+        default=0,
+        help="Maximum active HSG matches retained before oldest/lowest-stage eviction (default: 0=unlimited).",
+    )
+    parser.add_argument(
+        "--max-hsg-edges",
+        dest="max_hsg_edges",
+        type=int,
+        default=0,
+        help="Maximum total HSG edges retained before low-value edge eviction (default: 0=unlimited).",
+    )
+    parser.add_argument(
         "--matcher-workers",
         dest="matcher_workers",
         type=int,
@@ -678,6 +696,8 @@ def main() -> int:
             use_online_prereq=bool(args.use_online_prereq),
             apt_alert_threshold=float(args.apt_alert_threshold),
             max_pending_matches=max(0, int(args.max_pending_matches)),
+            max_active_matches=max(0, int(args.max_active_matches)),
+            max_hsg_edges=max(0, int(args.max_hsg_edges)),
             matcher_workers=max(1, int(args.matcher_workers)),
             matcher_batch_size=max(1, int(args.matcher_batch_size)),
             ancestor_index_mode=str(args.ancestor_index_mode),

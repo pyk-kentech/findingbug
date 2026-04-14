@@ -159,6 +159,20 @@ def _build_parser() -> argparse.ArgumentParser:
         default=100000,
         help="Maximum pending prerequisite matches retained in memory before FIFO eviction (default: 100000).",
     )
+    parser.add_argument(
+        "--max-active-matches",
+        dest="max_active_matches",
+        type=int,
+        default=0,
+        help="Maximum active HSG matches retained before oldest/lowest-stage eviction (default: 0=unlimited).",
+    )
+    parser.add_argument(
+        "--max-hsg-edges",
+        dest="max_hsg_edges",
+        type=int,
+        default=0,
+        help="Maximum total HSG edges retained before low-value edge eviction (default: 0=unlimited).",
+    )
     parser.add_argument("--benign-profile", dest="benign_profile", default=None, help="Optional benign_profile.json for matcher-time strict filtering.")
     parser.add_argument("--raw-prefilter", dest="raw_prefilter", action="store_true", help="Enable raw-line prefilter before json parsing.")
     parser.add_argument("--parser-workers", dest="parser_workers", type=int, default=0, help="Number of parser worker processes for raw sources.")
@@ -194,6 +208,8 @@ def main() -> int:
             "metrics_interval_sec": ("performance", "metrics_interval_sec"),
             "apt_alert_threshold": ("engine", "apt_alert_threshold"),
             "max_pending_matches": ("engine", "max_pending_matches"),
+            "max_active_matches": ("engine", "max_active_matches"),
+            "max_hsg_edges": ("engine", "max_hsg_edges"),
             "benign_profile": ("noise", "benign_profile"),
         },
     )
@@ -233,6 +249,8 @@ def main() -> int:
         alerts_path=Path(args.out) / "alerts.jsonl",
         apt_alert_threshold=float(args.apt_alert_threshold),
         max_pending_matches=max(0, int(args.max_pending_matches)),
+        max_active_matches=max(0, int(args.max_active_matches)),
+        max_hsg_edges=max(0, int(args.max_hsg_edges)),
         benign_profile=benign_profile,
         metrics_path=Path(args.out) / "metrics.jsonl",
         metrics_every_events=max(1, int(args.metrics_every_events)),
