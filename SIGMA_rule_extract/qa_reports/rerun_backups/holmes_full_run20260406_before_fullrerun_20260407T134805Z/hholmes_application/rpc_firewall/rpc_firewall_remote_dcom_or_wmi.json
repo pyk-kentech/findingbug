@@ -1,0 +1,44 @@
+{
+  "name": "Remote DCOM/WMI Lateral Movement",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventLog": "RPCFW",
+        "EventID": "3"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "InterfaceUuid": [
+          "4d9f4ab8-7d1c-11cf-861e-0020af6e7c57",
+          "99fcfec4-5260-101b-bbcb-00aa0021347a",
+          "000001a0-0000-0000-c000-000000000046",
+          "00000131-0000-0000-c000-000000000046",
+          "00000143-0000-0000-c000-000000000046",
+          "00000000-0000-0000-c000-000000000046"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

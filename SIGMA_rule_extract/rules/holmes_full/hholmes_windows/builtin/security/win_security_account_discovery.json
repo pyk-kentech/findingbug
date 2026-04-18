@@ -1,0 +1,51 @@
+{
+  "name": "AD Privileged Users or Groups Reconnaissance",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4661",
+        "ObjectType": [
+          "SAM_USER",
+          "SAM_GROUP"
+        ],
+        "ObjectName|endswith": [
+          "-512",
+          "-502",
+          "-500",
+          "-505",
+          "-519",
+          "-520",
+          "-544",
+          "-551",
+          "-555"
+        ],
+        "ObjectName|contains": "admin",
+        "SubjectUserName|endswith": "$"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "Suspicious Execution via macOS Script Editor",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "/Script Editor"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "/curl",
+          "/bash",
+          "/sh",
+          "/zsh",
+          "/dash",
+          "/fish",
+          "/osascript",
+          "/mktemp",
+          "/chmod",
+          "/php",
+          "/nohup",
+          "/openssl",
+          "/plutil",
+          "/PlistBuddy",
+          "/xattr",
+          "/sqlite",
+          "/funzip",
+          "/popen"
+        ],
+        "Image|contains": [
+          "python",
+          "perl"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

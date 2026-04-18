@@ -1,0 +1,42 @@
+{
+  "name": "Suspicious SQL Error Messages",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "message": "*"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "keywords": [
+          "quoted string not properly terminated",
+          "You have an error in your SQL syntax",
+          "Unclosed quotation mark",
+          "'near \"*\": syntax error'",
+          "SELECTs to the left and right of UNION do not have the same number of result columns"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

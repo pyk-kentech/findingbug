@@ -1,0 +1,63 @@
+{
+  "name": "Usage of Renamed Sysinternals Tools - RegistrySet",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\PsExec",
+          "\\ProcDump",
+          "\\Handle",
+          "\\LiveKd",
+          "\\Process Explorer",
+          "\\PsLoglist",
+          "\\PsPasswd",
+          "\\Active Directory Explorer"
+        ],
+        "TargetObject|endswith": "\\EulaAccepted"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\PsExec.exe",
+          "\\PsExec64.exe",
+          "\\procdump.exe",
+          "\\procdump64.exe",
+          "\\handle.exe",
+          "\\handle64.exe",
+          "\\livekd.exe",
+          "\\livekd64.exe",
+          "\\procexp.exe",
+          "\\procexp64.exe",
+          "\\psloglist.exe",
+          "\\psloglist64.exe",
+          "\\pspasswd.exe",
+          "\\pspasswd64.exe",
+          "\\ADExplorer.exe",
+          "\\ADExplorer64.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

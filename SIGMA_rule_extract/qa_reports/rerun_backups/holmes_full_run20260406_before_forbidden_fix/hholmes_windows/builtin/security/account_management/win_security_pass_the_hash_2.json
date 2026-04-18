@@ -1,0 +1,54 @@
+{
+  "name": "Pass the Hash Activity 2",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "4624"
+        ],
+        "SubjectUserSid": [
+          "S-1-0-0"
+        ],
+        "LogonType": [
+          "3",
+          "9"
+        ],
+        "LogonProcessName": [
+          "NtLmSsp",
+          "seclogo"
+        ],
+        "KeyLength": [
+          "0"
+        ]
+      }
+    },
+    "object": {
+      "type": "Identity",
+      "attributes": {
+        "TargetUserName": [
+          "ANONYMOUS LOGON"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "NetNTLM Downgrade Attack - Registry",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains|all": [
+          "SYSTEM\\",
+          "ControlSet",
+          "\\Control\\Lsa"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|endswith": [
+          "\\lmcompatibilitylevel",
+          "\\NtlmMinClientSec",
+          "\\RestrictSendingNTLMTraffic"
+        ],
+        "Details": [
+          "DWORD (0x00000000)",
+          "DWORD (0x00000001)",
+          "DWORD (0x00000002)",
+          "DWORD (0x00000010)",
+          "DWORD (0x00000020)",
+          "DWORD (0x00000030)"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

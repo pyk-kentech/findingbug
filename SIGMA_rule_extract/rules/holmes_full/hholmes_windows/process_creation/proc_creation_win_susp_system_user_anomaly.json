@@ -1,0 +1,93 @@
+{
+  "name": "Suspicious SYSTEM User Process Creation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "IntegrityLevel": [
+          "'System'",
+          "'S-1-16-16384'"
+        ],
+        "User|contains": [
+          "'AUTHORI'",
+          "'AUTORI'"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "'\\calc.exe'",
+          "'\\cscript.exe'",
+          "'\\forfiles.exe'",
+          "'\\hh.exe'",
+          "'\\mshta.exe'",
+          "'\\ping.exe'",
+          "'\\wscript.exe'"
+        ],
+        "CommandLine|re": [
+          "'net\\s+user\\s+'"
+        ],
+        "CommandLine|contains": [
+          "' -NoP '",
+          "' -W Hidden '",
+          "' -decode '",
+          "' /decode '",
+          "' /urlcache '",
+          "' -urlcache '",
+          "' -e* JAB'",
+          "' -e* SUVYI'",
+          "' -e* SQBFAFgA'",
+          "' -e* aWV4I'",
+          "' -e* IAB'",
+          "' -e* PAA'",
+          "' -e* aQBlAHgA'",
+          "'vssadmin delete shadows'",
+          "'reg SAVE HKLM'",
+          "' -ma '",
+          "'Microsoft\\Windows\\CurrentVersion\\Run'",
+          "'.downloadstring('",
+          "'.downloadfile('",
+          "' /ticket:'",
+          "'dpapi::'",
+          "'event::clear'",
+          "'event::drop'",
+          "'id::modify'",
+          "'kerberos::'",
+          "'lsadump::'",
+          "'misc::'",
+          "'privilege::'",
+          "'rpc::'",
+          "'sekurlsa::'",
+          "'sid::'",
+          "'token::'",
+          "'vault::cred'",
+          "'vault::list'",
+          "' p::d '",
+          "';iex('",
+          "'MiniDump'"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Audio Capture",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "selection_execve.type": "EXECVE",
+        "selection_execve.a0": "arecord",
+        "selection_execve.a1": "-vv",
+        "selection_execve.a2": "-fdat",
+        "selection_syscall_memfd_create.type": "SYSCALL",
+        "selection_syscall_memfd_create.exe|endswith": "/ecasound",
+        "selection_syscall_memfd_create.SYSCALL": "memfd_create"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

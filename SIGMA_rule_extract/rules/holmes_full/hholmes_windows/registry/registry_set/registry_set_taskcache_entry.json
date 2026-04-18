@@ -1,0 +1,68 @@
+{
+  "name": "Scheduled TaskCache Change by Uncommon Program",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "C:\\Windows\\System32\\MoUsoCoreWorker.exe",
+          "C:\\Windows\\System32\\services.exe",
+          "C:\\Windows\\TiWorker.exe",
+          "C:\\WINDOWS\\system32\\svchost.exe",
+          "C:\\Windows\\Microsoft.NET\\Framework\\ngen.exe",
+          "C:\\Program Files\\Microsoft Office\\root\\Integration\\Integrator.exe",
+          "C:\\Program Files (x86)\\Microsoft Office\\root\\Integration\\Integrator.exe",
+          "C:\\Program Files\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe",
+          "C:\\Program Files (x86)\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe",
+          "C:\\Windows\\System32\\msiexec.exe",
+          "C:\\Windows\\explorer.exe",
+          "System",
+          "C:\\Windows\\System32\\RuntimeBroker.exe",
+          "C:\\Program Files (x86)\\Dropbox\\Update\\DropboxUpdate.exe",
+          "C:\\Program Files\\Dropbox\\Update\\DropboxUpdate.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe",
+          "C:\\Program Files\\Microsoft\\EdgeUpdate\\MicrosoftEdgeUpdate.exe",
+          "C:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe",
+          "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\",
+          "\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{B66B135D-DA06-4FC4-95F8-7458E1D10129}",
+          "\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\Microsoft\\Windows\\.NET Framework\\.NET Framework NGEN",
+          "\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\Microsoft\\Windows\\PLA\\Server Manager Performance Monitor\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

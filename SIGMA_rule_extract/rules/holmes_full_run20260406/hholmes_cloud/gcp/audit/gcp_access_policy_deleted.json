@@ -1,0 +1,41 @@
+{
+  "name": "GCP Access Policy Deleted",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "data.protoPayload.authorizationInfo.permission": [
+          "accesscontextmanager.accessPolicies.delete",
+          "accesscontextmanager.accessPolicies.accessLevels.delete",
+          "accesscontextmanager.accessPolicies.accessZones.delete",
+          "accesscontextmanager.accessPolicies.authorizedOrgsDescs.delete"
+        ],
+        "data.protoPayload.authorizationInfo.granted": "true",
+        "data.protoPayload.serviceName": "accesscontextmanager.googleapis.com"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "PSScriptPolicyTest Creation By Uncommon Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview",
+          "\\AppData\\Local\\Microsoft\\WindowsApps\\Microsoft.PowerShellPreview"
+        ],
+        "Image|endswith": [
+          "\\pwsh.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": "__PSScriptPolicyTest_"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

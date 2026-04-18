@@ -1,0 +1,50 @@
+{
+  "name": "Potentially Suspicious Execution Of Regasm/Regsvcs With Uncommon Extension",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\Regsvcs.exe",
+          "\\Regasm.exe"
+        ],
+        "OriginalFileName": [
+          "RegSvcs.exe",
+          "RegAsm.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          ".dat",
+          ".gif",
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".txt"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

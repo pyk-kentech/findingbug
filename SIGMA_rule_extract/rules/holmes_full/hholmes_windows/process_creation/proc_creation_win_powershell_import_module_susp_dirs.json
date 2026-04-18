@@ -1,0 +1,49 @@
+{
+  "name": "Import PowerShell Modules From Suspicious Directories - ProcCreation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "Import-Module \"$Env:Temp\\",
+          "Import-Module '$Env:Temp\\",
+          "Import-Module $Env:Temp\\",
+          "Import-Module \"$Env:Appdata\\",
+          "Import-Module '$Env:Appdata\\",
+          "Import-Module $Env:Appdata\\",
+          "Import-Module C:\\Users\\Public\\",
+          "ipmo \"$Env:Temp\\",
+          "ipmo '$Env:Temp\\",
+          "ipmo $Env:Temp\\",
+          "ipmo \"$Env:Appdata\\",
+          "ipmo '$Env:Appdata\\",
+          "ipmo $Env:Appdata\\",
+          "ipmo C:\\Users\\Public\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

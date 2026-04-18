@@ -1,0 +1,34 @@
+{
+  "name": "Pnscan Binary Data Transmission Activity",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|re": "-(W|R)\\s?(\\s|\"|\")([0-9a-fA-F]{2}\\s?){2,20}(\\s|\"|\")"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Suspicious File Created In PerfLogs",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|startswith": "C:\\PerfLogs\\",
+        "TargetFilename|endswith": [
+          ".7z",
+          ".bat",
+          ".bin",
+          ".chm",
+          ".dll",
+          ".exe",
+          ".hta",
+          ".lnk",
+          ".ps1",
+          ".psm1",
+          ".py",
+          ".scr",
+          ".sys",
+          ".vbe",
+          ".vbs",
+          ".zip"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "Potential Defense Evasion Via Binary Rename",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": [
+          "Cmd.Exe",
+          "CONHOST.EXE",
+          "7z.exe",
+          "7za.exe",
+          "WinRAR.exe",
+          "wevtutil.exe",
+          "net.exe",
+          "net1.exe",
+          "netsh.exe",
+          "InstallUtil.exe"
+        ],
+        "Image": [
+          "*\\cmd.exe",
+          "*\\conhost.exe",
+          "*\\7z.exe",
+          "*\\7za.exe",
+          "*\\WinRAR.exe",
+          "*\\wevtutil.exe",
+          "*\\net.exe",
+          "*\\net1.exe",
+          "*\\netsh.exe",
+          "*\\InstallUtil.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

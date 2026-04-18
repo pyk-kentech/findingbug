@@ -1,0 +1,51 @@
+{
+  "name": "Suspicious Child Process Of SQL Server",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\sqlservr.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\bash.exe",
+          "\\bitsadmin.exe",
+          "\\cmd.exe",
+          "\\netstat.exe",
+          "\\nltest.exe",
+          "\\ping.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\sh.exe",
+          "\\systeminfo.exe",
+          "\\tasklist.exe",
+          "\\wsl.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Persistence Via Hhctrl.ocx",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": "\\CLSID\\{52A2AAAE-085D-4187-97EA-8C30DB990436}\\InprocServer32\\(Default)"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

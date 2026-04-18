@@ -1,0 +1,41 @@
+{
+  "name": "HackTool - SysmonEnte Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetImage|contains": [
+          ":\\Windows\\Sysmon.exe",
+          ":\\Windows\\Sysmon64.exe"
+        ],
+        "GrantedAccess": "0x1400",
+        "CallTrace": "Ente",
+        "SourceImage|contains": ":\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+        "SourceImage|endswith": "\\MsMpEng.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

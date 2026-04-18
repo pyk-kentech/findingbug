@@ -1,0 +1,35 @@
+{
+  "name": "Temporary Access Pass Added To An Account",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "properties.message": "Admin registered security info",
+        "Status": "Admin registered temporary access pass method for user"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

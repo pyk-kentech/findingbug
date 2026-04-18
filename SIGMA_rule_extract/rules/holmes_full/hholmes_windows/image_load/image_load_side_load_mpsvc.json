@@ -1,0 +1,40 @@
+{
+  "name": "Potential DLL Sideloading Of MpSvc.DLL",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\MpSvc.dll"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Program Files\\Windows Defender\\",
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+          "C:\\Windows\\WinSxS\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

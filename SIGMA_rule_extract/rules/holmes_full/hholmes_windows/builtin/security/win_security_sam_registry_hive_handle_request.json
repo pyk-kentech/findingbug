@@ -1,0 +1,37 @@
+{
+  "name": "SAM Registry Hive Handle Request",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4656"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "ObjectName|endswith": "\\SAM",
+        "ObjectType": "Key"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

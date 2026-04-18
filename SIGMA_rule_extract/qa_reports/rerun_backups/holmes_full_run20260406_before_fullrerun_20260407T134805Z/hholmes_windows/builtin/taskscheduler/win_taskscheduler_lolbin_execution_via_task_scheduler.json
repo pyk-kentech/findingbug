@@ -1,0 +1,51 @@
+{
+  "name": "Scheduled Task Executed Uncommon LOLBIN",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": "*"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "*\\calc.exe",
+          "*\\cscript.exe",
+          "*\\mshta.exe",
+          "*\\mspaint.exe",
+          "*\\notepad.exe",
+          "*\\regsvr32.exe",
+          "*\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

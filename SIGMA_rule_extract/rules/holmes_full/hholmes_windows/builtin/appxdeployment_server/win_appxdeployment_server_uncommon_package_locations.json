@@ -1,0 +1,46 @@
+{
+  "name": "AppX Located in Uncommon Directory Added to Deployment Pipeline",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "854"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Path|contains": [
+          ":/Program%20Files",
+          ":/Windows/System32/",
+          ":\\Program Files (x86)\\",
+          ":\\Program Files\\",
+          ":\\Windows\\ImmersiveControlPanel\\",
+          ":\\Windows\\PrintDialog\\",
+          ":\\Windows\\SystemApps\\",
+          "AppData/Local/Temp/WinGet/Microsoft.Winget.Source",
+          "x-windowsupdate://"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

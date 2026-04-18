@@ -1,0 +1,53 @@
+{
+  "name": "NTDS.DIT Creation By Uncommon Parent Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\cscript.exe",
+          "\\httpd.exe",
+          "\\nginx.exe",
+          "\\php-cgi.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\w3wp.exe",
+          "\\wscript.exe"
+        ],
+        "ParentImage|contains": [
+          "\\apache",
+          "\\tomcat",
+          "\\AppData\\",
+          "\\Temp\\",
+          "\\Public\\",
+          "\\PerfLogs\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": "\\ntds.dit"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "Security Software Discovery - MacOs",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "nessusd",
+          "santad",
+          "CbDefense",
+          "falcond",
+          "td-agent",
+          "packetbeat",
+          "filebeat",
+          "auditbeat",
+          "osqueryd",
+          "BlockBlock",
+          "LuLu"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

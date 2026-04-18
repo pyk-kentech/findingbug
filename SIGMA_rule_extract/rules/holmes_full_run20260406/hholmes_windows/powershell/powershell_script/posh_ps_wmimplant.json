@@ -1,0 +1,53 @@
+{
+  "name": "WMImplant Hack Tool",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          "WMImplant",
+          " change_user ",
+          " gen_cli ",
+          " command_exec ",
+          " disable_wdigest ",
+          " disable_winrm ",
+          " enable_wdigest ",
+          " enable_winrm ",
+          " registry_mod ",
+          " remote_posh ",
+          " sched_job ",
+          " service_mod ",
+          " process_kill ",
+          " active_users ",
+          " basic_info ",
+          " power_off ",
+          " vacant_system ",
+          " logon_events "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "Powerview Add-DomainObjectAcl DCSync AD Extend Right",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "5136"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "AttributeLDAPDisplayName": "ntSecurityDescriptor",
+        "AttributeValue|contains": [
+          "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2",
+          "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2",
+          "89e95b76-444d-4c62-991a-0facbeda640c"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

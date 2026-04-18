@@ -1,0 +1,36 @@
+{
+  "name": "Suspicious Inbox Forwarding",
+  "apt_stage": "Exfiltration",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "eventSource": "SecurityComplianceCenter",
+        "eventName": "Suspicious inbox forwarding",
+        "status": "success"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Collection",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

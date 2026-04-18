@@ -1,0 +1,15 @@
+seed: 42
+scenario_type: mixed
+num_campaigns: 8
+campaign_window_events: 80
+attack_ratio: 0.5
+noise_injection_rate: 0.3
+latency_sample_every: 2
+enable_memory_profile: true
+output_dir: results
+paper_mode: strict
+paper_defaults_path: configs/paper_defaults.yaml
+assumptions_path: configs/assumptions.yaml
+paper_parameters_doc_path: docs/paper_parameters.md
+scoring:
+  mode: paper_exact

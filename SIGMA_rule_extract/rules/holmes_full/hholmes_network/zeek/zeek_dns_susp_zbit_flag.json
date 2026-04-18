@@ -1,0 +1,57 @@
+{
+  "name": "Suspicious DNS Z Flag Bit Set",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "Z": 0,
+        "query|contains": ".",
+        "qtype_name": [
+          "ns",
+          "mx"
+        ],
+        "answers|endswith": "\\x00",
+        "id.resp_p": [
+          137,
+          138,
+          139
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "query|endswith": [
+          ".arpa",
+          ".local",
+          ".ultradns.net",
+          ".twtrdns.net",
+          ".azuredns-prd.info",
+          ".azure-dns.com",
+          ".azuredns-ff.info",
+          ".azuredns-ff.org",
+          ".azuregov-dns.org"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

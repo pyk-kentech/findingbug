@@ -1,0 +1,43 @@
+{
+  "name": "Remote Thread Creation In Mstsc.Exe From Suspicious Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "SourceImage|contains": [
+          ":\\Temp\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\PerfLogs\\",
+          ":\\Windows\\Tasks\\",
+          ":\\Windows\\Temp\\",
+          "\\AppData\\Local\\Temp\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetImage|endswith": "\\mstsc.exe"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "Potential Persistence Via Visual Studio Tools for Office",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          "C:\\Windows\\System32\\msiexec.exe",
+          "C:\\Windows\\SysWOW64\\msiexec.exe",
+          "C:\\Windows\\System32\\regsvr32.exe",
+          "C:\\Windows\\SysWOW64\\regsvr32.exe",
+          "C:\\Program Files\\Common Files (x86)\\Microsoft Shared\\ClickToRun\\",
+          "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\",
+          "C:\\Program Files (x86)\\Microsoft Office\\root\\integration\\integrator.exe",
+          "C:\\Program Files\\Microsoft Office\\root\\integration\\integrator.exe",
+          "C:\\Program Files\\Microsoft Office\\OFFICE",
+          "C:\\Program Files (x86)\\Microsoft Office\\OFFICE",
+          "C:\\Program Files\\Microsoft Office\\Root\\OFFICE",
+          "C:\\Program Files (x86)\\Microsoft Office\\Root\\OFFICE",
+          "C:\\Program Files\\AVG\\Antivirus\\RegSvr.exe",
+          "C:\\Program Files (x86)\\AVG\\Antivirus\\RegSvr.exe",
+          "C:\\Program Files\\Avast Software\\Avast\\RegSvr.exe",
+          "C:\\Program Files (x86)\\Avast Software\\Avast\\RegSvr.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\Software\\Microsoft\\Office\\Outlook\\Addins\\",
+          "\\Software\\Microsoft\\Office\\Word\\Addins\\",
+          "\\Software\\Microsoft\\Office\\Excel\\Addins\\",
+          "\\Software\\Microsoft\\Office\\Powerpoint\\Addins\\",
+          "\\Software\\Microsoft\\VSTO\\Security\\Inclusion\\",
+          "\\Microsoft\\Office\\Outlook\\Addins\\Antivirus.AsOutExt\\",
+          "\\Microsoft\\Office\\Outlook\\Addins\\Avast.AsOutExt\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

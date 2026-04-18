@@ -1,0 +1,68 @@
+{
+  "name": "Uncommon File Created In Office Startup Folder",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetFilename|contains": [
+          "\\Microsoft\\Word\\STARTUP",
+          "\\Office",
+          "\\Program Files",
+          "\\STARTUP"
+        ],
+        "Image|contains": [
+          ":\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\",
+          ":\\Program Files\\Microsoft Office\\",
+          ":\\Program Files (x86)\\Microsoft Office\\"
+        ],
+        "Image|endswith": [
+          "\\OfficeClickToRun.exe",
+          "\\winword.exe",
+          "\\excel.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ".docb",
+          ".docm",
+          ".docx",
+          ".dotm",
+          ".mdb",
+          ".mdw",
+          ".pdf",
+          ".wll",
+          ".wwl",
+          ".xll",
+          ".xls",
+          ".xlsm",
+          ".xlsx",
+          ".xlt",
+          ".xltm",
+          ".xlw"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

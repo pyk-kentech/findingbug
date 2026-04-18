@@ -1,0 +1,44 @@
+{
+  "name": "Google Cloud Kubernetes CronJob",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {}
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "TargetFilename": [
+          "io.k8s.api.batch.v*.Job",
+          "io.k8s.api.batch.v*.CronJob"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

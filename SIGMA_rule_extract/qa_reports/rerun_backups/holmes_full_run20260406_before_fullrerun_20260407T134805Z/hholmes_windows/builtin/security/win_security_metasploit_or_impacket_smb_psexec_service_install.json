@@ -1,0 +1,39 @@
+{
+  "name": "Metasploit Or Impacket Service Installation Via SMB PsExec",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4697"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ServiceFileName|re": "^%systemroot%\\\\[a-zA-Z]{8}\\.exe$",
+        "ServiceName|re": "(^[a-zA-Z]{4}$)|(^[a-zA-Z]{8}$)|(^[a-zA-Z]{16}$)",
+        "ServiceStartType": "3",
+        "ServiceType": "0x10"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

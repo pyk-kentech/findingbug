@@ -1,0 +1,58 @@
+{
+  "name": "Cisco Modify Configuration",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": [
+          "ip http server",
+          "ip https server",
+          "kron policy-list",
+          "kron occurrence",
+          "policy-list",
+          "access-list",
+          "ip access-group",
+          "archive maximum",
+          "ntp server"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

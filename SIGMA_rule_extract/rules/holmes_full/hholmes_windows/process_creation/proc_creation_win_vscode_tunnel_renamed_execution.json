@@ -1,0 +1,46 @@
+{
+  "name": "Renamed Visual Studio Code Tunnel Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": null,
+        "CommandLine|endswith": ".exe tunnel",
+        "ParentCommandLine|endswith": " tunnel",
+        "Image|endswith": "\\cmd.exe",
+        "CommandLine|contains|all": [
+          "/d /c ",
+          "\\servers\\Stable-",
+          "code-server.cmd"
+        ],
+        "ParentImage|endswith": [
+          "\\code-tunnel.exe",
+          "\\code.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

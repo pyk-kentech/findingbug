@@ -1,0 +1,54 @@
+{
+  "name": "Suspicious Loading of Dbgcore/Dbghelp DLLs from Uncommon Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          "':\\Perflogs\\'",
+          "':\\Temp\\'",
+          "':\\Users\\Public\\'",
+          "'\\$Recycle.Bin\\'",
+          "'\\Contacts\\'",
+          "'\\Documents\\'",
+          "'\\Favorites\\'",
+          "'\\Favourites\\'",
+          "'\\inetpub\\wwwroot\\'",
+          "'\\Music\\'",
+          "'\\Pictures\\'",
+          "'\\Start Menu\\Programs\\Startup\\'",
+          "'\\Users\\Default\\'",
+          "'\\Videos\\'"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|endswith": [
+          "'\\dbgcore.dll'",
+          "'\\dbghelp.dll'"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

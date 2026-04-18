@@ -1,0 +1,53 @@
+{
+  "name": "Suspicious Encoded And Obfuscated Reflection Assembly Load Function Call",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "OgA6ACgAIgBMACIAKwAiAG8AYQBkACIAKQ",
+          "oAOgAoACIATAAiACsAIgBvAGEAZAAiACkA",
+          "6ADoAKAAiAEwAIgArACIAbwBhAGQAIgApA",
+          "OgA6ACgAIgBMAG8AIgArACIAYQBkACIAKQ",
+          "oAOgAoACIATABvACIAKwAiAGEAZAAiACkA",
+          "6ADoAKAAiAEwAbwAiACsAIgBhAGQAIgApA",
+          "OgA6ACgAIgBMAG8AYQAiACsAIgBkACIAKQ",
+          "oAOgAoACIATABvAGEAIgArACIAZAAiACkA",
+          "6ADoAKAAiAEwAbwBhACIAKwAiAGQAIgApA",
+          "OgA6ACgAJwBMACcAKwAnAG8AYQBkACcAKQ",
+          "oAOgAoACcATAAnACsAJwBvAGEAZAAnACkA",
+          "6ADoAKAAnAEwAJwArACcAbwBhAGQAJwApA",
+          "OgA6ACgAJwBMAG8AJwArACcAYQBkACcAKQ",
+          "oAOgAoACcATABvACcAKwAnAGEAZAAnACkA",
+          "6ADoAKAAnAEwAbwAnACsAJwBhAGQAJwApA",
+          "OgA6ACgAJwBMAG8AYQAnACsAJwBkACcAKQ",
+          "oAOgAoACcATABvAGEAJwArACcAZAAnACkA",
+          "6ADoAKAAnAEwAbwBhACcAKwAnAGQAJwApA"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

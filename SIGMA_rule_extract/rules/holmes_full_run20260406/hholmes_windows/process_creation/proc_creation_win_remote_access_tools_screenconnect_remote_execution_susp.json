@@ -1,0 +1,49 @@
+{
+  "name": "Remote Access Tool - ScreenConnect Potential Suspicious Remote Command Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentCommandLine|contains|all": [
+          ":\\Windows\\TEMP\\ScreenConnect\\",
+          "run.cmd"
+        ],
+        "Image|endswith": [
+          "\\bitsadmin.exe",
+          "\\cmd.exe",
+          "\\curl.exe",
+          "\\dllhost.exe",
+          "\\net.exe",
+          "\\nltest.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\rundll32.exe",
+          "\\wevtutil.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

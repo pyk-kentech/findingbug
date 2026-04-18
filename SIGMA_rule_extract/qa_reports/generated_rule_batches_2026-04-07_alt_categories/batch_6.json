@@ -1,0 +1,1143 @@
+[
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/rpc_firewall/rpc_firewall_remote_service_lateral_movement.json",
+    "category": "hholmes_application/rpc_firewall",
+    "rule": {
+      "name": "Remote Server Service Abuse for Lateral Movement",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventLog": "RPCFW",
+            "EventID": 3,
+            "InterfaceUuid": "367abb81-9844-35f1-ad32-98f038001003"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/github/audit/github_delete_action_invoked.json",
+    "category": "hholmes_application/github",
+    "rule": {
+      "name": "Github Delete Action Invoked",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename": [
+              "codespaces.delete",
+              "environment.delete",
+              "project.delete",
+              "repo.destroy"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/fortinet/fortigate/fortinet_fortigate_new_firewall_policy_added.json",
+    "category": "hholmes_network/fortinet",
+    "rule": {
+      "name": "FortiGate - New Firewall Policy Added",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {
+            "cfgpath": "firewall.policy"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_access/file_access_win_susp_process_access_browser_cred_files.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Suspicious File Access to Browser Credential Storage",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\Sputnik.exe",
+              "\\ChromePlus.exe",
+              "\\QIP Surf.exe",
+              "\\BlackHawk.exe",
+              "\\7Star.exe",
+              "\\Sleipnir5.exe",
+              "\\Citrio.exe",
+              "\\Chrome SxS.exe",
+              "\\Chrome.exe",
+              "\\Coowon.exe",
+              "\\CocCocBrowser.exe",
+              "\\Uran.exe",
+              "\\QQBrowser.exe",
+              "\\Orbitum.exe",
+              "\\Slimjet.exe",
+              "\\Iridium.exe",
+              "\\Vivaldi.exe",
+              "\\Chromium.exe",
+              "\\GhostBrowser.exe",
+              "\\CentBrowser.exe",
+              "\\Xvast.exe",
+              "\\Chedot.exe",
+              "\\SuperBird.exe",
+              "\\360Browser.exe",
+              "\\360Chrome.exe",
+              "\\dragon.exe",
+              "\\brave.exe",
+              "\\torch.exe",
+              "\\UCBrowser.exe",
+              "\\BliskBrowser.exe",
+              "\\Epic Privacy Browser.exe",
+              "\\nichrome.exe",
+              "\\AmigoBrowser.exe",
+              "\\KometaBrowser.exe",
+              "\\XpomBrowser.exe",
+              "\\msedge.exe",
+              "\\LiebaoBrowser.exe",
+              "\\AvastBrowser.exe",
+              "\\Kinza.exe",
+              "\\seamonkey.exe",
+              "\\icedragon.exe",
+              "\\cyberfox.exe",
+              "\\SlimBrowser.exe",
+              "\\palemoon.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "FileName|contains": [
+              "\\Login Data",
+              "\\Cookies",
+              "\\EncryptedStorage",
+              "\\WebCache\\"
+            ],
+            "FileName|endswith": [
+              "cert9.db",
+              "cookies.sqlite",
+              "formhistory.sqlite",
+              "key3.db",
+              "key4.db",
+              "Login Data.sqlite",
+              "logins.json",
+              "places.sqlite"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/dns/net_dns_external_service_interaction_domains.json",
+    "category": "hholmes_network/dns",
+    "rule": {
+      "name": "DNS Query to External Service Interaction Domains",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp": "*",
+            "DestinationPort": "53"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/dns/net_dns_pua_cryptocoin_mining_xmr.json",
+    "category": "hholmes_network/dns",
+    "rule": {
+      "name": "Monero Crypto Coin Mining Pool Lookup",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp|contains": [
+              "pool.minexmr.com",
+              "fr.minexmr.com",
+              "de.minexmr.com",
+              "sg.minexmr.com",
+              "ca.minexmr.com",
+              "us-west.minexmr.com",
+              "pool.supportxmr.com",
+              "mine.c3pool.com",
+              "xmr-eu1.nanopool.org",
+              "xmr-eu2.nanopool.org",
+              "xmr-us-east1.nanopool.org",
+              "xmr-us-west1.nanopool.org",
+              "xmr-asia1.nanopool.org",
+              "xmr-jp1.nanopool.org",
+              "xmr-au1.nanopool.org",
+              "xmr.2miners.com",
+              "xmr.hashcity.org",
+              "xmr.f2pool.com",
+              "xmrpool.eu",
+              "pool.hashvault.pro"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Collection",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/rpc_firewall/rpc_firewall_remote_server_service_abuse.json",
+    "category": "hholmes_application/rpc_firewall",
+    "rule": {
+      "name": "Remote Server Service Abuse",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventLog": "RPCFW",
+            "EventID": 3,
+            "InterfaceUuid": "4b324fc8-1670-01d3-1278-5a47bf6ee188"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/webserver_generic/web_source_code_enumeration.json",
+    "category": "hholmes_web/webserver_generic",
+    "rule": {
+      "name": "Source Code Enumeration Detection by Keyword",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp": "*",
+            "DestinationPort": "80"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/cisco/bgp/cisco_bgp_md5_auth_failed.json",
+    "category": "hholmes_network/cisco",
+    "rule": {
+      "name": "Cisco BGP Authentication Failures",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationPort": "179"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/okta/okta_application_sign_on_policy_modified_or_deleted.json",
+    "category": "hholmes_identity/okta",
+    "rule": {
+      "name": "Okta Application Sign-On Policy Modified or Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventtype": [
+              "application.policy.sign_on.update",
+              "application.policy.sign_on.rule.delete"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/dns_query/dns_query_win_ufile_io_query.json",
+    "category": "hholmes_windows/dns_query",
+    "rule": {
+      "name": "DNS Query To Ufile.io",
+      "apt_stage": "Exfiltration",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp|endswith": ".ufile.io"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Collection",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_access/file_access_win_susp_crypto_currency_wallets.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Access To Crypto Currency Wallets By Uncommon Applications",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|startswith": [
+              "C:\\Program Files (x86)\\",
+              "C:\\Program Files\\",
+              "C:\\Windows\\system32\\",
+              "C:\\Windows\\SysWOW64\\"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": [
+              "\\AppData\\Roaming\\Ethereum\\keystore\\",
+              "\\AppData\\Roaming\\EthereumClassic\\keystore\\",
+              "\\AppData\\Roaming\\monero\\wallets\\"
+            ],
+            "TargetFilename|endswith": [
+              "\\AppData\\Roaming\\Bitcoin\\wallet.dat",
+              "\\AppData\\Roaming\\BitcoinABC\\wallet.dat",
+              "\\AppData\\Roaming\\BitcoinSV\\wallet.dat",
+              "\\AppData\\Roaming\\DashCore\\wallet.dat",
+              "\\AppData\\Roaming\\DogeCoin\\wallet.dat",
+              "\\AppData\\Roaming\\Litecoin\\wallet.dat",
+              "\\AppData\\Roaming\\Ripple\\wallet.dat",
+              "\\AppData\\Roaming\\Zcash\\wallet.dat"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/okta/okta_admin_activity_from_proxy_query.json",
+    "category": "hholmes_identity/okta",
+    "rule": {
+      "name": "Okta Admin Functions Access Through Proxy",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "debugContext.debugData.requestUri|contains": "admin",
+            "securityContext.isProxy": "true"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_event/file_event_win_creation_deno.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Suspicious Deno File Written from Remote Source",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": [
+              "\\deno\\gen\\",
+              "\\deno\\remote\\https\\"
+            ],
+            "TargetFilename|contains|all": [
+              ":\\Users\\",
+              "\\AppData\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/create_stream_hash/create_stream_hash_winget_susp_package_source.json",
+    "category": "hholmes_windows/create_stream_hash",
+    "rule": {
+      "name": "Potential Suspicious Winget Package Installation",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": ":Zone.Identifier",
+            "TargetFilename|contains": "\\AppData\\Local\\Temp\\WinGet\\"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/driver_load/driver_load_win_windivert.json",
+    "category": "hholmes_windows/driver_load",
+    "rule": {
+      "name": "WinDivert Driver Load",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Hashes|contains": [
+              "IMPHASH=0604bb7cb4bb851e2168d5c7d9399087",
+              "IMPHASH=2e5f0e649d97f32b03c09e4686d0574f",
+              "IMPHASH=52f8aa269f69f0edad9e8fcdaedce276",
+              "IMPHASH=c0e5d314da39dbf65a2dbff409cc2c76",
+              "IMPHASH=58623490691babe8330adc81cd04a663",
+              "IMPHASH=8ee39b48656e4d6b8459d7ba7da7438b",
+              "IMPHASH=45ee545ae77e8d43fc70ede9efcd4c96",
+              "IMPHASH=a1b2e245acd47e4a348e1a552a02859a",
+              "IMPHASH=2a5f85fe4609461c6339637594fa9b0a",
+              "IMPHASH=6b2c6f95233c2914d1d488ee27531acc",
+              "IMPHASH=9f2fdd3f9ab922bbb0560a7df46f4342",
+              "IMPHASH=d8a719865c448b1bd2ec241e46ac1c88",
+              "IMPHASH=0ea54f8c9af4a2fe8367fa457f48ed38",
+              "IMPHASH=9d519ae0a0864d6d6ae3f8b6c9c70af6",
+              "IMPHASH=a74929edfc3289895e3f2885278947ae",
+              "IMPHASH=a66b476c2d06c370f0a53b5537f2f11e",
+              "IMPHASH=bdcd836a46bc2415773f6b5ea77a46e4",
+              "IMPHASH=c28cd6ccd83179e79dac132a553693d9"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded|contains": [
+              "\\WinDivert.sys",
+              "\\WinDivert64.sys",
+              "\\NordDivert.sys",
+              "\\lingtiwfp.sys",
+              "\\eswfp.sys"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/file_event/file_event_macos_emond_launch_daemon.json",
+    "category": "hholmes_macos/file_event",
+    "rule": {
+      "name": "MacOS Emond Launch Daemon",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename": [
+              "/etc/emond.d/rules/*",
+              "/private/var/db/emondClients/*"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/velocity/velocity_ssti_injection.json",
+    "category": "hholmes_application/velocity",
+    "rule": {
+      "name": "Potential Server Side Template Injection In Velocity",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "*velocity*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/driver_load/driver_load_win_susp_temp_use.json",
+    "category": "hholmes_windows/driver_load",
+    "rule": {
+      "name": "Driver Load From A Temporary Directory",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded": "*\\Temp\\"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_delete/file_delete_win_unusual_deletion_by_dns_exe.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Unusual File Deletion by Dns.exe",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\dns.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": "\\dns.log"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/fortinet/fortigate/fortinet_fortigate_user_group_modified.json",
+    "category": "hholmes_network/fortinet",
+    "rule": {
+      "name": "FortiGate - User Group Modified",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "action": "Edit"
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {
+            "cfgpath": "user.group"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/product/apache/web_apache_threading_error.json",
+    "category": "hholmes_web/product",
+    "rule": {
+      "name": "Apache Threading Error",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": "*error.log"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/auditd/path/lnx_auditd_logging_config_change.json",
+    "category": "hholmes_linux/auditd",
+    "rule": {
+      "name": "Logging Configuration Changes on Linux Host",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "/etc/syslog.conf",
+              "/etc/rsyslog.conf",
+              "/etc/syslog-ng/syslog-ng.conf"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/webserver_generic/web_sql_injection_in_access_logs.json",
+    "category": "hholmes_web/webserver_generic",
+    "rule": {
+      "name": "SQL Injection Strings In URI",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "*"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp": "*",
+            "DestinationPort": "80,443"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_delete/file_delete_win_zone_identifier_ads_uncommon.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "ADS Zone.Identifier Deleted By Uncommon Application",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image": [
+              "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+              "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+              "C:\\Windows\\explorer.exe",
+              "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+              "C:\\Windows\\SysWOW64\\explorer.exe",
+              "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": ":Zone.Identifier"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  }
+]

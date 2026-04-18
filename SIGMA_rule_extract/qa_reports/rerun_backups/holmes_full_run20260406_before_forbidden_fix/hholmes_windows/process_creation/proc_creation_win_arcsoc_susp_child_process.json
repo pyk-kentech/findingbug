@@ -1,0 +1,46 @@
+{
+  "name": "Suspicious ArcSOC.exe Child Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\ArcSOC.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\mshta.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

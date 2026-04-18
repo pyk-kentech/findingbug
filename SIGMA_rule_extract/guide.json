@@ -1,0 +1,120 @@
+{
+  "title": "Ollama Install And Rule Translation Guide",
+  "updated_at": "2026-04-05",
+  "working_directory": "/home/work/SIGMA/SIGMA_rule_extract",
+  "notes": [
+    "This guide installs Ollama without sudo by placing it under /home/work/.local.",
+    "Run all commands from the project root unless noted otherwise.",
+    "The qwen2.5-coder:14b model is large and may take a while to download."
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "name": "Activate virtual environment",
+      "commands": [
+        "cd /home/work/SIGMA/SIGMA_rule_extract",
+        "source .venv/bin/activate"
+      ]
+    },
+    {
+      "step": 2,
+      "name": "Ensure local bin is on PATH",
+      "commands": [
+        "source ~/.bashrc",
+        "echo $PATH | tr ':' '\\n' | grep \"$HOME/.local/bin\""
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Verify Ollama CLI exists",
+      "commands": [
+        "command -v ollama",
+        "ollama --version"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Start Ollama server",
+      "commands": [
+        "OLLAMA_HOST=127.0.0.1:11434 ollama serve"
+      ],
+      "run_in": "Keep this running in a separate terminal session."
+    },
+    {
+      "step": 5,
+      "name": "Check API is alive",
+      "commands": [
+        "curl http://127.0.0.1:11434/api/tags"
+      ]
+    },
+    {
+      "step": 6,
+      "name": "Download the local 14B model",
+      "commands": [
+        "ollama pull qwen2.5-coder:14b"
+      ],
+      "expected": "Download size is about 9 GB."
+    },
+    {
+      "step": 7,
+      "name": "Confirm model is installed",
+      "commands": [
+        "curl http://127.0.0.1:11434/api/tags",
+        "ollama list"
+      ]
+    },
+    {
+      "step": 8,
+      "name": "Run Sigma to HOLMES translation",
+      "commands": [
+        "cd /home/work/SIGMA/SIGMA_rule_extract",
+        "source .venv/bin/activate",
+        "python scripts/run_rule_translation.py"
+      ]
+    },
+    {
+      "step": 9,
+      "name": "Run the QA batch reviewer",
+      "commands": [
+        "cd /home/work/SIGMA/SIGMA_rule_extract",
+        "source .venv/bin/activate",
+        "python scripts/qa/llm_batch_reviewer.py"
+      ]
+    },
+    {
+      "step": 10,
+      "name": "Useful status checks",
+      "commands": [
+        "tail -n 50 translation_errors.log",
+        "tail -n 50 linter_report.log",
+        "find rules/holmes -type f -name '*.json' | wc -l",
+        "cat qa_reports/14b_review_summary.json"
+      ]
+    }
+  ],
+  "troubleshooting": [
+    {
+      "problem": "ollama: command not found",
+      "fix": [
+        "source ~/.bashrc",
+        "export PATH=\"$HOME/.local/bin:$PATH\"",
+        "command -v ollama"
+      ]
+    },
+    {
+      "problem": "Could not connect to localhost:11434",
+      "fix": [
+        "Start the server first: OLLAMA_HOST=127.0.0.1:11434 ollama serve",
+        "Then retry: curl http://127.0.0.1:11434/api/tags"
+      ]
+    },
+    {
+      "problem": "Translation runs but all rules fail",
+      "fix": [
+        "Check whether the model pull finished: ollama list",
+        "Check server availability: curl http://127.0.0.1:11434/api/tags",
+        "Inspect the latest errors: tail -n 50 translation_errors.log"
+      ]
+    }
+  ]
+}

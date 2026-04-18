@@ -1,0 +1,66 @@
+{
+  "name": "Renamed Office Binary Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": [
+          "Excel.exe",
+          "MSACCESS.EXE",
+          "MSPUB.EXE",
+          "OneNote.exe",
+          "OneNoteM.exe",
+          "OUTLOOK.EXE",
+          "POWERPNT.EXE",
+          "WinWord.exe",
+          "Olk.exe"
+        ],
+        "Description": [
+          "Microsoft Access",
+          "Microsoft Excel",
+          "Microsoft OneNote",
+          "Microsoft Outlook",
+          "Microsoft PowerPoint",
+          "Microsoft Publisher",
+          "Microsoft Word",
+          "Sent to OneNote Tool"
+        ],
+        "Image|endswith": [
+          "\\EXCEL.exe",
+          "\\excelcnv.exe",
+          "\\MSACCESS.exe",
+          "\\MSPUB.EXE",
+          "\\ONENOTE.EXE",
+          "\\ONENOTEM.EXE",
+          "\\OUTLOOK.EXE",
+          "\\POWERPNT.EXE",
+          "\\WINWORD.exe",
+          "\\OLK.EXE"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

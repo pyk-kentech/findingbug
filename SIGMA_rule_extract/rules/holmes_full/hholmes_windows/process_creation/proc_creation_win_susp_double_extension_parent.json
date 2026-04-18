@@ -1,0 +1,73 @@
+{
+  "name": "Suspicious Parent Double Extension File Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          ".doc.lnk",
+          ".docx.lnk",
+          ".xls.lnk",
+          ".xlsx.lnk",
+          ".ppt.lnk",
+          ".pptx.lnk",
+          ".rtf.lnk",
+          ".pdf.lnk",
+          ".txt.lnk",
+          ".doc.js",
+          ".docx.js",
+          ".xls.js",
+          ".xlsx.js",
+          ".ppt.js",
+          ".pptx.js",
+          ".rtf.js",
+          ".pdf.js",
+          ".txt.js"
+        ],
+        "ParentCommandLine|contains": [
+          ".doc.lnk",
+          ".docx.lnk",
+          ".xls.lnk",
+          ".xlsx.lnk",
+          ".ppt.lnk",
+          ".pptx.lnk",
+          ".rtf.lnk",
+          ".pdf.lnk",
+          ".txt.lnk",
+          ".doc.js",
+          ".docx.js",
+          ".xls.js",
+          ".xlsx.js",
+          ".ppt.js",
+          ".pptx.js",
+          ".rtf.js",
+          ".pdf.js",
+          ".txt.js"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "Process Execution From A Potentially Suspicious Folder",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          ":\\Perflogs\\",
+          ":\\Users\\All Users\\",
+          ":\\Users\\Default\\",
+          ":\\Users\\NetworkService\\",
+          ":\\Windows\\addins\\",
+          ":\\Windows\\debug\\",
+          ":\\Windows\\Fonts\\",
+          ":\\Windows\\Help\\",
+          ":\\Windows\\IME\\",
+          ":\\Windows\\Media\\",
+          ":\\Windows\\repair\\",
+          ":\\Windows\\security\\",
+          ":\\Windows\\System32\\Tasks\\",
+          ":\\Windows\\Tasks\\",
+          "$Recycle.bin",
+          "\\config\\systemprofile\\",
+          "\\Intel\\Logs\\",
+          "\\RSA\\MachineKeys\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

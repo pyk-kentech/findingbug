@@ -1,0 +1,60 @@
+{
+  "name": "Elevated System Shell Spawned From Uncommon Parent Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\powershell_ise.exe",
+          "\\pwsh.exe",
+          "\\cmd.exe"
+        ],
+        "OriginalFileName": [
+          "PowerShell.EXE",
+          "powershell_ise.EXE",
+          "pwsh.dll",
+          "Cmd.Exe"
+        ],
+        "User|contains": [
+          "AUTHORI",
+          "AUTORI"
+        ],
+        "LogonId": "0x3e7"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ParentImage|contains": [
+          ":\\Program Files (x86)\\",
+          ":\\Program Files\\",
+          ":\\ProgramData\\",
+          ":\\Windows\\System32\\",
+          ":\\Windows\\SysWOW64\\",
+          ":\\Windows\\Temp\\",
+          1
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

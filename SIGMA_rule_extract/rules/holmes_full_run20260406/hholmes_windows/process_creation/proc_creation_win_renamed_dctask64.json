@@ -1,0 +1,40 @@
+{
+  "name": "Renamed ZOHO Dctask64 Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Hashes|contains": [
+          "IMPHASH=6834B1B94E49701D77CCB3C0895E1AFD",
+          "IMPHASH=1BB6F93B129F398C7C4A76BB97450BBA",
+          "IMPHASH=FAA2AC19875FADE461C8D89DCF2710A3",
+          "IMPHASH=F1039CED4B91572AB7847D26032E6BBF"
+        ],
+        "Image|endswith": "\\dctask64.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

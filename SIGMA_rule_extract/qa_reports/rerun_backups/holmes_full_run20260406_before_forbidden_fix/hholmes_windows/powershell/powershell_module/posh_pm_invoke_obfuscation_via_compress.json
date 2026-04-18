@@ -1,0 +1,42 @@
+{
+  "name": "Invoke-Obfuscation COMPRESS OBFUSCATION - PowerShell Module",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Payload|contains|all": [
+          "new-object",
+          "text.encoding]::ascii"
+        ],
+        "Payload|contains": [
+          "system.io.compression.deflatestream",
+          "system.io.streamreader"
+        ],
+        "Payload|endswith": "readtoend"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

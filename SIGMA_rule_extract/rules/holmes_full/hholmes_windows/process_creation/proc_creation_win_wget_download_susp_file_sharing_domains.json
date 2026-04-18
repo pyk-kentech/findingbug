@@ -1,0 +1,72 @@
+{
+  "name": "Suspicious File Download From File Sharing Domain Via Wget.EXE",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\wget.exe",
+        "OriginalFileName": "wget.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "--output-document"
+        ],
+        "CommandLine|re": "\\s-O\\s",
+        "CommandLine|endswith": [
+          ".ps1",
+          ".ps1'",
+          ".ps1\"",
+          ".dat",
+          ".dat'",
+          ".dat\"",
+          ".msi",
+          ".msi'",
+          ".msi\"",
+          ".bat",
+          ".bat'",
+          ".bat\"",
+          ".exe",
+          ".exe'",
+          ".exe\"",
+          ".vbs",
+          ".vbs'",
+          ".vbs\"",
+          ".vbe",
+          ".vbe'",
+          ".vbe\"",
+          ".hta",
+          ".hta'",
+          ".hta\"",
+          ".dll",
+          ".dll'",
+          ".dll\"",
+          ".psm1",
+          ".psm1'",
+          ".psm1\""
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "name": "CodeIntegrity - Unmet Signing Level Requirements By File Under Validation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          3033,
+          3034
+        ],
+        "FileNameBuffer|endswith": [
+          "\\Program Files\\DTrace\\dtrace.dll",
+          "\\Windows\\System32\\DriverStore\\FileRepository\\iigd_dch.inf_amd64_36fb67bd6dbd887d\\igd10iumd64.dll",
+          "\\Windows\\System32\\nvspcap64.dll",
+          "\\Program Files\\Bonjour\\mdnsNSP.dll",
+          "\\Microsoft Office\\root\\vfs\\ProgramFilesCommonX64\\Microsoft Shared\\OFFICE\\MSOXMLMF.DLL",
+          "\\AppData\\Local\\Keybase\\Gui\\Keybase.exe",
+          "\\Microsoft\\Teams\\stage\\Teams.exe",
+          "\\AppData\\Local\\slack\\app-\\slack.exe",
+          "\\Mozilla Firefox\\mozavcodec.dll",
+          "\\Mozilla Firefox\\mozavutil.dll",
+          "\\Program Files\\Avast Software\\Avast\\aswAMSI.dll",
+          "\\Program Files (x86)\\Avast Software\\Avast\\aswAMSI.dll",
+          "\\Windows\\assembly\\GAC\\",
+          "\\Program Files\\Google\\Drive File Stream\\crashpad_handler.exe",
+          "\\Trend Micro\\Client Server Security Agent\\perficrcperfmonmgr.dll",
+          "\\Program Files\\National Instruments\\Shared\\mDNS Responder\\nimdnsNSP.dll ",
+          "\\Program Files\\McAfee\\Endpoint Security\\Threat Prevention\\MfeAmsiProvider.dll",
+          "\\Program Files\\McAfee\\MfeAV\\AMSIExt.dll",
+          "\\Program Files\\ESET\\ESET Security\\eamsi.dll",
+          "\\Program Files\\comodo\\comodo internet security\\amsiprovider_x64.dll",
+          "\\Program Files\\SentinelOne\\Sentinel Agent",
+          "\\National Instruments\\Shared\\mDNS Responder\\",
+          "\\Kaspersky Lab\\avp.exe",
+          "\\Kaspersky Lab\\antimalware_provider.dll"
+        ],
+        "ProcessNameBuffer|endswith": [
+          "\\Windows\\System32\\svchost.exe",
+          "\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.2207.7-0\\MsMpEng.exe",
+          "\\Windows\\System32\\DriverStore\\FileRepository\\iigd_dch.inf_amd64_36fb67bd6dbd887d\\igd10iumd64.dll",
+          "\\AppData\\Local\\Keybase\\Gui\\Keybase.exe",
+          "\\Microsoft\\Teams\\stage\\Teams.exe",
+          "\\Windows\\System32\\nvspcap64.dll",
+          "\\Program Files\\Bonjour\\mdnsNSP.dll",
+          "\\Windows\\System32\\svchost.exe",
+          "\\Windows\\System32\\SIHClient.exe",
+          "\\AppData\\Local\\slack\\app-\\slack.exe",
+          "\\Mozilla Firefox\\firefox.exe",
+          "\\Program Files\\Avast Software\\Avast\\aswAMSI.dll",
+          "\\Program Files (x86)\\Avast Software\\Avast\\aswAMSI.dll",
+          "\\mscorsvw.exe",
+          "\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+          "\\Trend Micro\\Client Server Security Agent\\perficrcperfmonmgr.dll",
+          "\\Program Files\\National Instruments\\Shared\\mDNS Responder\\nimdnsNSP.dll ",
+          "\\Program Files\\McAfee\\Endpoint Security\\Threat Prevention\\MfeAmsiProvider.dll",
+          "\\Program Files\\McAfee\\MfeAV\\AMSIExt.dll",
+          "\\Program Files\\ESET\\ESET Security\\eamsi.dll",
+          "\\Program Files\\comodo\\comodo internet security\\amsiprovider_x64.dll",
+          "\\Program Files\\SentinelOne\\Sentinel Agent",
+          "\\National Instruments\\Shared\\mDNS Responder\\",
+          "\\Kaspersky Lab\\avp.exe"
+        ],
+        "ProcessNameBuffer|contains": [
+          "\\AppData\\Local\\Keybase\\Gui\\Keybase.exe",
+          "\\Microsoft\\Teams\\stage\\Teams.exe",
+          "\\Program Files\\Google\\Drive File Stream\\",
+          "\\Program Files\\SentinelOne\\Sentinel Agent"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "RequestedPolicy": [
+          12,
+          7,
+          8
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

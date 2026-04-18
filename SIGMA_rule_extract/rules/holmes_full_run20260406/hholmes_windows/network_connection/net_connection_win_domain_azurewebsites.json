@@ -1,0 +1,76 @@
+{
+  "name": "Network Connection Initiated To AzureWebsites.NET By Non-Browser Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe",
+          "C:\\Program Files\\Internet Explorer\\iexplore.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\*\\WindowsApps\\MicrosoftEdge.exe",
+          "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeCore\\*\\msedge.exe",
+          "C:\\Program Files\\Microsoft\\EdgeCore\\*\\msedgewebview2.exe",
+          "C:\\Program Files (x86)\\Safari\\*\\safari.exe",
+          "C:\\Program Files\\Safari\\*\\safari.exe",
+          "C:\\Program Files\\Windows Defender Advanced Threat Protection\\*\\MsMpEng.exe",
+          "C:\\Program Files\\Windows Defender\\*\\MsSense.exe",
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsSense.exe",
+          "C:\\Program Files (x86)\\PRTG Network Monitor\\PRTG Probe.exe",
+          "C:\\Program Files\\PRTG Network Monitor\\PRTG Probe.exe",
+          "C:\\Program Files\\BraveSoftware\\*\\brave.exe",
+          "C:\\Users\\*\\AppData\\Local\\Maxthon\\*\\maxthon.exe",
+          "C:\\Users\\*\\AppData\\Local\\Programs\\Opera\\*\\opera.exe",
+          "C:\\Program Files\\SeaMonkey\\*\\seamonkey.exe",
+          "C:\\Program Files (x86)\\SeaMonkey\\*\\seamonkey.exe",
+          "C:\\Users\\*\\AppData\\Local\\Vivaldi\\*\\vivaldi.exe",
+          "C:\\Program Files\\Naver\\Naver Whale\\*\\whale.exe",
+          "C:\\Program Files (x86)\\Naver\\Naver Whale\\*\\whale.exe",
+          "C:\\Program Files\\Waterfox\\*\\Waterfox.exe",
+          "C:\\Program Files (x86)\\Waterfox\\*\\Waterfox.exe",
+          "C:\\Program Files\\SlimBrowser\\*\\slimbrowser.exe",
+          "C:\\Program Files (x86)\\SlimBrowser\\*\\slimbrowser.exe",
+          "C:\\Users\\*\\AppData\\Local\\Flock\\*\\Flock.exe",
+          "C:\\Users\\*\\AppData\\Local\\Phoebe\\*\\Phoebe.exe",
+          "C:\\Program Files\\Falkon\\*\\falkon.exe",
+          "C:\\Program Files (x86)\\Falkon\\*\\falkon.exe",
+          "C:\\Program Files (x86)\\QtWeb\\*\\QtWeb.exe",
+          "C:\\Program Files\\QtWeb\\*\\QtWeb.exe",
+          "C:\\Program Files (x86)\\Avant Browser\\*\\avant.exe",
+          "C:\\Program Files\\Avant Browser\\*\\avant.exe",
+          "C:\\Users\\*\\AppData\\Local\\Discord\\*\\Discord.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationHostname|endswith": "azurewebsites.net"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

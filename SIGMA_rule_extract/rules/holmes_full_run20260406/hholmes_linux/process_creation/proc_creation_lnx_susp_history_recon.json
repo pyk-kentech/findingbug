@@ -1,0 +1,47 @@
+{
+  "name": "Print History File Contents",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "/cat",
+          "/head",
+          "/tail",
+          "/more"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "/.bash_history",
+          "/.zsh_history",
+          "_history",
+          ".history",
+          "zhistory"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

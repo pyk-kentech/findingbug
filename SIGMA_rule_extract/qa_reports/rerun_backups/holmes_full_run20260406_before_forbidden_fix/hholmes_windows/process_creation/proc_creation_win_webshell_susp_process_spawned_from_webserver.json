@@ -1,0 +1,85 @@
+{
+  "name": "Suspicious Process By Web Server Process",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\caddy.exe",
+          "\\httpd.exe",
+          "\\nginx.exe",
+          "\\php-cgi.exe",
+          "\\php.exe",
+          "\\tomcat.exe",
+          "\\UMWorkerProcess.exe",
+          "\\w3wp.exe",
+          "\\ws_TomcatService.exe"
+        ],
+        "ParentImage|contains": [
+          "-tomcat-",
+          "\\tomcat"
+        ],
+        "ParentCommandLine|contains": [
+          "CATALINA_HOME",
+          "catalina.home",
+          "catalina.jar"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\arp.exe",
+          "\\at.exe",
+          "\\bash.exe",
+          "\\bitsadmin.exe",
+          "\\certutil.exe",
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\dsget.exe",
+          "\\hostname.exe",
+          "\\nbtstat.exe",
+          "\\net.exe",
+          "\\net1.exe",
+          "\\netdom.exe",
+          "\\netsh.exe",
+          "\\nltest.exe",
+          "\\ntdsutil.exe",
+          "\\powershell_ise.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\qprocess.exe",
+          "\\query.exe",
+          "\\qwinsta.exe",
+          "\\reg.exe",
+          "\\rundll32.exe",
+          "\\sc.exe",
+          "\\sh.exe",
+          "\\wmic.exe",
+          "\\wscript.exe",
+          "\\wusa.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

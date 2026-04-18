@@ -1,0 +1,39 @@
+{
+  "name": "DLL Search Order Hijackig Via Additional Space in Path",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path|startswith": [
+          "C:\\Windows \\",
+          "C:\\Program Files \\",
+          "C:\\Program Files (x86) \\"
+        ],
+        "file_path|endswith": ".dll"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

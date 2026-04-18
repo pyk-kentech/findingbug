@@ -1,0 +1,74 @@
+{
+  "name": "Potentially Suspicious Regsvr32 HTTP IP Pattern",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\regsvr32.exe",
+        "OriginalFileName": "REGSVR32.EXE"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          " /i:http://1",
+          " /i:http://2",
+          " /i:http://3",
+          " /i:http://4",
+          " /i:http://5",
+          " /i:http://6",
+          " /i:http://7",
+          " /i:http://8",
+          " /i:http://9",
+          " /i:https://1",
+          " /i:https://2",
+          " /i:https://3",
+          " /i:https://4",
+          " /i:https://5",
+          " /i:https://6",
+          " /i:https://7",
+          " /i:https://8",
+          " /i:https://9",
+          " -i:http://1",
+          " -i:http://2",
+          " -i:http://3",
+          " -i:http://4",
+          " -i:http://5",
+          " -i:http://6",
+          " -i:http://7",
+          " -i:http://8",
+          " -i:http://9",
+          " -i:https://1",
+          " -i:https://2",
+          " -i:https://3",
+          " -i:https://4",
+          " -i:https://5",
+          " -i:https://6",
+          " -i:https://7",
+          " -i:https://8",
+          " -i:https://9"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

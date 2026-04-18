@@ -1,0 +1,45 @@
+{
+  "name": "PUA - NPS Tunneling Tool Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\npc.exe",
+        "CommandLine|contains|all": [
+          " -server=",
+          " -vkey=",
+          " -password="
+        ],
+        "CommandLine|contains": " -config=npc",
+        "Hashes|contains": [
+          "MD5=AE8ACF66BFE3A44148964048B826D005",
+          "SHA1=CEA49E9B9B67F3A13AD0BE1C2655293EA3C18181",
+          "SHA256=5A456283392FFCEEEACA3D3426C306EB470304637520D72FED1CC1FEBBBD6856"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

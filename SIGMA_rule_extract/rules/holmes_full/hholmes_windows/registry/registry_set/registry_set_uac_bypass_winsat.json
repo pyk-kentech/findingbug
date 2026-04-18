@@ -1,0 +1,36 @@
+{
+  "name": "UAC Bypass Abusing Winsat Path Parsing - Registry",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject": "\\Root\\InventoryApplicationFile\\winsat.exe|"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details": "c:\\users\\*|appdata\\local\\temp\\system32\\winsat.exe"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

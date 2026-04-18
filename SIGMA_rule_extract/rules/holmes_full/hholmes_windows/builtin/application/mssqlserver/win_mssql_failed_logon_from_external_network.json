@@ -1,0 +1,59 @@
+{
+  "name": "MSSQL Server Failed Logon From External Network",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name|contains": "MSSQL"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "EventID": 18456,
+        "Data|contains": [
+          "CLIENT: 10.",
+          "CLIENT: 172.16.",
+          "CLIENT: 172.17.",
+          "CLIENT: 172.18.",
+          "CLIENT: 172.19.",
+          "CLIENT: 172.20.",
+          "CLIENT: 172.21.",
+          "CLIENT: 172.22.",
+          "CLIENT: 172.23.",
+          "CLIENT: 172.24.",
+          "CLIENT: 172.25.",
+          "CLIENT: 172.26.",
+          "CLIENT: 172.27.",
+          "CLIENT: 172.28.",
+          "CLIENT: 172.29.",
+          "CLIENT: 172.30.",
+          "CLIENT: 172.31.",
+          "CLIENT: 192.168.",
+          "CLIENT: 127.",
+          "CLIENT: 169.254.",
+          "CLIENT: <local machine>"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

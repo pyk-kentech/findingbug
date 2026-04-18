@@ -1,0 +1,50 @@
+{
+  "name": "PowerShell Base64 Encoded Invoke Keyword",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "OriginalFileName": [
+          "PowerShell.EXE",
+          "pwsh.dll"
+        ],
+        "CommandLine|contains": [
+          "-e",
+          "SQBuAHYAbwBrAGUALQ",
+          "kAbgB2AG8AawBlAC0A",
+          "JAG4AdgBvAGsAZQAtA",
+          "SW52b2tlL",
+          "ludm9rZS",
+          "JbnZva2Ut"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

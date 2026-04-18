@@ -1,0 +1,14 @@
+{
+  "summary": {
+    "events": 6,
+    "rules": 0,
+    "matches": 0,
+    "hsg_nodes": 0,
+    "hsg_edges": 0
+  },
+  "matches": [],
+  "hsg": {
+    "nodes": [],
+    "edges": []
+  }
+}

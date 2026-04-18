@@ -1,0 +1,61 @@
+{
+  "name": "Suspicious Curl.EXE Download",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\curl.exe",
+        "Product": "The curl executable"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "%AppData%",
+          "%Public%",
+          "%Temp%",
+          "%tmp%",
+          "\\AppData\\",
+          "\\Desktop\\",
+          "\\Temp\\",
+          "\\Users\\Public\\",
+          "C:\\PerfLogs\\",
+          "C:\\ProgramData\\",
+          "C:\\Windows\\Temp\\"
+        ],
+        "CommandLine|endswith": [
+          ".dll",
+          ".gif",
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".temp",
+          ".tmp",
+          ".txt",
+          ".vbe",
+          ".vbs"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

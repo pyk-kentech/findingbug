@@ -1,0 +1,59 @@
+{
+  "name": "Potentially Suspicious Network Connection To Notion API",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\AppData\\Local\\Programs\\Notion\\Notion.exe",
+          "\\brave.exe",
+          "\\maxthon.exe",
+          "\\opera.exe",
+          "\\safari.exe",
+          "\\seamonkey.exe",
+          "\\vivaldi.exe",
+          "\\whale.exe"
+        ],
+        "Image|startswith": [
+          "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\",
+          "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeCore\\",
+          "C:\\Program Files\\Microsoft\\EdgeCore\\"
+        ],
+        "Image": [
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe",
+          "C:\\Program Files\\Internet Explorer\\iexplore.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationHostname|contains": "api.notion.com"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

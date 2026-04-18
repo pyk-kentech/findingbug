@@ -1,0 +1,63 @@
+{
+  "name": "Potential Privileged System Service Operation - SeLoadDriverPrivilege",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4673",
+        "PrivilegeList": "SeLoadDriverPrivilege",
+        "Service": "-",
+        "ProcessName": [
+          "C:\\Windows\\explorer.exe",
+          "C:\\Windows\\HelpPane.exe",
+          "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+          "C:\\Windows\\System32\\Dism.exe",
+          "C:\\Windows\\System32\\fltMC.exe",
+          "C:\\Windows\\System32\\mmc.exe",
+          "C:\\Windows\\System32\\rundll32.exe",
+          "C:\\Windows\\System32\\RuntimeBroker.exe",
+          "C:\\Windows\\System32\\ShellHost.exe",
+          "C:\\Windows\\System32\\svchost.exe",
+          "C:\\Windows\\System32\\SystemSettingsBroker.exe",
+          "C:\\Windows\\System32\\wimserv.exe"
+        ],
+        "ProcessName|endswith": [
+          "\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
+          "\\Google\\Chrome\\Application\\chrome.exe",
+          "\\procexp.exe",
+          "\\procexp64.exe",
+          "\\procmon.exe",
+          "\\procmon64.exe"
+        ],
+        "ProcessName|startswith": [
+          "C:\\Program Files\\WindowsApps\\Microsoft",
+          "C:\\Program Files (x86)\\Dropbox\\",
+          "C:\\Program Files\\Dropbox\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

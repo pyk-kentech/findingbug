@@ -1,0 +1,36 @@
+{
+  "name": "Esentutl Volume Shadow Copy Service Keys",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "esentutl.exe"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": "System\\CurrentControlSet\\Services\\VSS"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

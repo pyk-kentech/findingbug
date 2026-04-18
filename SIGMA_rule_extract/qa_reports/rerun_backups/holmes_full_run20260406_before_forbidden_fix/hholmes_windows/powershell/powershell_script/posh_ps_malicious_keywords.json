@@ -1,0 +1,54 @@
+{
+  "name": "Malicious PowerShell Keywords",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          "AdjustTokenPrivileges",
+          "IMAGE_NT_OPTIONAL_HDR64_MAGIC",
+          "Metasploit",
+          "Microsoft.Win32.UnsafeNativeMethods",
+          "Mimikatz",
+          "MiniDumpWriteDump",
+          "PAGE_EXECUTE_READ",
+          "ReadProcessMemory.Invoke",
+          "SE_PRIVILEGE_ENABLED",
+          "SECURITY_DELEGATION",
+          "TOKEN_ADJUST_PRIVILEGES",
+          "TOKEN_ALL_ACCESS",
+          "TOKEN_ASSIGN_PRIMARY",
+          "TOKEN_DUPLICATE",
+          "TOKEN_ELEVATION",
+          "TOKEN_IMPERSONATE",
+          "TOKEN_INFORMATION_CLASS",
+          "TOKEN_PRIVILEGES",
+          "TOKEN_QUERY"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

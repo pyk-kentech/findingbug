@@ -1,0 +1,39 @@
+{
+  "name": "Remote Encrypting File System Abuse",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventLog": "RPCFW",
+        "EventID": "3",
+        "InterfaceUuid": [
+          "df1941c5-fe89-4e79-bf10-463657acf44d",
+          "c681d488-d850-11d0-8c52-00c04fd90f7e"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

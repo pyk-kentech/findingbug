@@ -1,0 +1,35 @@
+{
+  "name": "Azure Application Security Group Modified or Deleted",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject": "MICROSOFT.NETWORK/APPLICATIONSECURITYGROUPS/WRITE",
+        "Details": "MICROSOFT.NETWORK/APPLICATIONSECURITYGROUPS/DELETE"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

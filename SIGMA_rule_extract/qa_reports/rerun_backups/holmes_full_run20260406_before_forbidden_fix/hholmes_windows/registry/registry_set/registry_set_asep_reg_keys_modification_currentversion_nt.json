@@ -1,0 +1,49 @@
+{
+  "name": "CurrentVersion NT Autorun Keys Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\VmApplet",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Taskman",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AppSetup",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AlternateShells\\AvailableShells",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\IconServiceLib",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Appinit_Dlls",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Font Drivers",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Drivers32",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Run",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

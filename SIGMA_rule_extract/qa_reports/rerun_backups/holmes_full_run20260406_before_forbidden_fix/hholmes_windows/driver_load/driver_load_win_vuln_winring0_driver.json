@@ -1,0 +1,42 @@
+{
+  "name": "Vulnerable WinRing0 Driver Load",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Hashes|contains": "IMPHASH=D41FA95D4642DC981F10DE36F4DC8CD7"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|endswith": [
+          "\\WinRing0x64.sys",
+          "\\WinRing0.sys",
+          "\\WinRing0.dll",
+          "\\WinRing0x64.dll",
+          "\\winring00x64.sys"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

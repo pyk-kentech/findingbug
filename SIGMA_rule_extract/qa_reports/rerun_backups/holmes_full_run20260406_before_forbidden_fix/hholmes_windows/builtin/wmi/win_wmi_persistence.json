@@ -1,0 +1,47 @@
+{
+  "name": "WMI Persistence",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "5861",
+          "5859"
+        ],
+        "Provider": "SCM Event Provider",
+        "Query": "select * from MSFT_SCMEventLogEvent",
+        "User": "S-1-5-32-544",
+        "PossibleCause": "Permanent"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "consumer_keywords": [
+          "ActiveScriptEventConsumer",
+          "CommandLineEventConsumer",
+          "CommandLineTemplate"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

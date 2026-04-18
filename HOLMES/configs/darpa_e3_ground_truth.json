@@ -1,0 +1,37 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "trace_e3_sample_shadow_and_connect",
+      "description": "Observed TRACE real-sample scenario where a single correlated alert covers /etc/shadow access followed by outbound IP connection.",
+      "dataset": "trace_e3_attack_day1",
+      "stages": [
+        "Internal Recon",
+        "Exfiltration"
+      ],
+      "contains_entities": [
+        "/etc/shadow",
+        "128.55.12.10"
+      ]
+    },
+    {
+      "scenario_id": "theia_e3_20180410_firefox_backdoor",
+      "description": "THEIA 2018-04-10 1400 Firefox Backdoor with Drakon in-memory, shell establishment, sudo/use of elevated context, and follow-on exfil/C2.",
+      "dataset": "theia_e3_attack_day1",
+      "stages": [
+        "Initial Compromise",
+        "Establish Foothold",
+        "Privilege Escalation",
+        "Exfiltration"
+      ],
+      "contains_entities": [
+        "firefox",
+        "sudo",
+        "ssh",
+        "drakon",
+        "shell",
+        "gatech",
+        "allstate"
+      ]
+    }
+  ]
+}

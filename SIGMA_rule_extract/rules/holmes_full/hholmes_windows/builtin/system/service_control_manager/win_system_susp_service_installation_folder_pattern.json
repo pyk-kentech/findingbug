@@ -1,0 +1,39 @@
+{
+  "name": "Service Installation with Suspicious Folder Pattern",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name": "Service Control Manager",
+        "EventID": 7045,
+        "ImagePath|re": [
+          "^[Cc]:\\\\[Pp]rogram[Dd]ata\\\\.{1,9}\\.exe",
+          "^[Cc]:\\\\.{1,9}\\.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

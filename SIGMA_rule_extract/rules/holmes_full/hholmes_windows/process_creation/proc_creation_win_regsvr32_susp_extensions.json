@@ -1,0 +1,59 @@
+{
+  "name": "Regsvr32 DLL Execution With Suspicious File Extension",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\regsvr32.exe",
+        "OriginalFileName": "REGSVR32.EXE"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|endswith": [
+          ".bin",
+          ".bmp",
+          ".cr2",
+          ".dat",
+          ".eps",
+          ".gif",
+          ".ico",
+          ".jpeg",
+          ".jpg",
+          ".log",
+          ".nef",
+          ".orf",
+          ".png",
+          ".raw",
+          ".rtf",
+          ".sr2",
+          ".temp",
+          ".tif",
+          ".tiff",
+          ".tmp",
+          ".txt"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

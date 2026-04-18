@@ -1,0 +1,48 @@
+{
+  "name": "Registry Modification of MS-settings Protocol Handler",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "add",
+          "New-ItemProperty",
+          "Set-ItemProperty",
+          "ni ",
+          "sp "
+        ],
+        "Image|endswith": [
+          "\\reg.exe"
+        ],
+        "OriginalFileName": [
+          "reg.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject": "\\ms-settings\\shell\\open\\command"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

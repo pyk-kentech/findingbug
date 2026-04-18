@@ -1,0 +1,45 @@
+{
+  "name": "Windows Defender Threat Severity Default Action Modified",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": "\\Microsoft\\Windows Defender\\Threats\\ThreatSeverityDefaultAction\\"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|endswith": [
+          "\\1",
+          "\\2",
+          "\\4",
+          "\\5"
+        ],
+        "Details": [
+          "DWORD (0x00000006)",
+          "DWORD (0x00000009)"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "Suspicious Child Process Of Veeam Dabatase",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\sqlservr.exe",
+        "ParentCommandLine|contains": "VEEAMSQL",
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\wsl.exe",
+          "\\wt.exe"
+        ],
+        "CommandLine|contains": [
+          "-ex ",
+          "bypass",
+          "cscript",
+          "DownloadString",
+          "http://",
+          "https://",
+          "mshta",
+          "regsvr32",
+          "rundll32",
+          "wscript",
+          "copy "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

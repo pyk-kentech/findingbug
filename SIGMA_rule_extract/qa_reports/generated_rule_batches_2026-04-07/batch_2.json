@@ -1,0 +1,1069 @@
+[
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/driverframeworks/win_usb_device_plugged.json",
+    "rule": {
+      "name": "USB Device Plugged",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": [
+              "2003",
+              "2100",
+              "2102"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/audit_logs/azure_app_owner_added.json",
+    "rule": {
+      "name": "Added Owner To Application",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "properties.message": "Add owner to application"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_delete_identity.json",
+    "rule": {
+      "name": "SES Identity Has Been Deleted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "ses.amazonaws.com",
+            "eventName": "DeleteIdentity"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_omigod_scx_runasprovider_executeshellcommand.json",
+    "rule": {
+      "name": "OMIGOD SCX RunAsProvider ExecuteShellCommand",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "User": "root",
+            "LogonId": "0",
+            "CurrentDirectory": "/var/opt/microsoft/scx/tmp",
+            "CommandLine|contains": "/bin/sh"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/zeek/zeek_dce_rpc_smb_spoolss_named_pipe.json",
+    "rule": {
+      "name": "SMB Spoolss Name Piped Usage",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp": "*",
+            "DestinationPort": "445"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_elasticache_security_group_created.json",
+    "rule": {
+      "name": "AWS ElastiCache Security Group Created",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "elasticache.amazonaws.com",
+            "eventName": "CreateCacheSecurityGroup"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_iam_s3browser_loginprofile_creation.json",
+    "rule": {
+      "name": "AWS IAM S3Browser LoginProfile Creation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "userAgent": "*S3 Browser*"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_hdiutil_mount.json",
+    "rule": {
+      "name": "Disk Image Mounting Via Hdiutil - MacOS",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/hdiutil",
+            "CommandLine|contains": [
+              "attach ",
+              "mount "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_sigma/lnx_auditd_password_policy_discovery.json",
+    "rule": {
+      "name": "Password Policy Discovery - Linux",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "/etc/login.defs",
+              "/etc/pam.d/auth",
+              "/etc/pam.d/common-account",
+              "/etc/pam.d/common-auth",
+              "/etc/pam.d/common-password",
+              "/etc/pam.d/system-auth",
+              "/etc/security/pwquality.conf"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/appxdeployment_server/win_appxpackaging_server_unsigned_package_installation.json",
+    "rule": {
+      "name": "Windows AppX Deployment Unsigned Package Installation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "603",
+            "Flags": "8388608"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_keyvault_secrets_modified_or_deleted.json",
+    "rule": {
+      "name": "Azure Keyvault Secrets Modified or Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "operationName": [
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/WRITE",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/DELETE",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/BACKUP/ACTION",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/PURGE/ACTION",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/UPDATE/ACTION",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/RECOVER/ACTION",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/RESTORE/ACTION",
+              "MICROSOFT.KEYVAULT/VAULTS/SECRETS/SETSECRET/ACTION"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/builtin/lnx_shell_susp_rev_shells.json",
+    "rule": {
+      "name": "Suspicious Reverse Shell Command Line",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "BEGIN {s = \"/inet/tcp/0/*",
+              "bash -i >& /dev/tcp/*",
+              "bash -i >& /dev/udp/*",
+              "sh -i >$ /dev/udp/*",
+              "sh -i >$ /dev/tcp/*",
+              "&& while read line 0<&5; do",
+              "/bin/bash -c exec 5<>/dev/tcp/*",
+              "/bin/bash -c exec 5<>/dev/udp/*",
+              "nc -e /bin/sh *",
+              "/bin/sh | nc *",
+              "rm -f backpipe; mknod /tmp/backpipe p && nc *",
+              ";socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in($p,inet_aton($i))))",
+              ";STDIN->fdopen($c,r);$~->fdopen($c,w);system$_ while<>;",
+              "/bin/sh -i <&3 >&3 2>&3",
+              "uname -a; w; id; /bin/bash -i",
+              "$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2); $stream.Write($sendbyte,0,$sendbyte.Length); $stream.Flush()};",
+              ";os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);os.putenv(''HISTFILE'',''/dev/null'');",
+              ".to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)",
+              ";while(cmd=c.gets);IO.popen(cmd,\"r\"){|io|c.print",
+              "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:*",
+              "rm -f /tmp/p; mknod /tmp/p p &&",
+              " | /bin/bash | telnet *",
+              ",echo=0,raw tcp-listen:",
+              "nc -lvvp *",
+              "xterm -display 1"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_persistence_via_plistbuddy.json",
+    "rule": {
+      "name": "Potential Persistence Via PlistBuddy",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/PlistBuddy",
+            "CommandLine|contains|all": [
+              "RunAtLoad",
+              "true"
+            ],
+            "CommandLine|contains": [
+              "LaunchAgents",
+              "LaunchDaemons"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_iam_s3browser_templated_s3_bucket_policy_creation.json",
+    "rule": {
+      "name": "AWS IAM S3Browser Templated S3 Bucket Policy Creation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "iam.amazonaws.com",
+            "eventName": "PutUserPolicy",
+            "userAgent|contains": "S3 Browser"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "requestParameters|contains|all": [
+              "\"arn:aws:s3:::<YOUR-BUCKET-NAME>/*\"",
+              "\"s3:GetObject\"",
+              "\"Allow\""
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_csrutil_disable.json",
+    "rule": {
+      "name": "System Integrity Protection (SIP) Disabled",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/csrutil",
+            "CommandLine|contains": "disable"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_cloudtrail_ssm_malicious_usage.json",
+    "rule": {
+      "name": "Potential Malicious Usage of CloudTrail System Manager",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventName": "SendCommand",
+            "eventSource": "ssm.amazonaws.com"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/zeek/zeek_susp_kerberos_rc4.json",
+    "rule": {
+      "name": "Kerberos Network Traffic RC4 Ticket Encryption",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "service": "*$"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_delete_saml_provider.json",
+    "rule": {
+      "name": "AWS SAML Provider Deletion Activity",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "iam.amazonaws.com",
+            "eventName": "DeleteSAMLProvider",
+            "status": "success"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/audit_logs/azure_ad_users_added_to_device_admin_roles.json",
+    "rule": {
+      "name": "Users Added to Global or Device Admin Roles",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "Category": "RoleManagement",
+            "OperationName|contains|all": [
+              "Add",
+              "member to role"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "TargetResources|contains": [
+              "7698a772-787b-4ac8-901f-60d6b08affd2",
+              "62e90394-69f5-4237-9190-012177145e10"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/gcp/audit/gcp_kubernetes_cronjob.json",
+    "rule": {
+      "name": "Google Cloud Kubernetes CronJob",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "TargetFilename": [
+              "io.k8s.api.batch.v*.Job",
+              "io.k8s.api.batch.v*.CronJob"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/gcp/gworkspace/gcp_gworkspace_mfa_disabled.json",
+    "rule": {
+      "name": "Google Workspace MFA Disabled",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventService": "admin.googleapis.com"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "eventName": [
+              "ENFORCE_STRONG_AUTHENTICATION",
+              "ALLOW_STRONG_AUTHENTICATION"
+            ],
+            "new_value": "false"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_kubernetes_secret_or_config_object_access.json",
+    "rule": {
+      "name": "Azure Kubernetes Secret or Config Object Access",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "operationName": [
+              "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/CONFIGMAPS/WRITE",
+              "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/CONFIGMAPS/DELETE",
+              "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/SECRETS/WRITE",
+              "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/SECRETS/DELETE"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/proxy_generic/proxy_susp_flash_download_loc.json",
+    "rule": {
+      "name": "Flash Player Update from Suspicious Location",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "*|contains:/flash_install.php",
+              "*|endswith:/install_flash_player.exe"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/okta/okta_admin_role_assigned_to_user_or_group.json",
+    "rule": {
+      "name": "Okta Admin Role Assigned to an User or Group",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventtype": [
+              "group.privilege.grant",
+              "user.account.privilege.grant"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_cloudtrail_security_group_change_ingress_egress.json",
+    "rule": {
+      "name": "Ingress/Egress Security Group Modification",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "ec2.amazonaws.com"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "eventName": [
+              "AuthorizeSecurityGroupEgress",
+              "AuthorizeSecurityGroupIngress",
+              "RevokeSecurityGroupEgress",
+              "RevokeSecurityGroupIngress"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  }
+]

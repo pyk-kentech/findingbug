@@ -1,0 +1,61 @@
+{
+  "name": "Suspicious Shells Spawn by Java Utility Keytool",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\keytool.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\sh.exe",
+          "\\bash.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\schtasks.exe",
+          "\\certutil.exe",
+          "\\whoami.exe",
+          "\\bitsadmin.exe",
+          "\\wscript.exe",
+          "\\cscript.exe",
+          "\\scrcons.exe",
+          "\\regsvr32.exe",
+          "\\hh.exe",
+          "\\wmic.exe",
+          "\\mshta.exe",
+          "\\rundll32.exe",
+          "\\forfiles.exe",
+          "\\scriptrunner.exe",
+          "\\mftrace.exe",
+          "\\AppVLP.exe",
+          "\\systeminfo.exe",
+          "\\reg.exe",
+          "\\query.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

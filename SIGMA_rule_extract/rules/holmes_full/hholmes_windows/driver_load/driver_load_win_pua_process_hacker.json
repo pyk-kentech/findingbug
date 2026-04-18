@@ -1,0 +1,41 @@
+{
+  "name": "PUA - Process Hacker Driver Load",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\kprocesshacker.sys"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Hashes|contains": [
+          "IMPHASH=821D74031D3F625BCBD0DF08B70F1E77",
+          "IMPHASH=F86759BB4DE4320918615DC06E998A39",
+          "IMPHASH=0A64EEB85419257D0CE32BD5D55C3A18",
+          "IMPHASH=6E7B34DFC017700B1517B230DF6FF0D0"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

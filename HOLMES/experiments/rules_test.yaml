@@ -1,0 +1,5 @@
+rules:
+  - rule_id: test-op-exec
+    name: test only - match exec op
+    event_predicate:
+      op: exec

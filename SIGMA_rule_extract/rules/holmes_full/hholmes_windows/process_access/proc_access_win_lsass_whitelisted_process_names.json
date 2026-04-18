@@ -1,0 +1,68 @@
+{
+  "name": "LSASS Access From Potentially White-Listed Processes",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "SourceImage|endswith": [
+          "\\TrolleyExpress.exe",
+          "\\ProcessDump.exe",
+          "\\dump64.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetImage|endswith": "\\lsass.exe",
+        "GrantedAccess|endswith": [
+          "10",
+          "30",
+          "50",
+          "70",
+          "90",
+          "B0",
+          "D0",
+          "F0",
+          "18",
+          "38",
+          "58",
+          "78",
+          "98",
+          "B8",
+          "D8",
+          "F8",
+          "1A",
+          "3A",
+          "5A",
+          "7A",
+          "9A",
+          "BA",
+          "DA",
+          "FA",
+          "0x14C2",
+          "FF"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

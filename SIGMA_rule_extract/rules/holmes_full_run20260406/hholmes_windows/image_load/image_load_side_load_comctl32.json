@@ -1,0 +1,40 @@
+{
+  "name": "Potential DLL Sideloading Via comctl32.dll",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded": [
+          "C:\\Windows\\System32\\logonUI.exe.local\\*\\comctl32.dll",
+          "C:\\Windows\\System32\\werFault.exe.local\\*\\comctl32.dll",
+          "C:\\Windows\\System32\\consent.exe.local\\*\\comctl32.dll",
+          "C:\\Windows\\System32\\narrator.exe.local\\*\\comctl32.dll",
+          "C:\\windows\\system32\\wermgr.exe.local\\*\\comctl32.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

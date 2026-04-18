@@ -1,0 +1,41 @@
+{
+  "name": "Google Full Network Traffic Packet Capture",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "gcp.audit.method_name": [
+          "v*.Compute.PacketMirrorings.Get",
+          "v*.Compute.PacketMirrorings.Delete",
+          "v*.Compute.PacketMirrorings.Insert",
+          "v*.Compute.PacketMirrorings.Patch",
+          "v*.Compute.PacketMirrorings.List",
+          "v*.Compute.PacketMirrorings.aggregatedList"
+        ]
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

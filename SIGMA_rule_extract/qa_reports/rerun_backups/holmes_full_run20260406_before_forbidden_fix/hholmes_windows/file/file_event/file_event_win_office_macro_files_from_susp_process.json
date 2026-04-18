@@ -1,0 +1,56 @@
+{
+  "name": "Office Macro File Creation From Suspicious Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cscript.exe",
+          "\\mshta.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\wscript.exe"
+        ],
+        "ParentImage|endswith": [
+          "\\cscript.exe",
+          "\\mshta.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ".docm",
+          ".dotm",
+          ".xlsm",
+          ".xltm",
+          ".potm",
+          ".pptm"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "NetNTLM Downgrade Attack",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetObject|contains|all": [
+          "\\REGISTRY\\MACHINE\\SYSTEM",
+          "ControlSet",
+          "\\Control\\Lsa"
+        ],
+        "Details|contains|any": [
+          "LmCompatibilityLevel",
+          "NtlmMinClientSec",
+          "RestrictSendingNTLMTraffic"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,316 @@
+{
+  "summary": {
+    "events": 6,
+    "rules": 3,
+    "matches": 4,
+    "hsg_nodes": 4,
+    "hsg_edges": 2,
+    "noise_filter": {
+      "before": {
+        "matches": 4,
+        "hsg_nodes": 4,
+        "hsg_edges": 2
+      },
+      "after": {
+        "matches": 4,
+        "hsg_nodes": 4,
+        "hsg_edges": 2
+      },
+      "dropped": {
+        "matches": 0,
+        "hsg_nodes": 0,
+        "hsg_edges": 0
+      }
+    },
+    "resolved_effective_config": {
+      "path_thres": 0.0,
+      "path_factor_op": "ge",
+      "scoring": "legacy",
+      "paper_mode": "hybrid",
+      "paper_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "paper_scoring": {
+      "threat_tuple": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        6.0,
+        8.0,
+        0.0
+      ],
+      "stage_severity": {
+        "Initial Compromise": 4.0,
+        "Establish Foothold": 0.0,
+        "Internal Recon": 0.0,
+        "Privilege Escalation": 0.0,
+        "Move Laterally": 6.0,
+        "Exfiltration": 8.0,
+        "Cleanup": 0.0
+      },
+      "paper_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score_paper": 4.032
+    },
+    "top_scenarios": [
+      {
+        "score": 3.5,
+        "score_legacy": 3.5,
+        "score_paper": 4.032,
+        "threat_tuple": [
+          4.0,
+          0.0,
+          0.0,
+          0.0,
+          6.0,
+          8.0,
+          0.0
+        ],
+        "stage_severity": {
+          "Initial Compromise": 4.0,
+          "Establish Foothold": 0.0,
+          "Internal Recon": 0.0,
+          "Privilege Escalation": 0.0,
+          "Move Laterally": 6.0,
+          "Exfiltration": 8.0,
+          "Cleanup": 0.0
+        },
+        "paper_weights": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "nodes": 3,
+        "edges": 2
+      },
+      {
+        "score": 1.0,
+        "score_legacy": 1.0,
+        "score_paper": 1.4,
+        "threat_tuple": [
+          4.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "stage_severity": {
+          "Initial Compromise": 4.0,
+          "Establish Foothold": 0.0,
+          "Internal Recon": 0.0,
+          "Privilege Escalation": 0.0,
+          "Move Laterally": 0.0,
+          "Exfiltration": 0.0,
+          "Cleanup": 0.0
+        },
+        "paper_weights": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "nodes": 1,
+        "edges": 0
+      },
+      {
+        "score": 0.0,
+        "score_legacy": 0.0,
+        "score_paper": 1.0,
+        "threat_tuple": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "stage_severity": {
+          "Initial Compromise": 0.0,
+          "Establish Foothold": 0.0,
+          "Internal Recon": 0.0,
+          "Privilege Escalation": 0.0,
+          "Move Laterally": 0.0,
+          "Exfiltration": 0.0,
+          "Cleanup": 0.0
+        },
+        "paper_weights": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "nodes": 0,
+        "edges": 0
+      }
+    ]
+  },
+  "matches": [
+    {
+      "match_id": "m1",
+      "rule_id": "TEST_PROC_TO_FILE",
+      "event_ids": [
+        "e1"
+      ],
+      "entities": [
+        "proc:alpha",
+        "file:/tmp/a.txt"
+      ],
+      "bindings": {
+        "subject": "proc:alpha",
+        "object": "file:/tmp/a.txt"
+      },
+      "metadata": {
+        "op": null,
+        "event_type": "proc_to_file"
+      }
+    },
+    {
+      "match_id": "m2",
+      "rule_id": "TEST_PROC_TO_FILE",
+      "event_ids": [
+        "e5"
+      ],
+      "entities": [
+        "proc:gamma",
+        "file:/var/log/demo.log"
+      ],
+      "bindings": {
+        "subject": "proc:gamma",
+        "object": "file:/var/log/demo.log"
+      },
+      "metadata": {
+        "op": null,
+        "event_type": "proc_to_file"
+      }
+    },
+    {
+      "match_id": "m3",
+      "rule_id": "TEST_FILE_TO_IP",
+      "event_ids": [
+        "e2"
+      ],
+      "entities": [
+        "file:/tmp/a.txt",
+        "ip:203.0.113.10"
+      ],
+      "bindings": {
+        "subject": "file:/tmp/a.txt",
+        "object": "ip:203.0.113.10"
+      },
+      "metadata": {
+        "op": null,
+        "event_type": "file_to_ip"
+      }
+    },
+    {
+      "match_id": "m4",
+      "rule_id": "TEST_PROC_TO_PROC",
+      "event_ids": [
+        "e3"
+      ],
+      "entities": [
+        "proc:alpha",
+        "proc:beta"
+      ],
+      "bindings": {
+        "subject": "proc:alpha",
+        "object": "proc:beta"
+      },
+      "metadata": {
+        "op": null,
+        "event_type": "proc_to_proc"
+      }
+    }
+  ],
+  "hsg": {
+    "nodes": [
+      {
+        "match_id": "m1",
+        "rule_id": "TEST_PROC_TO_FILE",
+        "event_ids": [
+          "e1"
+        ],
+        "entities": [
+          "proc:alpha",
+          "file:/tmp/a.txt"
+        ]
+      },
+      {
+        "match_id": "m2",
+        "rule_id": "TEST_PROC_TO_FILE",
+        "event_ids": [
+          "e5"
+        ],
+        "entities": [
+          "proc:gamma",
+          "file:/var/log/demo.log"
+        ]
+      },
+      {
+        "match_id": "m3",
+        "rule_id": "TEST_FILE_TO_IP",
+        "event_ids": [
+          "e2"
+        ],
+        "entities": [
+          "file:/tmp/a.txt",
+          "ip:203.0.113.10"
+        ]
+      },
+      {
+        "match_id": "m4",
+        "rule_id": "TEST_PROC_TO_PROC",
+        "event_ids": [
+          "e3"
+        ],
+        "entities": [
+          "proc:alpha",
+          "proc:beta"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "src": "m1",
+        "dst": "m3",
+        "relation": "graph_path",
+        "weight": 0.5,
+        "path_factor": 1.0,
+        "dependency_strength": 0.5
+      },
+      {
+        "src": "m1",
+        "dst": "m4",
+        "relation": "shared_entity"
+      }
+    ]
+  }
+}

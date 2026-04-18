@@ -1,0 +1,19 @@
+[package]
+name = "holmes_native_rs"
+version = "0.1.0"
+edition = "2021"
+description = "Rust native backend skeleton for HOLMES streaming engine"
+
+[lib]
+name = "holmes_native_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+pyo3 = { version = "0.22", features = ["extension-module"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1

@@ -1,0 +1,48 @@
+{
+  "name": "Potential Remote PowerShell Session Initiated",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "User|contains": [
+          "NETWORK SERVICE",
+          "NETZWERKDIENST",
+          "SERVICIO DE RED",
+          "SERVIZIO DI RETE"
+        ],
+        "User|contains|all": [
+          "SERVICE R",
+          "SEAU"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationPort": [
+          5985,
+          5986
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

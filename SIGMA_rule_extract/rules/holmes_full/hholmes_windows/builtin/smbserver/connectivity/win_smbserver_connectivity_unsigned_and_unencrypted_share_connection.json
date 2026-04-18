@@ -1,0 +1,56 @@
+{
+  "name": "Unsigned or Unencrypted SMB Connection to Share Established",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4000",
+        "ShareName|contains": [
+          "IPC$",
+          "ADMIN$",
+          "C$"
+        ],
+        "SigningUsed": "false",
+        "EncyptionUsed": "false"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "ClientAddress|cidr": [
+          "127.0.0.0/8",
+          "169.254.0.0/16",
+          "::1/128",
+          "fe80::/10",
+          "fc00::/7"
+        ],
+        "ClientAddress|contains": [
+          "00000000000000000000000000000001",
+          "FE80000000000000",
+          "FC00000000000000",
+          "0200????7F",
+          "0200????A9FE"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

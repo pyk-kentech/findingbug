@@ -1,0 +1,46 @@
+{
+  "name": "Azure Virtual Network Device Modified or Deleted",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject": [
+          "MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE",
+          "MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE",
+          "MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE",
+          "MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION",
+          "MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE",
+          "MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/DELETE",
+          "MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/WRITE",
+          "MICROSOFT.NETWORK/VIRTUALHUBS/DELETE",
+          "MICROSOFT.NETWORK/VIRTUALHUBS/WRITE",
+          "MICROSOFT.NETWORK/VIRTUALROUTERS/WRITE",
+          "MICROSOFT.NETWORK/VIRTUALROUTERS/DELETE"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

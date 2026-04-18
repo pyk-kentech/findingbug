@@ -1,0 +1,55 @@
+{
+  "name": "CurrentVersion Autorun Keys Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ShellServiceObjectDelayLoad",
+          "\\Run\\",
+          "\\RunOnce\\",
+          "\\RunOnceEx\\",
+          "\\RunServices\\",
+          "\\RunServicesOnce\\",
+          "\\Policies\\System\\Shell",
+          "\\Policies\\Explorer\\Run",
+          "\\Group Policy\\Scripts\\Startup",
+          "\\Group Policy\\Scripts\\Shutdown",
+          "\\Group Policy\\Scripts\\Logon",
+          "\\Group Policy\\Scripts\\Logoff",
+          "\\Explorer\\ShellServiceObjects",
+          "\\Explorer\\ShellIconOverlayIdentifiers",
+          "\\Explorer\\ShellExecuteHooks",
+          "\\Explorer\\SharedTaskScheduler",
+          "\\Explorer\\Browser Helper Objects",
+          "\\Authentication\\PLAP Providers",
+          "\\Authentication\\Credential Providers",
+          "\\Authentication\\Credential Provider Filters"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

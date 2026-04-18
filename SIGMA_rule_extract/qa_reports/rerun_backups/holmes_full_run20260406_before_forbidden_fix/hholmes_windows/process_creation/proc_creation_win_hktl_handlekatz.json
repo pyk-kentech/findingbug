@@ -1,0 +1,45 @@
+{
+  "name": "HackTool - HandleKatz LSASS Dumper Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\loader.exe",
+        "CommandLine|contains": [
+          "--pid:",
+          ".dmp",
+          "lsass",
+          ".obf",
+          "dump"
+        ],
+        "Hashes|contains": [
+          "IMPHASH=38D9E015591BBFD4929E0D0F47FA0055",
+          "IMPHASH=0E2216679CA6E1094D63322E3412D650"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

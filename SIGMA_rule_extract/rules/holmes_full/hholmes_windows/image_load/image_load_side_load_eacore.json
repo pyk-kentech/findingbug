@@ -1,0 +1,40 @@
+{
+  "name": "Potential EACore.DLL Sideloading",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\EACore.dll"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains|all": [
+          "C:\\Program Files\\Electronic Arts\\EA Desktop\\",
+          "\\EACoreServer.exe"
+        ],
+        "ImageLoaded|startswith": "C:\\Program Files\\Electronic Arts\\EA Desktop\\"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

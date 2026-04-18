@@ -1,0 +1,76 @@
+{
+  "name": "Suspicious DNS Query for IP Lookup Service APIs",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "QueryName|contains": [
+          "api.2ip.ua",
+          "api.bigdatacloud.net",
+          "api.ipify.org",
+          "bot.whatismyipaddress.com",
+          "canireachthe.net",
+          "checkip.amazonaws.com",
+          "checkip.dyndns.org",
+          "curlmyip.com",
+          "db-ip.com",
+          "edns.ip-api.com",
+          "eth0.me",
+          "freegeoip.app",
+          "geoipy.com",
+          "getip.pro",
+          "icanhazip.com",
+          "ident.me",
+          "ifconfig.io",
+          "ifconfig.me",
+          "ip-api.com",
+          "ip.360.cn",
+          "ip.anysrc.net",
+          "ip.taobao.com",
+          "ip.tyk.nu",
+          "ipaddressworld.com",
+          "ipapi.co",
+          "ipconfig.io",
+          "ipecho.net",
+          "ipinfo.io",
+          "ipip.net",
+          "ipof.in",
+          "ipv4.icanhazip.com",
+          "ipv4bot.whatismyipaddress.com",
+          "ipv6-test.com",
+          "ipwho.is",
+          "jsonip.com",
+          "myexternalip.com",
+          "seeip.org",
+          "wgetip.com",
+          "whatismyip.akamai.com",
+          "whois.pconline.com.cn",
+          "wtfismyip.com"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

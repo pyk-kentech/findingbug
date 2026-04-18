@@ -1,0 +1,120 @@
+{
+  "name": "New Connection Initiated To Potential Dead Drop Resolver Domain",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "chrome.exe",
+          "firefox.exe",
+          "iexplore.exe",
+          "msedge.exe",
+          "safari.exe",
+          "MsMpEng.exe",
+          "MsSense.exe",
+          "PRTG Probe.exe",
+          "brave.exe",
+          "maxthon.exe",
+          "opera.exe",
+          "seamonkey.exe",
+          "vivaldi.exe",
+          "whale.exe",
+          "Waterfox.exe",
+          "Midori Next Generation.exe",
+          "slimbrowser.exe",
+          "Flock.exe",
+          "Phoebe.exe",
+          "falkon.exe",
+          "QtWeb.exe",
+          "avant.exe",
+          "WhatsApp.exe",
+          "Telegram.exe",
+          "OneDrive.exe",
+          "Dropbox.exe",
+          "MEGAsync.exe",
+          "MEGAsyncSetup32_*RC.exe",
+          "MEGAsyncSetup32.exe",
+          "MEGAsyncSetup64.exe",
+          "MEGAupdater.exe",
+          "GoogleDriveFS.exe",
+          "Discord.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationHostname|endswith": [
+          ".t.me",
+          "4shared.com",
+          "abuse.ch",
+          "anonfiles.com",
+          "cdn.discordapp.com",
+          "cloudflare.com",
+          "ddns.net",
+          "discord.com",
+          "docs.google.com",
+          "drive.google.com",
+          "dropbox.com",
+          "dropmefiles.com",
+          "facebook.com",
+          "feeds.rapidfeeds.com",
+          "fotolog.com",
+          "ghostbin.co/",
+          "githubusercontent.com",
+          "gofile.io",
+          "hastebin.com",
+          "imgur.com",
+          "livejournal.com",
+          "mediafire.com",
+          "mega.co.nz",
+          "mega.nz",
+          "onedrive.com",
+          "pages.dev",
+          "paste.ee",
+          "pastebin.com",
+          "pastebin.pl",
+          "pastetext.net",
+          "pixeldrain.com",
+          "privatlab.com",
+          "privatlab.net",
+          "reddit.com",
+          "send.exploit.in",
+          "sendspace.com",
+          "steamcommunity.com",
+          "storage.googleapis.com",
+          "technet.microsoft.com",
+          "temp.sh",
+          "transfer.sh",
+          "trycloudflare.com",
+          "twitter.com",
+          "ufile.io",
+          "vimeo.com",
+          "w3spaces.com",
+          "wetransfer.com",
+          "workers.dev",
+          "youtube.com"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

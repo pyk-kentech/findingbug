@@ -1,0 +1,55 @@
+{
+  "name": "LSASS Process Memory Dump Files",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          "\\Andrew.dmp",
+          "\\Coredump.dmp",
+          "\\lsass.dmp",
+          "\\lsass.rar",
+          "\\lsass.zip",
+          "\\NotLSASS.zip",
+          "\\PPLBlade.dmp",
+          "\\rustive.dmp"
+        ],
+        "TargetFilename|contains": [
+          "\\lsass_2",
+          "\\lsassdmp",
+          "\\lsassdump",
+          "SQLDmpr",
+          "\\nanodump",
+          "\\proc_"
+        ],
+        "TargetFilename|contains|all": [
+          "\\lsass",
+          ".dmp"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

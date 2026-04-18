@@ -1,0 +1,49 @@
+{
+  "name": "Suspicious Where Execution",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\where.exe",
+        "OriginalFileName": "where.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "*places.sqlite*",
+          "*cookies.sqlite*",
+          "*formhistory.sqlite*",
+          "*logins.json*",
+          "*key4.db*",
+          "*key3.db*",
+          "*sessionstore.jsonlz4*",
+          "*History*",
+          "*Bookmarks*",
+          "*Cookies*",
+          "*Login Data*"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

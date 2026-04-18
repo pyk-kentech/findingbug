@@ -1,0 +1,32 @@
+stage_order:
+  value:
+    - Initial Compromise
+    - Establish Foothold
+    - Internal Recon
+    - Privilege Escalation
+    - Move Laterally
+    - Exfiltration
+    - Cleanup
+  source:
+    section: "Approach Overview / TTP-to-APT stages"
+    page: 8
+    note: "Table of APT stages used for tuple positions (7 stages)."
+
+severity_mapping:
+  value:
+    Low: 2
+    Medium: 6
+    High: 8
+    Critical: 10
+  source:
+    section: "Signal Correlation and Detection"
+    page: 8
+    note: "NIST severity rating conversion table used to map qualitative levels to numeric values."
+
+missing_stage_value:
+  value: 1
+  source:
+    section: "Signal Correlation and Detection (Eq. 1)"
+    page: 8
+    note: "If no TTP occurs in stage i, set S_i = 1."
+

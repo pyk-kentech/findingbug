@@ -1,0 +1,48 @@
+{
+  "name": "Potential Remote SquiblyTwo Technique Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\wmic.exe",
+        "OriginalFileName": "wmic.exe",
+        "Hashes|contains": [
+          "IMPHASH=1B1A3F43BF37B5BFE60751F2EE2F326E",
+          "IMPHASH=37777A96245A3C74EB217308F3546F4C",
+          "IMPHASH=9D87C9D67CE724033C0B40CC4CA1B206",
+          "IMPHASH=B12619881D79C3ACADF45E752A58554A",
+          "IMPHASH=16A48C3CABF98A9DC1BF02C07FE1EA00"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains|windash": "/format:",
+        "CommandLine|contains": [
+          "://",
+          "\\\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

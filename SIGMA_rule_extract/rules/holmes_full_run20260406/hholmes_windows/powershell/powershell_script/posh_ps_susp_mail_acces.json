@@ -1,0 +1,39 @@
+{
+  "name": "Powershell Local Email Collection",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          "Get-Inbox.ps1",
+          "Microsoft.Office.Interop.Outlook",
+          "Microsoft.Office.Interop.Outlook.olDefaultFolders",
+          "-comobject outlook.application"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

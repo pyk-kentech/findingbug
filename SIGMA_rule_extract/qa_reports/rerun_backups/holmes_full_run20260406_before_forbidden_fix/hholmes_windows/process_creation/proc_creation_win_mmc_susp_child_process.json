@@ -1,0 +1,49 @@
+{
+  "name": "MMC Spawning Windows Shell",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\mmc.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\wscript.exe",
+          "\\cscript.exe",
+          "\\sh.exe",
+          "\\bash.exe",
+          "\\reg.exe",
+          "\\regsvr32.exe"
+        ],
+        "Image|contains": [
+          "\\BITSADMIN"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "HackTool - Doppelanger LSASS Dumper Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\Doppelganger.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Hashes|contains": [
+          "IMPHASH=AB94D5217896ADCD765A06B2D52F0AEB",
+          "IMPHASH=65F0EA61156EE0C2A35421926F0C7F78"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

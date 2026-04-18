@@ -1,0 +1,37 @@
+{
+  "name": "NetSupport Manager Service Install",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name": "Service Control Manager"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImagePath": "*\\NetSupport Manager\\client32.exe",
+        "ServiceName": "Client32"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

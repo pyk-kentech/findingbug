@@ -1,0 +1,47 @@
+{
+  "name": "MSSQL Destructive Query",
+  "apt_stage": "Exfiltration",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name": "MSSQLSERVER$AUDIT"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Data|contains": [
+          "statement:TRUNCATE TABLE",
+          "statement:DROP TABLE",
+          "statement:DROP DATABASE"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Collection",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

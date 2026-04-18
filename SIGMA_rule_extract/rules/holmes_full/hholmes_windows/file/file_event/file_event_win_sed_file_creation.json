@@ -1,0 +1,39 @@
+{
+  "name": "Self Extraction Directive File Created In Potentially Suspicious Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "process_name": "iexpress.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path|contains": [
+          ":\\"
+        ],
+        "file_path|endswith": ".sed"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

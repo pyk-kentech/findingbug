@@ -1,0 +1,52 @@
+{
+  "name": "Backup Files Deleted",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\wt.exe",
+          "\\rundll32.exe",
+          "\\regsvr32.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ".VHD",
+          ".bac",
+          ".bak",
+          ".wbcat",
+          ".bkf",
+          ".set",
+          ".win",
+          ".dsk"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

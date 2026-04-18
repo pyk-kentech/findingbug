@@ -1,0 +1,46 @@
+{
+  "name": "Potentially Suspicious Call To Win32_NTEventlogFile Class - PSScript",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": "Win32_NTEventlogFile"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          ".BackupEventlog(",
+          ".ChangeSecurityPermissions(",
+          ".ChangeSecurityPermissionsEx(",
+          ".ClearEventLog(",
+          ".Delete(",
+          ".DeleteEx(",
+          ".Rename(",
+          ".TakeOwnerShip(",
+          ".TakeOwnerShipEx("
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

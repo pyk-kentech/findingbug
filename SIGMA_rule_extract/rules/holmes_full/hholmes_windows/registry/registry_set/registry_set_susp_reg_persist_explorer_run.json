@@ -1,0 +1,44 @@
+{
+  "name": "Registry Persistence via Explorer Run Key",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|endswith": "\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details|contains": [
+          ":\\$Recycle.bin\\",
+          ":\\ProgramData\\",
+          ":\\Temp\\",
+          ":\\Users\\Default\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\Temp\\",
+          "\\AppData\\Local\\Temp\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "Azure Unusual Authentication Interruption",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "ResultType": [
+          "50097",
+          "50155",
+          "50158"
+        ],
+        "ResultDescription": [
+          "Device authentication is required",
+          "DeviceAuthenticationFailed",
+          "ExternalSecurityChallenge - External security challenge was not satisfied"
+        ]
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

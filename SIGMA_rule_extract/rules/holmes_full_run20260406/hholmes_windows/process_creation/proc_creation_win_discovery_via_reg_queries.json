@@ -1,0 +1,49 @@
+{
+  "name": "System Information Discovery via Registry Queries",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\reg.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "CommandLine|contains": [
+          "query",
+          "-v",
+          "Get-ItemPropertyValue",
+          "gpv",
+          "\\SOFTWARE\\Microsoft\\Windows Defender",
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+          "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+          "\\SYSTEM\\CurrentControlSet\\Control\\TimeZoneInformation",
+          "\\SYSTEM\\CurrentControlSet\\Services"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

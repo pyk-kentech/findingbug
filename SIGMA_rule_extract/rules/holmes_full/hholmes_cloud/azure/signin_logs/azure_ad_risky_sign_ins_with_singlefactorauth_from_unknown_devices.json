@@ -1,0 +1,38 @@
+{
+  "name": "Suspicious SignIns From A Non Registered Device",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "Status": "Success",
+        "AuthenticationRequirement": "singleFactorAuthentication",
+        "RiskState": "atRisk"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "DeviceDetail.trusttype": ""
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

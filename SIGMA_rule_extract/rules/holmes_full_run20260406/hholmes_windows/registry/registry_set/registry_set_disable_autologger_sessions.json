@@ -1,0 +1,51 @@
+{
+  "name": "Potential AutoLogger Sessions Tampering",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "C:\\Windows\\system32\\wevtutil.exe",
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+          "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+          "C:\\Program Files (x86)\\Windows Defender\\MsMpEng.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\EventLog-",
+          "\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\Defender",
+          "\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderApiLogger\\",
+          "\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderAuditLogger\\"
+        ],
+        "TargetObject|endswith": [
+          "\\Enable",
+          "\\Start"
+        ],
+        "Details": "DWORD (0x00000000)"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

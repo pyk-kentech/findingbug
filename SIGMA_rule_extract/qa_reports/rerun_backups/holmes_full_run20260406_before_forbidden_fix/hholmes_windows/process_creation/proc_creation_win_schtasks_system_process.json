@@ -1,0 +1,62 @@
+{
+  "name": "Scheduled Task Creation Masquerading as System Processes",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\schtasks.exe",
+        "OriginalFileName": "schtasks.exe",
+        "CommandLine|contains|windash": " /create ",
+        "CommandLine|contains": [
+          " audiodg",
+          " conhost",
+          " dwm.exe",
+          " explorer",
+          " lsass",
+          " lsm",
+          " mmc",
+          " msiexec",
+          " regsvr32",
+          " rundll32",
+          " services",
+          " spoolsv",
+          " svchost",
+          " taskeng",
+          " taskhost",
+          " wininit",
+          " winlogon"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "Suspicious PowerShell Parent Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains": [
+          "tomcat"
+        ],
+        "ParentImage|endswith": [
+          "\\amigo.exe",
+          "\\browser.exe",
+          "\\chrome.exe",
+          "\\firefox.exe",
+          "\\httpd.exe",
+          "\\iexplore.exe",
+          "\\jbosssvc.exe",
+          "\\microsoftedge.exe",
+          "\\microsoftedgecp.exe",
+          "\\MicrosoftEdgeSH.exe",
+          "\\mshta.exe",
+          "\\nginx.exe",
+          "\\outlook.exe",
+          "\\php-cgi.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\safari.exe",
+          "\\services.exe",
+          "\\sqlagent.exe",
+          "\\sqlserver.exe",
+          "\\sqlservr.exe",
+          "\\vivaldi.exe",
+          "\\w3wp.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "CommandLine|contains": [
+          "/c powershell",
+          "/c pwsh"
+        ],
+        "Description": [
+          "Windows PowerShell"
+        ],
+        "Product": [
+          "PowerShell Core 6"
+        ],
+        "OriginalFileName": [
+          "PowerShell.EXE",
+          "pwsh.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "Enable Local Manifest Installation With Winget",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|endswith": "\\AppInstaller\\EnableLocalManifestFiles"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details": "DWORD (0x00000001)"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

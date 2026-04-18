@@ -1,0 +1,51 @@
+{
+  "name": "Uncommon Microsoft Office Trusted Location Added",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "*\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\*OfficeClickToRun.exe",
+          "*\\Program Files\\Microsoft Office\\*",
+          "*\\Program Files (x86)\\Microsoft Office\\*"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": "Security\\Trusted Locations\\Location",
+        "TargetObject|endswith": "\\Path",
+        "Details|contains": [
+          "%APPDATA%\\Microsoft\\Templates",
+          "%%APPDATA%%\\Microsoft\\Templates",
+          "%APPDATA%\\Microsoft\\Word\\Startup",
+          "%%APPDATA%%\\Microsoft\\Word\\Startup",
+          ":\\Program Files (x86)\\Microsoft Office\\root\\Templates\\",
+          ":\\Program Files\\Microsoft Office (x86)\\Templates",
+          ":\\Program Files\\Microsoft Office\\root\\Templates\\",
+          ":\\Program Files\\Microsoft Office\\Templates\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

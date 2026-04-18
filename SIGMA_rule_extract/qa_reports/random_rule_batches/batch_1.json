@@ -1,0 +1,1052 @@
+{
+  "seed": 20260406,
+  "batch_index": 1,
+  "source_dir": "rules/holmes_full",
+  "source_files": [
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_vhd_download_via_browsers.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_event/registry_event_runonce_persistence.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_hwp_exploits.json",
+    "rules/holmes_full/hholmes_windows/builtin/security/win_security_iso_mount.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_module/posh_pm_invoke_obfuscation_via_use_clip.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_jsc_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_renamed_gpg4win.json",
+    "rules/holmes_full/hholmes_linux/process_creation/proc_creation_lnx_security_tools_disabling.json",
+    "rules/holmes_full/hholmes_application/nodejs/nodejs_rce_exploitation_attempt.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_set/registry_set_net_cli_ngenassemblyusagelog.json",
+    "rules/holmes_full/hholmes_cloud/gcp/audit/gcp_breakglass_container_workload_deployed.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_event/registry_event_runkey_winekey.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_powershell_base64_mppreference.json",
+    "rules/holmes_full/hholmes_windows/builtin/system/service_control_manager/win_system_meterpreter_or_cobaltstrike_getsystem_service_installation.json",
+    "rules/holmes_full/hholmes_windows/image_load/image_load_uac_bypass_via_dism.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_bitlockertogo_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_kd_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_susp_web_request_cmd_and_cmdlets.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_vbscript_registry_modification.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_susp_parents.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_reg_screensaver.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_event/registry_event_hybridconnectionmgr_svc_installation.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_wmic_recon_product_class.json",
+    "rules/holmes_full/hholmes_sigma/lnx_auditd_clipboard_collection.json",
+    "rules/holmes_full/hholmes_windows/builtin/appxdeployment_server/win_appxpackaging_server_unsigned_package_installation.json"
+  ],
+  "rules": [
+    {
+      "name": "VHD Image Download Via Browser",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\brave.exe",
+              "\\chrome.exe",
+              "\\firefox.exe",
+              "\\iexplore.exe",
+              "\\maxthon.exe",
+              "\\MicrosoftEdge.exe",
+              "\\msedge.exe",
+              "\\msedgewebview2.exe",
+              "\\opera.exe",
+              "\\safari.exe",
+              "\\seamonkey.exe",
+              "\\vivaldi.exe",
+              "\\whale.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": ".vhd"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Run Once Task Configuration in Registry",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|contains": "\\Microsoft\\Active Setup\\Installed Components",
+            "TargetObject|endswith": "\\StubPath"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Suspicious HWP Sub Processes",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ParentImage|endswith": "\\Hwp.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\gbb.exe"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "ISO Image Mounted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "4663",
+            "ObjectServer": "Security",
+            "ObjectType": "File"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ObjectName|startswith": "\\Device\\CdRom"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Invoke-Obfuscation Via Use Clip - PowerShell Module",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Payload|re": "(?i)echo.*clip.*&&.*(Clipboard|i`?n`?v`?o`?k`?e`?)"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "JScript Compiler Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\jsc.exe",
+            "OriginalFileName": "jsc.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Renamed Gpg.EXE Execution",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "OriginalFileName": "gpg.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\gpg.exe",
+              "\\gpg2.exe"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Disabling Security Tools",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/service",
+              "/chkconfig",
+              "/systemctl"
+            ],
+            "CommandLine|contains|all": [
+              [
+                "iptables",
+                "stop"
+              ],
+              [
+                "ip6tables",
+                "stop"
+              ],
+              [
+                "iptables",
+                "stop"
+              ],
+              [
+                "ip6tables",
+                "stop"
+              ],
+              [
+                "firewalld",
+                "stop"
+              ],
+              [
+                "firewalld",
+                "disable"
+              ],
+              [
+                "cbdaemon",
+                "stop"
+              ],
+              [
+                "cbdaemon",
+                "off"
+              ],
+              [
+                "cbdaemon",
+                "stop"
+              ],
+              [
+                "cbdaemon",
+                "disable"
+              ],
+              [
+                "0"
+              ]
+            ],
+            "CommandLine|contains": [
+              "falcon-sensor"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential RCE Exploitation Attempt In NodeJS",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line": "*node:child_process*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "NET NGenAssemblyUsageLog Registry Key Tamper",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|endswith": "SOFTWARE\\Microsoft\\.NETFramework\\NGenAssemblyUsageLog"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "GCP Break-glass Container Workload Deployed",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "data.protoPayload.methodName": "io.k8s.core.v1.pods.create"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "data.protoPayload.resource.type": "k8s_cluster",
+            "data.protoPayload.logName": [
+              "cloudaudit.googleapis.com/activity",
+              "cloudaudit.googleapis.com%2Factivity"
+            ],
+            "keywords": [
+              "image-policy.k8s.io/break-glass"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "WINEKEY Registry Modification",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject|endswith": "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Backup Mgr"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Powershell Base64 Encoded MpPreference Cmdlet",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|base64offset|contains": [
+              "Add-MpPreference ",
+              "Set-MpPreference ",
+              "add-mppreference ",
+              "set-mppreference "
+            ],
+            "CommandLine|contains": [
+              "QQBkAGQALQBNAHAAUAByAGUAZgBlAHIAZQBuAGMAZQAgA",
+              "EAZABkAC0ATQBwAFAAcgBlAGYAZQByAGUAbgBjAGUAIA",
+              "BAGQAZAAtAE0AcABQAHIAZQBmAGUAcgBlAG4AYwBlACAA",
+              "UwBlAHQALQBNAHAAUAByAGUAZgBlAHIAZQBuAGMAZQAgA",
+              "MAZQB0AC0ATQBwAFAAcgBlAGYAZQByAGUAbgBjAGUAIA",
+              "TAGUAdAAtAE0AcABQAHIAZQBmAGUAcgBlAG4AYwBlACAA",
+              "YQBkAGQALQBtAHAAcAByAGUAZgBlAHIAZQBuAGMAZQAgA",
+              "EAZABkAC0AbQBwAHAAcgBlAGYAZQByAGUAbgBjAGUAIA",
+              "hAGQAZAAtAG0AcABwAHIAZQBmAGUAcgBlAG4AYwBlACAA",
+              "cwBlAHQALQBtAHAAcAByAGUAZgBlAHIAZQBuAGMAZQAgA",
+              "MAZQB0AC0AbQBwAHAAcgBlAGYAZQByAGUAbgBjAGUAIA",
+              "zAGUAdAAtAG0AcABwAHIAZQBmAGUAcgBlAG4AYwBlACAA"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Meterpreter or Cobalt Strike Getsystem Service Installation - System",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ImagePath|contains|all": [
+              "/c",
+              "echo",
+              "\\pipe\\"
+            ],
+            "ImagePath|contains": [
+              "cmd",
+              "%COMSPEC%"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "UAC Bypass With Fake DLL",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\dism.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded|endswith": "\\dismcore.dll",
+            "ImageLoaded": "C:\\Windows\\System32\\Dism\\dismcore.dll"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "BitLockerTogo.EXE Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\BitLockerToGo.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Windows Kernel Debugger Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\kd.exe",
+            "OriginalFileName": "kd.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Usage Of Web Request Commands And Cmdlets",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains": [
+              "[System.Net.WebRequest]::create",
+              "curl ",
+              "Invoke-RestMethod",
+              "Invoke-WebRequest",
+              " irm ",
+              "iwr ",
+              "Resume-BitsTransfer",
+              "Start-BitsTransfer",
+              "wget ",
+              "WinHttp.WinHttpRequest"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Registry Modification Attempt Via VBScript",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              "CreateObject",
+              "Wscript.shell",
+              ".RegWrite"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Suspicious Process Parents",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ParentImage|endswith": [
+              "\\minesweeper.exe",
+              "\\winver.exe",
+              "\\bitsadmin.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Suspicious ScreenSave Change by Reg.exe",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\reg.exe",
+            "CommandLine|contains": [
+              "HKEY_CURRENT_USER\\Control Panel\\Desktop",
+              "HKCU\\Control Panel\\Desktop"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "HybridConnectionManager Service Installation - Registry",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|contains": "\\Services\\HybridConnectionManager"
+          }
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "Details|contains": "Microsoft.HybridConnectionManager.Listener.exe"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Product Class Reconnaissance Via Wmic.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\wmic.exe",
+            "OriginalFileName": "wmic.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains": [
+              "AntiVirusProduct",
+              "AntiSpywareProduct",
+              "FirewallProduct"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Clipboard Collection with Xclip Tool - Auditd",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "a0": "xclip"
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Windows AppX Deployment Unsigned Package Installation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "603",
+            "Flags": "8388608"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  ]
+}

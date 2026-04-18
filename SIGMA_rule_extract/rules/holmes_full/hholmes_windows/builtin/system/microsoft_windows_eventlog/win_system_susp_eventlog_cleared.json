@@ -1,0 +1,44 @@
+{
+  "name": "Important Windows Eventlog Cleared",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "104",
+        "Provider_Name": "Microsoft-Windows-Eventlog"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Channel": [
+          "Microsoft-Windows-PowerShell/Operational",
+          "Microsoft-Windows-Sysmon/Operational",
+          "PowerShellCore/Operational",
+          "Security",
+          "System",
+          "Windows PowerShell"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

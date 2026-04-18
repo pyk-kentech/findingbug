@@ -1,0 +1,96 @@
+{
+  "name": "Webshell Detection With Command Line Keywords",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\w3wp.exe",
+          "\\php-cgi.exe",
+          "\\nginx.exe",
+          "\\httpd.exe",
+          "\\caddy.exe",
+          "\\ws_tomcatservice.exe"
+        ],
+        "ParentImage|contains": [
+          "-tomcat-",
+          "\\tomcat"
+        ],
+        "CommandLine|contains": [
+          "catalina.jar",
+          "CATALINA_HOME",
+          " user ",
+          " use ",
+          " group ",
+          " -n ",
+          "&cd&echo",
+          "cd /d ",
+          " /node:",
+          " -enc ",
+          " -EncodedCommand ",
+          " -w hidden ",
+          " -windowstyle hidden",
+          ".WebClient).Download",
+          " Test-NetConnection "
+        ],
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "OriginalFileName": [
+          "net.exe",
+          "net1.exe",
+          "ping.exe",
+          "wmic.exe",
+          "dsquery.exe",
+          "find.exe",
+          "findstr.exe",
+          "ipconfig.exe",
+          "netstat.exe",
+          "nslookup.exe",
+          "pathping.exe",
+          "quser.exe",
+          "schtasks.exe",
+          "sysinfo.exe",
+          "tasklist.exe",
+          "tracert.exe",
+          "ver.exe",
+          "VSSADMIN.EXE",
+          "wevtutil.exe",
+          "whoami.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "Desktop.INI Created by Uncommon Process",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|startswith": [
+          "C:\\Windows\\",
+          "C:\\Program Files\\",
+          "C:\\Program Files (x86)\\"
+        ],
+        "Image|endswith": "\\AppData\\Local\\JetBrains\\Toolbox\\bin\\7z.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": "\\desktop.ini",
+        "TargetFilename|startswith": "C:\\$WINDOWS.~BT\\NewOS\\",
+        "TargetFilename|contains": [
+          "\\JetBrains\\apps\\",
+          "\\AppData\\Local\\Microsoft\\OneDrive\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,977 @@
+{
+  "seed": 20260406,
+  "batch_index": 4,
+  "source_dir": "rules/holmes_full",
+  "source_files": [
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_susp_etw_trace_evasion.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_hktl_quarkspw_filedump.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_powershell_export_certificate.json",
+    "rules/holmes_full/hholmes_windows/image_load/image_load_susp_python_image_load.json",
+    "rules/holmes_full/hholmes_application/bitbucket/audit/bitbucket_audit_secret_scanning_exempt_repository_detected.json",
+    "rules/holmes_full/hholmes_cloud/m365/threat_management/microsoft365_pst_export_alert.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_bash_command_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_powershell_reverse_shell_connection.json",
+    "rules/holmes_full/hholmes_windows/builtin/security/win_security_hidden_user_creation.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_office_macro_files_created.json",
+    "rules/holmes_full/hholmes_cloud/gcp/audit/gcp_firewall_rule_modified_or_deleted.json",
+    "rules/holmes_full/hholmes_cloud/gcp/audit/gcp_bucket_modified_or_deleted.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_keylogging.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_sysinternals_psexec_service.json",
+    "rules/holmes_full/hholmes_windows/network_connection/net_connection_win_regsvr32_network_activity.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_win32_product_install_msi.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_susp_hidden_dir_index_allocation.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_whoami_all_execution.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_set/registry_set_asep_reg_keys_modification_wow6432node_currentversion.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_remote_access_tools_netsupport.json",
+    "rules/holmes_full/hholmes_macos/process_creation/proc_creation_macos_remote_system_discovery.json",
+    "rules/holmes_full/hholmes_windows/builtin/system/service_control_manager/win_system_invoke_obfuscation_via_var_services.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_cmd_path_traversal.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_dll_sideloading_space_path.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_gfxdownloadwrapper_arbitrary_file_download.json"
+  ],
+  "rules": [
+    {
+      "name": "ETW Trace Evasion Activity",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line|contains|all": [
+              "cl",
+              "/Trace"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "HackTool - QuarksPwDump Dump File",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains|all": [
+              "\\AppData\\Local\\Temp\\SAM-",
+              ".dmp"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Certificate Exported Via PowerShell",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line|contains": [
+              "Export-PfxCertificate ",
+              "Export-Certificate "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Python Image Load By Non-Python Process",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Description": "Python Core"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "Image|contains": [
+              "python38.dll",
+              "python.exe"
+            ],
+            "Image|startswith": [
+              "C:\\Program Files\\",
+              "C:\\Program Files (x86)\\",
+              "C:\\ProgramData\\Anaconda3\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bitbucket Secret Scanning Exempt Repository Added",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "auditType.action": "Secret scanning exempt repository added"
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {
+            "auditType.category": "Repositories"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "PST Export Alert Using eDiscovery Alert",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "SecurityComplianceCenter",
+            "eventName": "eDiscovery search started or exported",
+            "status": "success"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Indirect Inline Command Execution Via Bash.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              ":баше.exe",
+              ":Сыстемованиек\bash.exe"
+            ],
+            "OriginalFileName": "Bash.exe",
+            "CommandLine|contains": " -c "
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Powershell ReverseShell Connection",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "OriginalFileName": [
+              "PowerShell.EXE",
+              "pwsh.dll"
+            ],
+            "Image|endswith": [
+              "\\powershell.exe",
+              "\\pwsh.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Hidden Local User Creation",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "4720",
+            "TargetUserName|endswith": "$"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Office Macro File Creation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": [
+              ".docm",
+              ".dotm",
+              ".xlsm",
+              ".xltm",
+              ".potm",
+              ".pptm"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Google Cloud Firewall Modified or Deleted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "gcp.audit.method_name": [
+              "v*.Compute.Firewalls.Delete",
+              "v*.Compute.Firewalls.Patch",
+              "v*.Compute.Firewalls.Update",
+              "v*.Compute.Firewalls.Insert"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Google Cloud Storage Buckets Modified or Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "gcp.audit.method_name": [
+              "storage.buckets.delete",
+              "storage.buckets.insert",
+              "storage.buckets.update",
+              "storage.buckets.patch"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Powershell Keylogging",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains": "Get-Keystrokes"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "PsExec Service File Creation",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": "\\PSEXESVC.exe"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Network Connection Initiated By Regsvr32.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\regsvr32.exe"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "PowerShell WMI Win32_Product Install MSI",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains|all": [
+              "Invoke-CimMethod ",
+              "-ClassName ",
+              "Win32_Product ",
+              "-MethodName ",
+              ".msi"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Hidden Directory Creation Via NTFS INDEX_ALLOCATION Stream - CLI",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains": "::$index_allocation"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Enumerate All Information With Whoami.EXE",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|windash": " -all"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Wow6432Node Windows NT CurrentVersion Autorun Keys Modification",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|contains": [
+              "\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Appinit_Dlls",
+              "\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options",
+              "\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Drivers32"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Remote Access Tool - NetSupport Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Description": "NetSupport Client Configurator",
+            "Product": "NetSupport Remote Control",
+            "Company": "NetSupport Ltd",
+            "OriginalFileName": "PCICFGUI.EXE"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Macos Remote System Discovery",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/arp",
+            "CommandLine|contains": "-a"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Invoke-Obfuscation VAR++ LAUNCHER OBFUSCATION - System",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Provider_Name": "Service Control Manager",
+            "EventID": 7045,
+            "ImagePath|contains|all": [
+              "&&set",
+              "cmd",
+              "/c",
+              "-f"
+            ],
+            "ImagePath|contains": [
+              "{0}",
+              "{1}",
+              "{2}",
+              "{3}",
+              "{4}",
+              "{5}"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential CommandLine Path Traversal Via Cmd.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ParentImage|endswith": "\\cmd.exe",
+            "Image|endswith": "\\cmd.exe",
+            "OriginalFileName": "cmd.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "DLL Search Order Hijackig Via Additional Space in Path",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path|startswith": [
+              "C:\\Windows \\",
+              "C:\\Program Files \\",
+              "C:\\Program Files (x86) \\"
+            ],
+            "file_path|endswith": ".dll"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Arbitrary File Download Via GfxDownloadWrapper.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\GfxDownloadWrapper.exe",
+            "CommandLine|contains": [
+              "http://",
+              "https://"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  ]
+}

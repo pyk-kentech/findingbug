@@ -1,0 +1,67 @@
+{
+  "name": "SQL Injection Strings In URI",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "cs-method": "GET"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "uri_query": [
+          "@@version",
+          "%271%27%3D%271",
+          "=select ",
+          "=select(",
+          "=select%20",
+          "concat_ws(",
+          "CONCAT(0x",
+          "from mysql.innodb_table_stats",
+          "from%20mysql.innodb_table_stats",
+          "group_concat(",
+          "information_schema.tables",
+          "json_arrayagg(",
+          "or 1=1#",
+          "or%201=1#",
+          "order by ",
+          "order%20by%20",
+          "select * ",
+          "select database()",
+          "select version()",
+          "select%20*%20",
+          "select%20database()",
+          "select%20version()",
+          "select%28sleep%2810%29",
+          "SELECTCHAR(",
+          "table_schema",
+          "UNION ALL SELECT",
+          "UNION SELECT",
+          "UNION%20ALL%20SELECT",
+          "UNION%20SELECT",
+          "'1'='1"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

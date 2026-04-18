@@ -1,0 +1,49 @@
+{
+  "name": "AppX Located in Known Staging Directory Added to Deployment Pipeline",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "854"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Path|contains": [
+          ":/Perflogs/",
+          ":/Users/Public/",
+          ":/Windows/Temp/",
+          "/AppdData/Local/Temp/",
+          "/Desktop/",
+          "/Downloads/",
+          ":\\PerfLogs\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\Temp\\",
+          "\\AppdData\\Local\\Temp\\",
+          "\\Desktop\\",
+          "\\Downloads\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

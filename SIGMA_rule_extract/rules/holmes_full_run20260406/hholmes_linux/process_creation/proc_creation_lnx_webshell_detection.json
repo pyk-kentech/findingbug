@@ -1,0 +1,58 @@
+{
+  "name": "Linux Webshell Indicators",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "/httpd",
+          "/lighttpd",
+          "/nginx",
+          "/apache2",
+          "/node",
+          "/caddy"
+        ],
+        "ParentCommandLine|contains|all": [
+          "/bin/java",
+          "tomcat"
+        ],
+        "Image|endswith": [
+          "/whoami",
+          "/ifconfig",
+          "/ip",
+          "/bin/uname",
+          "/bin/cat",
+          "/bin/crontab",
+          "/hostname",
+          "/iptables",
+          "/netstat",
+          "/pwd",
+          "/route"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

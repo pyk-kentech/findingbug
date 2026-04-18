@@ -1,0 +1,53 @@
+{
+  "name": "Modify User Shell Folders Startup Value",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": [
+          "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders",
+          "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders"
+        ],
+        "TargetObject|endswith": [
+          "\\Common Startup",
+          "\\Startup"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details": null,
+        "Details|contains": [
+          "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+          "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+          "%USERPROFILE%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+          "%%USERPROFILE%%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
+        ],
+        "Details|contains|all": [
+          "C:\\Users\\",
+          "\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

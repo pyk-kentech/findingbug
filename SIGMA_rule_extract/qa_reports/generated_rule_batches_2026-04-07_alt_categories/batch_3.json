@@ -1,0 +1,1118 @@
+[
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_access/file_access_win_susp_gpo_files.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Access To Potentially Sensitive Sysvol Files By Uncommon Applications",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|startswith": [
+              "C:\\Program Files (x86)\\",
+              "C:\\Program Files\\",
+              "C:\\Windows\\system32\\",
+              "C:\\Windows\\SysWOW64\\"
+            ],
+            "Image": "C:\\Windows\\explorer.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "FileName|startswith": "\\\\",
+            "FileName|contains|all": [
+              "\\sysvol\\",
+              "\\Policies\\"
+            ],
+            "FileName|endswith": [
+              "audit.csv",
+              "Files.xml",
+              "GptTmpl.inf",
+              "groups.xml",
+              "Registry.pol",
+              "Registry.xml",
+              "scheduledtasks.xml",
+              "scripts.ini",
+              "services.xml"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/file_event/file_event_lnx_triple_cross_rootkit_lock_file.json",
+    "category": "hholmes_linux/file_event",
+    "rule": {
+      "name": "Triple Cross eBPF Rootkit Default LockFile",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename": "/tmp/rootlog"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/rpc_firewall/rpc_firewall_atsvc_recon.json",
+    "category": "hholmes_application/rpc_firewall",
+    "rule": {
+      "name": "Remote Schedule Task Recon via AtScv",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventLog": "RPCFW",
+            "EventID": 3,
+            "InterfaceUuid": "1ff70682-0a51-30e8-076d-740be8cee98b"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/okta/okta_suspicious_activity_enduser_report.json",
+    "category": "hholmes_identity/okta",
+    "rule": {
+      "name": "Okta Suspicious Activity Reported by End-user",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventtype": "user.account.report_suspicious_activity_by_enduser"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/rpc_firewall/rpc_firewall_dcsync_attack.json",
+    "category": "hholmes_application/rpc_firewall",
+    "rule": {
+      "name": "Possible DCSync Attack",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventLog": "RPCFW",
+            "EventID": 3,
+            "InterfaceUuid": "e3514235-4b06-11d1-ab04-00c04fc2dcd2"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/webserver_generic/web_f5_tm_utility_bash_api_request.json",
+    "category": "hholmes_web/webserver_generic",
+    "rule": {
+      "name": "F5 BIG-IP iControl Rest API Command Execution - Webserver",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "cs-method": "POST"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "cs-uri-query|endswith": "/mgmt/tm/util/bash"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_delete/file_delete_win_delete_iis_access_logs.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "IIS WebServer Access Logs Deleted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": "\\inetpub\\logs\\LogFiles\\",
+            "TargetFilename|endswith": ".log"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/create_remote_thread/create_remote_thread_win_powershell_lsass.json",
+    "category": "hholmes_windows/create_remote_thread",
+    "rule": {
+      "name": "Potential Credential Dumping Attempt Via PowerShell Remote Thread",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "SourceImage": [
+              "*\\powershell.exe",
+              "*\\pwsh.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetImage": "*\\lsass.exe"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/github/audit/github_push_protection_bypass_detected.json",
+    "category": "hholmes_application/github",
+    "rule": {
+      "name": "Github Push Protection Bypass Detected",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "action": "secret_scanning_push_protection.bypass"
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_event/file_event_win_adsi_cache_creation_by_uncommon_tool.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "ADSI-Cache File Creation By Uncommon Tool",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": "\\Local\\Microsoft\\Windows\\SchCache\\",
+            "TargetFilename|endswith": ".sch"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/webserver_generic/web_jndi_exploit.json",
+    "category": "hholmes_web/webserver_generic",
+    "rule": {
+      "name": "JNDIExploit Pattern",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "/Basic/Command/Base64/",
+              "/Basic/ReverseShell/",
+              "/Basic/TomcatMemshell",
+              "/Basic/JettyMemshell",
+              "/Basic/WeblogicMemshell",
+              "/Basic/JBossMemshell",
+              "/Basic/WebsphereMemshell",
+              "/Basic/SpringMemshell",
+              "/Deserialization/URLDNS/",
+              "/Deserialization/CommonsCollections1/Dnslog/",
+              "/Deserialization/CommonsCollections2/Command/Base64/",
+              "/Deserialization/CommonsBeanutils1/ReverseShell/",
+              "/Deserialization/Jre8u20/TomcatMemshell",
+              "/TomcatBypass/Dnslog/",
+              "/TomcatBypass/Command/",
+              "/TomcatBypass/ReverseShell/",
+              "/TomcatBypass/TomcatMemshell",
+              "/TomcatBypass/SpringMemshell",
+              "/GroovyBypass/Command/",
+              "/WebsphereBypass/Upload/"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/onelogin/onelogin_user_account_locked.json",
+    "category": "hholmes_identity/onelogin",
+    "rule": {
+      "name": "OneLogin User Account Locked",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "event_type_id": [
+              "532",
+              "553",
+              "551"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/create_stream_hash/create_stream_hash_file_sharing_domains_download_unusual_extension.json",
+    "category": "hholmes_windows/create_stream_hash",
+    "rule": {
+      "name": "Unusual File Download From File Sharing Websites - File Stream",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": [
+              ".bat:Zone",
+              ".cmd:Zone",
+              ".ps1:Zone"
+            ],
+            "Contents|contains": [
+              ".githubusercontent.com",
+              "anonfiles.com",
+              "cdn.discordapp.com",
+              "ddns.net",
+              "dl.dropboxusercontent.com",
+              "ghostbin.co",
+              "github.com",
+              "glitch.me",
+              "gofile.io",
+              "hastebin.com",
+              "mediafire.com",
+              "mega.nz",
+              "onrender.com",
+              "pages.dev",
+              "paste.ee",
+              "pastebin.com",
+              "pastebin.pl",
+              "pastetext.net",
+              "pixeldrain.com",
+              "privatlab.com",
+              "privatlab.net",
+              "send.exploit.in",
+              "sendspace.com",
+              "storage.googleapis.com",
+              "storjshare.io",
+              "supabase.co",
+              "temp.sh",
+              "transfer.sh",
+              "trycloudflare.com",
+              "ufile.io",
+              "w3spaces.com",
+              "workers.dev"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_identity/okta/okta_user_created.json",
+    "category": "hholmes_identity/okta",
+    "rule": {
+      "name": "New Okta User Created",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": "user"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/auditd/service_stop/lnx_auditd_disable_system_firewall.json",
+    "category": "hholmes_linux/auditd",
+    "rule": {
+      "name": "Disable System Firewall",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "unit": [
+              "firewalld",
+              "iptables",
+              "ufw"
+            ]
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/cisco/aaa/cisco_cli_crypto_actions.json",
+    "category": "hholmes_network/cisco",
+    "rule": {
+      "name": "Cisco Crypto Commands",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "crypto pki export",
+              "crypto pki import",
+              "crypto pki trustpoint"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_access/file_access_win_susp_credential_manager_access.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Credential Manager Access By Uncommon Applications",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|startswith": [
+              "C:\\Program Files\\",
+              "C:\\Program Files (x86)\\",
+              "C:\\Windows\\system32\\",
+              "C:\\Windows\\SysWOW64\\"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path|contains": [
+              "\\AppData\\Local\\Microsoft\\Credentials\\",
+              "\\AppData\\Roaming\\Microsoft\\Credentials\\",
+              "\\AppData\\Local\\Microsoft\\Vault\\",
+              "\\ProgramData\\Microsoft\\Vault\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_category/antivirus/av_password_dumper.json",
+    "category": "hholmes_category/antivirus",
+    "rule": {
+      "name": "Antivirus Password Dumper Detection",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Signature|startswith": "PWS"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_delete/file_delete_win_sysinternals_sdelete_file_deletion.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "File Deleted Via Sysinternals SDelete",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": [
+              ".AAA",
+              ".ZZZ"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/jvm/java_rce_exploitation_attempt.json",
+    "category": "hholmes_application/jvm",
+    "rule": {
+      "name": "Process Execution Error In JVM Based Application",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "*Cannot run program*",
+              "*java.lang.ProcessImpl*",
+              "*java.lang.ProcessBuilder*"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/driver_load/driver_load_win_vuln_winring0_driver.json",
+    "category": "hholmes_windows/driver_load",
+    "rule": {
+      "name": "Vulnerable WinRing0 Driver Load",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Hashes|contains": "IMPHASH=D41FA95D4642DC981F10DE36F4DC8CD7"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded|endswith": [
+              "\\WinRing0x64.sys",
+              "\\WinRing0.sys",
+              "\\WinRing0.dll",
+              "\\WinRing0x64.dll",
+              "\\winring00x64.sys"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/dns_query/dns_query_win_mal_cobaltstrike.json",
+    "category": "hholmes_windows/dns_query",
+    "rule": {
+      "name": "Suspicious Cobalt Strike DNS Beaconing - Sysmon",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationIp|contains": [
+              "aaa.stage.",
+              "post.1",
+              ".stage.123456."
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_event/file_event_win_creation_system_file.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Files With System Process Name In Unsuspected Locations",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\SecurityHealthSetup.exe"
+            ],
+            "Image|contains": [
+              "C:\\Program Files\\WindowsApps\\",
+              "C:\\Program Files (x86)\\WindowsApps\\",
+              "\\AppData\\Local\\Microsoft\\WindowsApps\\"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": [
+              "C:\\Windows\\explorer.exe"
+            ],
+            "TargetFilename|contains": [
+              "C:\\Windows\\System32\\SecurityHealth\\"
+            ],
+            "TargetFilename|startswith": [
+              "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+              "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+              "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/webserver_generic/web_iis_tilt_shortname_scan.json",
+    "category": "hholmes_web/webserver_generic",
+    "rule": {
+      "name": "Successful IIS Shortname Fuzzing Scan",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": null,
+            "Image": null,
+            "ParentImage": null,
+            "OriginalFileName": null,
+            "Hashes": null,
+            "User": null
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename": "*~1*a.aspx"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/file/file_change/file_change_win_unusual_modification_by_dns_exe.json",
+    "category": "hholmes_windows/file",
+    "rule": {
+      "name": "Unusual File Modification by dns.exe",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\dns.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": "\\dns.log"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  }
+]

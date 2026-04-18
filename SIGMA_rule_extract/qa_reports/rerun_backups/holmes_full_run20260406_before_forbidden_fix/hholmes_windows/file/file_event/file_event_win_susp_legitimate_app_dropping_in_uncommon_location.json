@@ -1,0 +1,76 @@
+{
+  "name": "Legitimate Application Writing Files In Uncommon Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\eqnedt32.exe",
+          "\\wordpad.exe",
+          "\\wordview.exe",
+          "\\cmdl32.exe",
+          "\\certutil.exe",
+          "\\certoc.exe",
+          "\\CertReq.exe",
+          "\\bitsadmin.exe",
+          "\\Desktopimgdownldr.exe",
+          "\\esentutl.exe",
+          "\\expand.exe",
+          "\\extrac32.exe",
+          "\\replace.exe",
+          "\\mshta.exe",
+          "\\ftp.exe",
+          "\\Ldifde.exe",
+          "\\RdrCEF.exe",
+          "\\hh.exe",
+          "\\finger.exe",
+          "\\findstr.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": [
+          ":\\Perflogs",
+          ":\\ProgramData\\",
+          ":\\Temp\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\",
+          "\\\\$Recycle.Bin\\",
+          "\\AppData\\Local\\",
+          "\\AppData\\Roaming\\",
+          "\\Contacts\\",
+          "\\Desktop\\",
+          "\\Favorites\\",
+          "\\Favourites\\",
+          "\\inetpub\\wwwroot\\",
+          "\\Music\\",
+          "\\Pictures\\",
+          "\\Start Menu\\Programs\\Startup\\",
+          "\\Users\\Default\\",
+          "\\Videos\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

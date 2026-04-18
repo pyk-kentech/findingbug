@@ -1,0 +1,53 @@
+{
+  "name": "Schtasks From Suspicious Folders",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          " /create ",
+          "powershell",
+          "pwsh",
+          "cmd /c ",
+          "cmd /k ",
+          "cmd /r ",
+          "cmd.exe /c ",
+          "cmd.exe /k ",
+          "cmd.exe /r "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path|endswith": "\\schtasks.exe"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

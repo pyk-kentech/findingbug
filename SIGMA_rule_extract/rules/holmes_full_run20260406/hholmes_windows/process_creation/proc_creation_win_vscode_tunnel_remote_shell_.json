@@ -1,0 +1,49 @@
+{
+  "name": "Visual Studio Code Tunnel Shell Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains": [
+          "\\servers\\Stable-"
+        ],
+        "ParentImage|endswith": [
+          "\\server\\node.exe"
+        ],
+        "ParentCommandLine|contains": [
+          ".vscode-server"
+        ],
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "CommandLine|contains": [
+          "\\terminal\\browser\\media\\shellIntegration.ps1"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

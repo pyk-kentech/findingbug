@@ -1,0 +1,59 @@
+{
+  "name": "CobaltStrike Named Pipe Patterns",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "PipeName|startswith": [
+          "\\DserNamePipe",
+          "\\f4c3",
+          "\\f53f",
+          "\\fullduplex_",
+          "\\mojo.5688.8052.183894939787088877",
+          "\\mojo.5688.8052.35780273329370473",
+          "\\MsFteWds",
+          "\\msrpc_",
+          "\\mypipe-f",
+          "\\mypipe-h",
+          "\\ntsvcs",
+          "\\PGMessagePipe",
+          "\\rpc_",
+          "\\scerpc",
+          "\\SearchTextHarvester",
+          "\\spoolss",
+          "\\win_svc",
+          "\\win\\msrpc_",
+          "\\windows.update.manager",
+          "\\wkssvc"
+        ],
+        "PipeName": [
+          "\\demoagent_11",
+          "\\demoagent_22"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "Important Windows Service Terminated Unexpectedly",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name": "Service Control Manager"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "param1|contains": [
+          "Message Queuing"
+        ],
+        "Binary|contains": [
+          "4d0053004d005100",
+          "6d0073006d007100"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

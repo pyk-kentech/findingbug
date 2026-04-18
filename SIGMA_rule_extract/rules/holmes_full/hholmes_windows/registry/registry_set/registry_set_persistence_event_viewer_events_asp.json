@@ -1,0 +1,47 @@
+{
+  "name": "Potential Persistence Via Event Viewer Events.asp",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "C:\\WINDOWS\\system32\\svchost.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\Microsoft\\Windows NT\\CurrentVersion\\Event Viewer\\MicrosoftRedirectionProgram",
+          "\\Microsoft\\Windows NT\\CurrentVersion\\Event Viewer\\MicrosoftRedirectionURL"
+        ],
+        "Details": [
+          "%%SystemRoot%%\\PCHealth\\HelpCtr\\Binaries\\HelpCtr.exe",
+          "-url hcp://services/centers/support?topic=%%s",
+          "http://go.microsoft.com/fwlink/events.asp",
+          "(Empty)"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

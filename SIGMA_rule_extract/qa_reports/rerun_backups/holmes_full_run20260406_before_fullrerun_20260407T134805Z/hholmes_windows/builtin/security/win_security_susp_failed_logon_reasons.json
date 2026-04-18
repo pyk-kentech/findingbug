@@ -1,0 +1,54 @@
+{
+  "name": "Account Tampering - Suspicious Failed Logon Reasons",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "4625",
+          "4776"
+        ],
+        "Status": [
+          "0xC0000072",
+          "0xC000006F",
+          "0xC0000070",
+          "0xC0000413",
+          "0xC000018C",
+          "0xC000015B"
+        ],
+        "SubStatus": [
+          "0xC0000072",
+          "0xC000006F",
+          "0xC0000070",
+          "0xC0000413",
+          "0xC000018C",
+          "0xC000015B"
+        ],
+        "SubjectUserSid": "S-1-0-0"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

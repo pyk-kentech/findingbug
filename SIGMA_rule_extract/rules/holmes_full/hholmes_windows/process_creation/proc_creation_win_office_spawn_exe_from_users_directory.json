@@ -1,0 +1,44 @@
+{
+  "name": "Suspicious Binary In User Directory Spawned From Office Application",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\WINWORD.EXE",
+          "\\EXCEL.EXE",
+          "\\POWERPNT.exe",
+          "\\MSPUB.exe",
+          "\\VISIO.exe",
+          "\\MSACCESS.exe",
+          "\\EQNEDT32.exe"
+        ],
+        "Image|startswith": "C:\\users\\",
+        "Image|endswith": ".exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

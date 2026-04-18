@@ -1,0 +1,45 @@
+{
+  "name": "PUA - Fast Reverse Proxy (FRP) Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\frpc.exe",
+          "\\frps.exe"
+        ],
+        "CommandLine|contains": [
+          "\\frpc.ini"
+        ],
+        "Hashes|contains": [
+          "MD5=7D9C233B8C9E3F0EA290D2B84593C842",
+          "SHA1=06DDC9280E1F1810677935A2477012960905942F",
+          "SHA256=57B0936B8D336D8E981C169466A15A5FD21A7D5A2C7DAF62D5E142EE860E387C"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

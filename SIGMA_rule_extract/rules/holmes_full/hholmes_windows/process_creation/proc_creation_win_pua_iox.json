@@ -1,0 +1,45 @@
+{
+  "name": "PUA- IOX Tunneling Tool Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\iox.exe",
+        "CommandLine|contains": [
+          ".exe fwd -l ",
+          ".exe fwd -r ",
+          ".exe proxy -l ",
+          ".exe proxy -r "
+        ],
+        "Hashes|contains": [
+          "MD5=9DB2D314DD3F704A02051EF5EA210993",
+          "SHA1=039130337E28A6623ECF9A0A3DA7D92C5964D8DD",
+          "SHA256=C6CF82919B809967D9D90EA73772A8AA1C1EB3BC59252D977500F64F1A0D6731"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

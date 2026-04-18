@@ -1,0 +1,59 @@
+{
+  "name": "Private Keys Reconnaissance Via CommandLine Tools",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "OriginalFileName": [
+          "Cmd.Exe",
+          "PowerShell.EXE",
+          "pwsh.dll",
+          "FINDSTR.EXE"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "dir ",
+          "Get-ChildItem ",
+          ".key",
+          ".pgp",
+          ".gpg",
+          ".ppk",
+          ".p12",
+          ".pem",
+          ".pfx",
+          ".cer",
+          ".p7b",
+          ".asc"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

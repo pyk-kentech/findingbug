@@ -1,0 +1,48 @@
+{
+  "name": "LSASS Dump Keyword In CommandLine",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "lsass.dmp",
+          "lsass.zip",
+          "lsass.rar",
+          "Andrew.dmp",
+          "Coredump.dmp",
+          "NotLSASS.zip",
+          "lsass_2",
+          "lsassdump",
+          "lsassdmp"
+        ],
+        "CommandLine|contains|all": [
+          "lsass",
+          ".dmp"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

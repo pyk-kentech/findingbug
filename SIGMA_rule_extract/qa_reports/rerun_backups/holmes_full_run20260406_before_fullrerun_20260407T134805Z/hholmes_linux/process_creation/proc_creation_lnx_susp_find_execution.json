@@ -1,0 +1,44 @@
+{
+  "name": "Potential Discovery Activity Using Find - Linux",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "/find",
+        "CommandLine|contains": [
+          "-perm -4000",
+          "-perm -2000",
+          "-perm 0777",
+          "-perm -222",
+          "-perm -o w",
+          "-perm -o x",
+          "-perm -u=s",
+          "-perm -g=s"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

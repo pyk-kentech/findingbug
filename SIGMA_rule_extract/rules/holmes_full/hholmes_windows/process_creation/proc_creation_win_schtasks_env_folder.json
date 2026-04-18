@@ -1,0 +1,54 @@
+{
+  "name": "Schedule Task Creation From Env Variable Or Potentially Suspicious Path Via Schtasks.EXE",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\schtasks.exe",
+        "CommandLine|contains|windash": " /create "
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          ":\\Perflogs",
+          ":\\Users\\All Users\\",
+          ":\\Users\\Default\\",
+          ":\\Users\\Public",
+          ":\\Windows\\Temp",
+          "\\AppData\\Local\\",
+          "\\AppData\\Roaming\\",
+          "%AppData%",
+          "%Public%"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

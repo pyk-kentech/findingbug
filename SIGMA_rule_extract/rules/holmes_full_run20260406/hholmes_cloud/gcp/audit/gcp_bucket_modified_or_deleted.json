@@ -1,0 +1,39 @@
+{
+  "name": "Google Cloud Storage Buckets Modified or Deleted",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {}
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "CloudResource": [
+          "storage.buckets.delete",
+          "storage.buckets.insert",
+          "storage.buckets.update",
+          "storage.buckets.patch"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

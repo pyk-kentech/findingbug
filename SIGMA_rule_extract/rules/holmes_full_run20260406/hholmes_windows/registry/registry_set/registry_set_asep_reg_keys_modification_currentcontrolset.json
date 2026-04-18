@@ -1,0 +1,55 @@
+{
+  "name": "CurrentControlSet Autorun Keys Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "C:\\Windows\\System32\\spoolsv.exe",
+          "C:\\Windows\\System32\\poqexec.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
+          "\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
+          "\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SecurityProviders",
+          "\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\AlternateShell",
+          "\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers",
+          "\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors",
+          "\\SYSTEM\\CurrentControlSet\\Control\\NetworkProvider\\Order",
+          "\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Notification Packages",
+          "\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Authentication Packages",
+          "\\SYSTEM\\CurrentControlSet\\Control\\BootVerificationProgram\\ImagePath"
+        ],
+        "Details": "(Empty)",
+        "TargetObject|endswith": [
+          "\\NetworkProvider\\Order\\ProviderOrder",
+          "\\Print\\Monitors\\MONVNC\\Driver"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

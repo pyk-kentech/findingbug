@@ -1,0 +1,48 @@
+{
+  "name": "Suspicious Windows Strings In URI",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "cs-uri-query|contains": [
+          "=C:/Users",
+          "=C:/Program%20Files",
+          "=C:/Windows",
+          "=C%3A%5CUsers",
+          "=C%3A%5CProgram%20Files",
+          "=C%3A%5CWindows"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Collection",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

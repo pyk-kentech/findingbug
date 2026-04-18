@@ -1,0 +1,52 @@
+{
+  "name": "HTML Help HH.EXE Suspicious Child Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\hh.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\CertReq.exe",
+          "\\CertUtil.exe",
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\installutil.exe",
+          "\\MSbuild.exe",
+          "\\MSHTA.EXE",
+          "\\msiexec.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\schtasks.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

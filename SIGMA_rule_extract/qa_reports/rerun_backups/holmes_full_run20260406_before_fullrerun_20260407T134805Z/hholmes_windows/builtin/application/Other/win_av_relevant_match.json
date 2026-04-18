@@ -1,0 +1,104 @@
+{
+  "name": "Relevant Anti-Virus Signature Keywords In Application Log",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": [
+          "Adfind",
+          "ASP/BackDoor ",
+          "ATK/",
+          "Backdoor.ASP",
+          "Backdoor.Cobalt",
+          "Backdoor.JSP",
+          "Backdoor.PHP",
+          "Blackworm",
+          "Brutel",
+          "BruteR",
+          "Chopper",
+          "Cobalt",
+          "COBEACON",
+          "Cometer",
+          "CRYPTES",
+          "Cryptor",
+          "Destructor",
+          "DumpCreds",
+          "Exploit.Script.CVE",
+          "FastReverseProxy",
+          "Filecoder",
+          "GrandCrab ",
+          "HackTool",
+          "HKTL",
+          "HTool-",
+          "/HTool",
+          ".HTool",
+          "IISExchgSpawnCMD",
+          "Impacket",
+          "JSP/BackDoor ",
+          "Keylogger",
+          "Koadic",
+          "Krypt",
+          "Lazagne",
+          "Metasploit",
+          "Meterpreter",
+          "MeteTool",
+          "mikatz",
+          "Mimikatz",
+          "Mpreter",
+          "MsfShell",
+          "Nighthawk",
+          "Packed.Generic.347",
+          "PentestPowerShell",
+          "Phobos",
+          "PHP/BackDoor ",
+          "Potato",
+          "PowerSploit",
+          "PowerSSH",
+          "PshlSpy",
+          "PSWTool",
+          "PWCrack",
+          "PWDump",
+          "Ransom",
+          "Rozena",
+          "Ryzerlo",
+          "Sbelt",
+          "Seatbelt",
+          "SecurityTool ",
+          "SharpDump",
+          "Shellcode",
+          "Sliver",
+          "Splinter",
+          "Swrort",
+          "Tescrypt",
+          "TeslaCrypt",
+          "TurtleLoader",
+          "Valyria",
+          "Webshell"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

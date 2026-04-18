@@ -1,0 +1,53 @@
+{
+  "name": "Important Windows Service Terminated With Error",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Provider_Name": "Service Control Manager"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "param1|contains": [
+          " Antivirus",
+          " Firewall",
+          "Application Guard",
+          "BitLocker Drive Encryption Service",
+          "Encrypting File System",
+          "Microsoft Defender",
+          "Threat Protection",
+          "Windows Event Log"
+        ],
+        "Binary|contains": [
+          "770069006e0064006500660065006e006400",
+          "4500760065006e0074004c006f006700",
+          "6d0070007300730076006300",
+          "530065006e0073006500",
+          "450046005300",
+          "420044004500530056004300"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

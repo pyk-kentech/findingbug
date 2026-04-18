@@ -1,0 +1,42 @@
+{
+  "name": "Process Initiated Network Connection To Ngrok Domain",
+  "apt_stage": "Exfiltration",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Initiated": "true"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationHostname|endswith": [
+          ".ngrok-free.app",
+          ".ngrok-free.dev",
+          ".ngrok.app",
+          ".ngrok.dev",
+          ".ngrok.io"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Collection",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

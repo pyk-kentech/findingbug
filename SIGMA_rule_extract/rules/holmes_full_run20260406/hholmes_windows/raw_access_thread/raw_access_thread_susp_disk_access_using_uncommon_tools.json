@@ -1,0 +1,42 @@
+{
+  "name": "Potential Defense Evasion Via Raw Disk Access By Uncommon Tools",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|startswith": "C:\\$WinREAgent\\Scratch\\",
+        "Image": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+        "Image|startswith|endswith": [
+          "C:\\Windows\\Temp\\asgard2-agent\\thor.exe"
+        ],
+        "Image|startswith|contains|all": [
+          "C:\\Users\\AppData\\Local\\GitHubDesktop\\app-\\resources\\app\\git\\mingw64\\bin\\git.exe",
+          "C:\\Users\\AppData\\Local\\Keybase\\upd.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

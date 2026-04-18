@@ -1,0 +1,37 @@
+{
+  "name": "AWS EC2 Startup Shell Script Change",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {}
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "file_path": "*",
+        "selection_source.eventSource": "ec2.amazonaws.com",
+        "selection_source.requestParameters.attribute": "userData",
+        "selection_source.eventName": "ModifyInstanceAttribute"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

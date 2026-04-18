@@ -1,0 +1,51 @@
+{
+  "name": "Cleartext Protocol Usage",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationPort": [
+          "8080",
+          "21",
+          "80",
+          "23",
+          "50000",
+          "1521",
+          "27017",
+          "3306",
+          "1433",
+          "11211",
+          "15672",
+          "5900",
+          "5901",
+          "5902",
+          "5903",
+          "5904"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

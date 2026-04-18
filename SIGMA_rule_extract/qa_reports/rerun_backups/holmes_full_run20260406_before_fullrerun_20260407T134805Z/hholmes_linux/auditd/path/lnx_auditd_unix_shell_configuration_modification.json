@@ -1,0 +1,60 @@
+{
+  "name": "Unix Shell Configuration Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename": [
+          "/etc/shells",
+          "/etc/profile",
+          "/etc/profile.d/*",
+          "/etc/bash.bashrc",
+          "/etc/bashrc",
+          "/etc/zsh/zprofile",
+          "/etc/zsh/zshrc",
+          "/etc/zsh/zlogin",
+          "/etc/zsh/zlogout",
+          "/etc/csh.cshrc",
+          "/etc/csh.login",
+          "/root/.bashrc",
+          "/root/.bash_profile",
+          "/root/.profile",
+          "/root/.zshrc",
+          "/root/.zprofile",
+          "/home/*/.bashrc",
+          "/home/*/.zshrc",
+          "/home/*/.bash_profile",
+          "/home/*/.zprofile",
+          "/home/*/.profile",
+          "/home/*/.bash_login",
+          "/home/*/.bash_logout",
+          "/home/*/.zlogin",
+          "/home/*/.zlogout"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

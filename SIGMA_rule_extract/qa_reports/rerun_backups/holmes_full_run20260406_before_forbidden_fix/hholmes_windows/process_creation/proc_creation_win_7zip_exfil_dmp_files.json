@@ -1,0 +1,47 @@
+{
+  "name": "7Zip Compressing Dump Files",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Description|contains": [
+          "7-Zip"
+        ],
+        "Image|endswith": [
+          "\\7z.exe",
+          "\\7zr.exe",
+          "\\7za.exe"
+        ],
+        "OriginalFileName": [
+          "7z.exe",
+          "7za.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": "*.*"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

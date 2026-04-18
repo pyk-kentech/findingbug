@@ -1,0 +1,42 @@
+{
+  "name": "Cab File Extraction Via Wusa.EXE From Potentially Suspicious Paths",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\wusa.exe",
+        "CommandLine|contains": "/extract:"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          ":\\PerfLogs\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\Temp\\",
+          "\\Appdata\\Local\\Temp\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

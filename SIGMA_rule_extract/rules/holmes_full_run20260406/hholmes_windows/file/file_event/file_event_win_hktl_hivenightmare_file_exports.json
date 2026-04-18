@@ -1,0 +1,42 @@
+{
+  "name": "HackTool - Typical HiveNightmare SAM File Export",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": [
+          "\\hive_sam_",
+          "\\SAM-2021-",
+          "\\SAM-2022-",
+          "\\SAM-2023-",
+          "\\SAM-haxx",
+          "\\Sam.save"
+        ],
+        "TargetFilename": "C:\\windows\\temp\\sam"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

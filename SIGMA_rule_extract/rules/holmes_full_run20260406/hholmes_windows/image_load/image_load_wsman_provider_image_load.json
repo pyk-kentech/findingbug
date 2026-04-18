@@ -1,0 +1,54 @@
+{
+  "name": "Suspicious WSMAN Provider Image Loads",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "C:\\Program Files (x86)\\PowerShell\\6\\pwsh.exe",
+          "C:\\Program Files (x86)\\PowerShell\\7\\pwsh.exe",
+          "C:\\Program Files\\PowerShell\\6\\pwsh.exe",
+          "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+          "C:\\Windows\\System32\\sdiagnhost.exe",
+          "C:\\Windows\\System32\\services.exe",
+          "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
+          "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        ],
+        "OriginalFileName": [
+          "WsmSvc.dll",
+          "WSMANAUTOMATION.DLL",
+          "Microsoft.WSMan.Management.dll"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded": [
+          "\\WsmSvc.dll",
+          "\\WsmAuto.dll",
+          "\\Microsoft.WSMan.Management.ni.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

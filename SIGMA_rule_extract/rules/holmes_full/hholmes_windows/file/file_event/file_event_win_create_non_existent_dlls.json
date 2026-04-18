@@ -1,0 +1,47 @@
+{
+  "name": "Creation Of Non-Existent System DLL",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ":Системные\\axeonoffhelper.dll",
+          ":Системные\\cdpsgshims.dll",
+          ":Системные\\oci.dll",
+          ":Системные\\offdmpsvc.dll",
+          ":Системные\\shellchromeapi.dll",
+          ":Системные\\TSMSISrv.dll",
+          ":Системные\\TSVIPSrv.dll",
+          ":Системные\\wbem\\wbemcomn.dll",
+          ":Системные\\WLBSCTRL.dll",
+          ":Системные\\wow64log.dll",
+          ":Системные\\WptsExtensions.dll",
+          "\\SprintCSP.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

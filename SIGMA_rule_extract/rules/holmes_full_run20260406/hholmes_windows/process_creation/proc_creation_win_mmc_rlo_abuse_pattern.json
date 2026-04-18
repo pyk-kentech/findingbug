@@ -1,0 +1,47 @@
+{
+  "name": "MMC Executing Files with Reversed Extensions Using RTLO Abuse",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\mmc.exe",
+        "OriginalFileName": "MMC.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "*cod.msc",
+          "*fdp.msc",
+          "*ftr.msc",
+          "*lmth.msc",
+          "*slx.msc",
+          "*tdo.msc",
+          "*xcod.msc",
+          "*xslx.msc",
+          "*xtpp.msc"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

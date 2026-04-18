@@ -1,0 +1,44 @@
+{
+  "name": "PUA - Chisel Tunneling Tool Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\chisel.exe",
+        "CommandLine|contains": [
+          "exe client ",
+          "exe server ",
+          "-socks5",
+          "-reverse",
+          " r:",
+          ":127.0.0.1:",
+          "-tls-skip-verify ",
+          ":socks"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

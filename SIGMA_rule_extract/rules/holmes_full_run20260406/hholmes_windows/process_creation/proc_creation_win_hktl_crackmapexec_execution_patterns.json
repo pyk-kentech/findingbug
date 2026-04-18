@@ -1,0 +1,47 @@
+{
+  "name": "HackTool - CrackMapExec Execution Patterns",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "cmd.exe /Q /c * 1> \\\\*\\*\\* 2>&1",
+          "cmd.exe /C * > \\\\*\\*\\* 2>&1",
+          "cmd.exe /C * > *\\Temp\\* 2>&1",
+          "powershell.exe -exec bypass -noni -nop -w 1 -C \"",
+          "powershell.exe -noni -nop -w 1 -enc "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

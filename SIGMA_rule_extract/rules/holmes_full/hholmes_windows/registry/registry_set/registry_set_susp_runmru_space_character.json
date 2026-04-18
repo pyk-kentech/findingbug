@@ -1,0 +1,39 @@
+{
+  "name": "Suspicious Space Characters in RunMRU Registry Path - ClickFix",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": "\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details|contains": [
+          "            ",
+          1
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "Removal Of AMSI Provider Registry Keys",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|startswith": [
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+          "C:\\Program Files\\Windows Defender\\",
+          "C:\\Program Files (x86)\\Windows Defender\\"
+        ],
+        "Image|endswith": "\\MsMpEng.exe"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|endswith": [
+          "{2781761E-28E0-4109-99FE-B9D127C57AFE}",
+          "{A7C452EF-8E9F-42EB-9F2B-245613CA0DC9}"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

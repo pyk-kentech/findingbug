@@ -1,0 +1,40 @@
+{
+  "name": "PUA - NimScan Execution",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\NimScan.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Hashes|contains": [
+          "IMPHASH=41BB1C7571B3A724EB83A1D2B96DBB8C",
+          "IMPHASH=B1B6ADACB172795480179EFD18A29549",
+          "IMPHASH=0D1F896DC7642AD8384F9042F30279C2"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

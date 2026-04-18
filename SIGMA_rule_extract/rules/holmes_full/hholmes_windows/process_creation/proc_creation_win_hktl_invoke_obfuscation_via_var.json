@@ -1,0 +1,47 @@
+{
+  "name": "Invoke-Obfuscation VAR++ LAUNCHER OBFUSCATION",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains|all": [
+          "&&set",
+          "cmd",
+          "/c",
+          "-f"
+        ],
+        "CommandLine|contains": [
+          "{0}",
+          "{1}",
+          "{2}",
+          "{3}",
+          "{4}",
+          "{5}"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

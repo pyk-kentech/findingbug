@@ -1,0 +1,41 @@
+{
+  "name": "Potential DLL Sideloading Using Coregen.exe",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\coregen.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Program Files (x86)\\Microsoft Silverlight\\",
+          "C:\\Program Files\\Microsoft Silverlight\\",
+          "C:\\Windows\\System32\\",
+          "C:\\Windows\\SysWOW64\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "Cobalt Strike DNS Beaconing",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "query": [
+          "aaa.stage.*",
+          "post.1*"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

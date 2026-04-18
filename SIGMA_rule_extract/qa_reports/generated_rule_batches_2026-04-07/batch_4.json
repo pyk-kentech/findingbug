@@ -1,0 +1,1148 @@
+[
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_network_p2s_vpn_modified_or_deleted.json",
+    "rule": {
+      "name": "Azure Point-to-site VPN Modified or Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "operationName": [
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/WRITE",
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/DELETE",
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/RESET/ACTION",
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/GENERATEVPNPROFILE/ACTION",
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/DISCONNECTP2SVPNCONNECTIONS/ACTION",
+              "MICROSOFT.NETWORK/P2SVPNGATEWAYS/PROVIDERS/MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/WRITE"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_cloudtrail_bucket_deleted.json",
+    "rule": {
+      "name": "AWS Bucket Deleted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": "AWS::S3::Bucket"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/identity_protection/azure_identity_protection_inbox_forwarding_rule.json",
+    "rule": {
+      "name": "Suspicious Inbox Forwarding Identity Protection",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "riskEventType": "suspiciousInboxForwarding"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_change_file_time_attr.json",
+    "rule": {
+      "name": "File Time Attribute Change",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/touch",
+            "CommandLine|contains": [
+              "-t",
+              "-acmr",
+              "-d",
+              "-r"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_python_http_server_execution.json",
+    "rule": {
+      "name": "Python WebServer Execution - Linux",
+      "apt_stage": "Exfiltration",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/python",
+              "/python2",
+              "/python3"
+            ],
+            "Image|contains": [
+              "/python2.",
+              "/python3."
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Collection",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_security_software_discovery.json",
+    "rule": {
+      "name": "Security Software Discovery - MacOs",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image": "/usr/bin/grep",
+            "CommandLine|contains": [
+              "nessusd",
+              "santad",
+              "CbDefense",
+              "falcond",
+              "td-agent",
+              "packetbeat",
+              "filebeat",
+              "auditbeat",
+              "osqueryd",
+              "BlockBlock",
+              "LuLu"
+            ],
+            "CommandLine|contains|all": [
+              "Little",
+              "Snitch"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_split_file_into_pieces.json",
+    "rule": {
+      "name": "Split A File Into Pieces",
+      "apt_stage": "Exfiltration",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/split"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Collection",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_susp_in_memory_download_and_compile.json",
+    "rule": {
+      "name": "Potential In-Memory Download And Compile Of Payloads",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "*osacompile* | *curl*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_remote_system_discovery.json",
+    "rule": {
+      "name": "Linux Remote System Discovery",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/arp",
+              "/ping"
+            ],
+            "CommandLine|contains": [
+              "-a",
+              " 10.",
+              " 192.168.",
+              " 172.16.",
+              " 172.17.",
+              " 172.18.",
+              " 172.19.",
+              " 172.20.",
+              " 172.21.",
+              " 172.22.",
+              " 172.23.",
+              " 172.24.",
+              " 172.25.",
+              " 172.26.",
+              " 172.27.",
+              " 172.28.",
+              " 172.29.",
+              " 172.30.",
+              " 172.31.",
+              " 127.",
+              " 169.254."
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/auditd/path/lnx_auditd_auditing_config_change.json",
+    "rule": {
+      "name": "Auditing Configuration Changes on Linux Host",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "/etc/audit/*",
+              "/etc/libaudit.conf",
+              "/etc/audisp/*"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/application/esent/win_esent_ntdsutil_abuse_susp_location.json",
+    "rule": {
+      "name": "Dump Ntds.dit To Suspicious Location",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Provider_Name": "ESENT",
+            "EventID": 325,
+            "Data|contains": "ntds.dit"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              ":\\ntds.dit",
+              "\\Appdata\\",
+              "\\Desktop\\",
+              "\\Downloads\\",
+              "\\Perflogs\\",
+              "\\Temp\\",
+              "\\Users\\Public\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/firewall_as/win_firewall_as_delete_rule.json",
+    "rule": {
+      "name": "A Rule Has Been Deleted From The Windows Firewall Exception List",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ModifyingApplication|startswith": [
+              "C:\\Program Files (x86)\\",
+              "C:\\Program Files\\",
+              "C:\\Windows\\WinSxS\\"
+            ],
+            "ModifyingApplication": [
+              "C:\\Windows\\System32\\svchost.exe",
+              null,
+              ""
+            ],
+            "ModifyingApplication|endswith": "\\MsMpEng.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_triple_cross_rootkit_install.json",
+    "rule": {
+      "name": "Triple Cross eBPF Rootkit Install Commands",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/sudo",
+            "CommandLine|contains|all": [
+              " tc ",
+              " enp0s3 "
+            ],
+            "CommandLine|contains": [
+              " qdisc ",
+              " filter "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/code_integrity/win_codeintegrity_unsigned_image_loaded.json",
+    "rule": {
+      "name": "CodeIntegrity - Unsigned Image Loaded",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "3037"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/signin_logs/azure_unusual_authentication_interruption.json",
+    "rule": {
+      "name": "Azure Unusual Authentication Interruption",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "ResultType": [
+              "50097",
+              "50155",
+              "50158"
+            ],
+            "ResultDescription": [
+              "Device authentication is required",
+              "DeviceAuthenticationFailed",
+              "ExternalSecurityChallenge - External security challenge was not satisfied"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_category/antivirus/av_webshell.json",
+    "rule": {
+      "name": "Antivirus Web Shell Detection",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Signature|startswith": [
+              "ASP.",
+              "IIS/BackDoor",
+              "JAVA/Backdoor",
+              "JSP.",
+              "Perl.",
+              "PHP.",
+              "Troj/ASP",
+              "Troj/JSP",
+              "Troj/PHP",
+              "VBS/Uxor"
+            ],
+            "Signature|contains": [
+              "ASP_",
+              "ASP:",
+              "ASP.Agent",
+              "ASP/",
+              "Aspdoor",
+              "ASPXSpy",
+              "Backdoor.ASP",
+              "Backdoor.Java",
+              "Backdoor.JSP",
+              "Backdoor.PHP",
+              "Backdoor.VBS",
+              "Backdoor/ASP",
+              "Backdoor/Java",
+              "Backdoor/JSP",
+              "Backdoor/PHP",
+              "Backdoor/VBS",
+              "C99shell",
+              "Chopper",
+              "filebrowser",
+              "JSP_",
+              "JSP:",
+              "JSP.Agent",
+              "JSP/",
+              "Perl:",
+              "Perl/",
+              "PHP_",
+              "PHP:",
+              "PHP.Agent",
+              "PHP/",
+              "PHPShell",
+              "PShlSpy",
+              "SinoChoper",
+              "Trojan.ASP",
+              "Trojan.JSP",
+              "Trojan.PHP",
+              "Trojan.VBS",
+              "VBS.Agent",
+              "VBS/Agent",
+              "Webshell"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_kubernetes_events_deleted.json",
+    "rule": {
+      "name": "Azure Kubernetes Events Deleted",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/EVENTS.K8S.IO/EVENTS"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/zeek/zeek_smb_converted_win_impacket_secretdump.json",
+    "rule": {
+      "name": "Possible Impacket SecretDump Remote Activity - Zeek",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": [
+              "*\\ADMIN$\\*SYSTEM32\\*.tmp"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/cisco/aaa/cisco_cli_discovery.json",
+    "rule": {
+      "name": "Cisco Discovery",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "dir",
+              "show arp",
+              "show cdp",
+              "show clock",
+              "show ip interface",
+              "show ip route",
+              "show ip sockets",
+              "show processes",
+              "show ssh",
+              "show users",
+              "show version"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/capi2/win_capi2_acquire_certificate_private_key.json",
+    "rule": {
+      "name": "Certificate Private Key Acquired",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": "70"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/network_connection/net_connection_lnx_susp_malware_callback_port.json",
+    "rule": {
+      "name": "Potentially Suspicious Malware Callback Communication - Linux",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {
+            "DestinationPort": [
+              "888",
+              "999",
+              "2200",
+              "2222",
+              "4000",
+              "4444",
+              "6789",
+              "8531",
+              "50501",
+              "51820"
+            ],
+            "DestinationIp|cidr": [
+              "127.0.0.0/8",
+              "10.0.0.0/8",
+              "172.16.0.0/12",
+              "192.168.0.0/16",
+              "169.254.0.0/16",
+              "::1/128",
+              "fe80::/10",
+              "fc00::/7"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_create_account.json",
+    "rule": {
+      "name": "Creation Of A Local User Account",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/dscl",
+              "/sysadminctl"
+            ],
+            "CommandLine|contains": [
+              "create",
+              "addUser"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/builtin/lnx_potential_susp_ebpf_activity.json",
+    "rule": {
+      "name": "Potential Suspicious BPF Activity - Linux",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "*bpf_probe_write_user*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/file_event/file_event_lnx_persistence_cron_files.json",
+    "rule": {
+      "name": "Persistence Via Cron Files",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|startswith": [
+              "/etc/cron.d/",
+              "/etc/cron.daily/",
+              "/etc/cron.hourly/",
+              "/etc/cron.monthly/",
+              "/etc/cron.weekly/",
+              "/var/spool/cron/crontabs/"
+            ],
+            "TargetFilename|contains": [
+              "/etc/cron.allow",
+              "/etc/cron.deny",
+              "/etc/crontab"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_sts_assumerole_misuse.json",
+    "rule": {
+      "name": "AWS STS AssumeRole Misuse",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "userIdentity.type": "AssumedRole",
+            "userIdentity.sessionContext.sessionIssuer.type": "Role"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  }
+]

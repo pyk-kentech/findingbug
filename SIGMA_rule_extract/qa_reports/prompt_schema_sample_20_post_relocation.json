@@ -1,0 +1,1319 @@
+{
+  "sample_size": 20,
+  "seed": 20260406,
+  "selection": "random sample from Sigma source rules with file size <= 5000 bytes to avoid outlier timeout",
+  "violating_rules": 4,
+  "results": [
+    {
+      "source": "rules/windows/file/file_event/file_event_win_uac_bypass_idiagnostic_profile.yml",
+      "size_bytes": 779,
+      "relation": "CREATE",
+      "subject_keys": [
+        "Image"
+      ],
+      "object_keys": [
+        "TargetFilename"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "CREATE",
+        "subject_attributes": {
+          "Image": "*\\DllHost.exe"
+        },
+        "object_attributes": {
+          "TargetFilename": "C:\\Windows\\System32\\*.dll"
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "file_event_win_uac_bypass_idiagnostic_profile",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "CREATE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image": "*\\DllHost.exe"
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {
+              "TargetFilename": "C:\\Windows\\System32\\*.dll"
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/registry/registry_event/registry_event_new_dll_added_to_appinit_dlls_registry_key.yml",
+      "size_bytes": 1253,
+      "relation": "WRITE",
+      "subject_keys": [],
+      "object_keys": [
+        "TargetObject|endswith"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "WRITE",
+        "subject_attributes": {},
+        "object_attributes": {
+          "TargetObject|endswith": [
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+            "\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "registry_event_new_dll_added_to_appinit_dlls_registry_key",
+        "apt_stage": "Establish Foothold",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "WRITE",
+          "subject": {
+            "type": "Process",
+            "attributes": {}
+          },
+          "object": {
+            "type": "Registry",
+            "attributes": {
+              "TargetObject|endswith": [
+                "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+                "\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Execution",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_hostname_execution.yml",
+      "size_bytes": 692,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Image|endswith"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Image|endswith": "\\HOSTNAME.EXE"
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_hostname_execution",
+        "apt_stage": "Internal Recon",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": "\\HOSTNAME.EXE"
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Establish Foothold",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/builtin/security/win_security_invoke_obfuscation_via_stdin_services_security.yml",
+      "size_bytes": 953,
+      "relation": "EXECUTE",
+      "subject_keys": [],
+      "object_keys": [
+        "ServiceFileName"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "ServiceFileName": [
+            "*set*&&*environment*invoke*${input)*"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "win_security_invoke_obfuscation_via_stdin_services_security",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {}
+          },
+          "object": {
+            "type": "File",
+            "attributes": {
+              "ServiceFileName": [
+                "*set*&&*environment*invoke*${input)*"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/powershell/powershell_module/posh_pm_invoke_obfuscation_obfuscated_iex.yml",
+      "size_bytes": 1389,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "CommandLine"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "CommandLine": [
+            "\\\\$PSHome\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$PSHome\\\\[",
+            "\\\\$ShellId\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$ShellId\\\\[",
+            "\\\\$env:Public\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$env:Public\\\\[",
+            "\\\\$env:ComSpec\\\\[(\\s*\\d{1,3}\\s*,){2}",
+            "\\*mdr\\*\\\\W\\\\s*\\\\)\\\\.Name",
+            "\\\\$VerbosePreference\\\\.ToString\\\\(",
+            "\\[String\\]\\\\s*\\\\$VerbosePreference"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "posh_pm_invoke_obfuscation_obfuscated_iex",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "CommandLine": [
+                "\\\\$PSHome\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$PSHome\\\\[",
+                "\\\\$ShellId\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$ShellId\\\\[",
+                "\\\\$env:Public\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$env:Public\\\\[",
+                "\\\\$env:ComSpec\\\\[(\\s*\\d{1,3}\\s*,){2}",
+                "\\*mdr\\*\\\\W\\\\s*\\\\)\\\\.Name",
+                "\\\\$VerbosePreference\\\\.ToString\\\\(",
+                "\\[String\\]\\\\s*\\\\$VerbosePreference"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_java_susp_child_process_2.yml",
+      "size_bytes": 1181,
+      "relation": "SPAWN",
+      "subject_keys": [
+        "ParentImage|endswith"
+      ],
+      "object_keys": [
+        "Image|endswith"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "SPAWN",
+        "subject_attributes": {
+          "ParentImage|endswith": "\\java.exe"
+        },
+        "object_attributes": {
+          "Image|endswith": [
+            "\\bash.exe",
+            "\\cmd.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_java_susp_child_process_2",
+        "apt_stage": "Establish Foothold",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "SPAWN",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "ParentImage|endswith": "\\java.exe"
+            }
+          },
+          "object": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": [
+                "\\bash.exe",
+                "\\cmd.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Execution",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_renamed_jusched.yml",
+      "size_bytes": 835,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Description"
+      ],
+      "object_keys": [
+        "Image|endswith"
+      ],
+      "violations": [
+        "subject_noncanonical_base:Description"
+      ],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Description": [
+            "Java Update Scheduler",
+            "Java(TM) Update Scheduler"
+          ]
+        },
+        "object_attributes": {
+          "Image|endswith": "\\jusched.exe"
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_renamed_jusched",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Description": [
+                "Java Update Scheduler",
+                "Java(TM) Update Scheduler"
+              ]
+            }
+          },
+          "object": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": "\\jusched.exe"
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/linux/process_creation/proc_creation_lnx_ruby_reverse_shell.yml",
+      "size_bytes": 944,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Image|contains",
+        "CommandLine|contains|all",
+        "CommandLine|contains"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Image|contains": "ruby",
+          "CommandLine|contains|all": [
+            " -e",
+            "rsocket",
+            "TCPSocket"
+          ],
+          "CommandLine|contains": [
+            " ash",
+            " bash",
+            " bsh",
+            " csh",
+            " ksh",
+            " pdksh",
+            " sh",
+            " tcsh"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_lnx_ruby_reverse_shell",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image|contains": "ruby",
+              "CommandLine|contains|all": [
+                " -e",
+                "rsocket",
+                "TCPSocket"
+              ],
+              "CommandLine|contains": [
+                " ash",
+                " bash",
+                " bsh",
+                " csh",
+                " ksh",
+                " pdksh",
+                " sh",
+                " tcsh"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/application/kubernetes/audit/kubernetes_audit_unauthorized_unauthenticated_actions.yml",
+      "size_bytes": 982,
+      "relation": null,
+      "subject_keys": [],
+      "object_keys": [],
+      "violations": [
+        "build_error:Rule is too broad: Subject and Object lack specific constraints."
+      ],
+      "build_error": "Rule is too broad: Subject and Object lack specific constraints.",
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {},
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": null
+    },
+    {
+      "source": "rules/windows/registry/registry_set/registry_set_legalnotice_susp_message.yml",
+      "size_bytes": 1012,
+      "relation": "WRITE",
+      "subject_keys": [],
+      "object_keys": [
+        "TargetObject|contains",
+        "Details|contains"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "WRITE",
+        "subject_attributes": {},
+        "object_attributes": {
+          "TargetObject|contains": [
+            "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\LegalNoticeCaption",
+            "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\LegalNoticeText"
+          ],
+          "Details|contains": [
+            "encrypted",
+            "Unlock-Password",
+            "paying"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "registry_set_legalnotice_susp_message",
+        "apt_stage": "Complete Mission",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "WRITE",
+          "subject": {
+            "type": "Process",
+            "attributes": {}
+          },
+          "object": {
+            "type": "Registry",
+            "attributes": {
+              "TargetObject|contains": [
+                "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\LegalNoticeCaption",
+                "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\LegalNoticeText"
+              ],
+              "Details|contains": [
+                "encrypted",
+                "Unlock-Password",
+                "paying"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Lateral Movement",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/cloud/azure/signin_logs/azure_user_login_blocked_by_conditional_access.yml",
+      "size_bytes": 845,
+      "relation": null,
+      "subject_keys": [],
+      "object_keys": [],
+      "violations": [
+        "build_error:Rule is too broad: Subject and Object lack specific constraints."
+      ],
+      "build_error": "Rule is too broad: Subject and Object lack specific constraints.",
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {},
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": null
+    },
+    {
+      "source": "rules/windows/registry/registry_event/registry_event_new_dll_added_to_appcertdlls_registry_key.yml",
+      "size_bytes": 1179,
+      "relation": "WRITE",
+      "subject_keys": [],
+      "object_keys": [
+        "TargetObject"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "WRITE",
+        "subject_attributes": {},
+        "object_attributes": {
+          "TargetObject": [
+            "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls",
+            "HKLM\\SYSTEM\\CurentControlSet\\Control\\Session Manager\\AppCertDlls"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "registry_event_new_dll_added_to_appcertdlls_registry_key",
+        "apt_stage": "Establish Foothold",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "WRITE",
+          "subject": {
+            "type": "Process",
+            "attributes": {}
+          },
+          "object": {
+            "type": "Registry",
+            "attributes": {
+              "TargetObject": [
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls",
+                "HKLM\\SYSTEM\\CurentControlSet\\Control\\Session Manager\\AppCertDlls"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Execution",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_powershell_base64_invoke.yml",
+      "size_bytes": 1250,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Image|endswith",
+        "OriginalFileName",
+        "CommandLine|contains"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Image|endswith": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "OriginalFileName": [
+            "PowerShell.EXE",
+            "pwsh.dll"
+          ],
+          "CommandLine|contains": [
+            "-e",
+            "SQBuAHYAbwBrAGUALQ",
+            "kAbgB2AG8AawBlAC0A",
+            "JAG4AdgBvAGsAZQAtA",
+            "SW52b2tlL",
+            "ludm9rZS",
+            "JbnZva2Ut"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_powershell_base64_invoke",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": [
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ],
+              "OriginalFileName": [
+                "PowerShell.EXE",
+                "pwsh.dll"
+              ],
+              "CommandLine|contains": [
+                "-e",
+                "SQBuAHYAbwBrAGUALQ",
+                "kAbgB2AG8AawBlAC0A",
+                "JAG4AdgBvAGsAZQAtA",
+                "SW52b2tlL",
+                "ludm9rZS",
+                "JbnZva2Ut"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/builtin/system/service_control_manager/win_system_invoke_obfuscation_via_use_mshta_services.yml",
+      "size_bytes": 730,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Provider_Name",
+        "EventID"
+      ],
+      "object_keys": [
+        "ImagePath|contains|all"
+      ],
+      "violations": [
+        "subject_noncanonical_base:Provider_Name",
+        "subject_noncanonical_base:EventID"
+      ],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Provider_Name": "Service Control Manager",
+          "EventID": 7045,
+          "ImagePath|contains|all": [
+            "mshta",
+            "vbscript:createobject"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "win_system_invoke_obfuscation_via_use_mshta_services",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Provider_Name": "Service Control Manager",
+              "EventID": 7045
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {
+              "ImagePath|contains|all": [
+                "mshta",
+                "vbscript:createobject"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/image_load/image_load_side_load_windows_defender.yml",
+      "size_bytes": 1288,
+      "relation": "READ",
+      "subject_keys": [
+        "Image"
+      ],
+      "object_keys": [
+        "ImageLoaded"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "READ",
+        "subject_attributes": {
+          "Image": [
+            "*\\MpCmdRun.exe",
+            "*\\NisSrv.exe"
+          ]
+        },
+        "object_attributes": {
+          "ImageLoaded": "*\\mpclient.dll"
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "image_load_side_load_windows_defender",
+        "apt_stage": "Establish Foothold",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "READ",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image": [
+                "*\\MpCmdRun.exe",
+                "*\\NisSrv.exe"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {
+              "ImageLoaded": "*\\mpclient.dll"
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Execution",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_bginfo_suspicious_child_process.yml",
+      "size_bytes": 1454,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "ParentImage|endswith"
+      ],
+      "object_keys": [
+        "Image|endswith",
+        "Image|contains"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "ParentImage|endswith": [
+            "\\bginfo.exe",
+            "\\bginfo64.exe"
+          ]
+        },
+        "object_attributes": {
+          "Image|endswith": [
+            "\\calc.exe",
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\notepad.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\wscript.exe"
+          ],
+          "Image|contains": [
+            "\\AppData\\Local\\",
+            "\\AppData\\Roaming\\",
+            ":\\Users\\Public\\",
+            ":\\Temp\\",
+            ":\\Windows\\Temp\\",
+            ":\\PerfLogs\\"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_bginfo_suspicious_child_process",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "ParentImage|endswith": [
+                "\\bginfo.exe",
+                "\\bginfo64.exe"
+              ]
+            }
+          },
+          "object": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": [
+                "\\calc.exe",
+                "\\cmd.exe",
+                "\\cscript.exe",
+                "\\mshta.exe",
+                "\\notepad.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\wscript.exe"
+              ],
+              "Image|contains": [
+                "\\AppData\\Local\\",
+                "\\AppData\\Roaming\\",
+                ":\\Users\\Public\\",
+                ":\\Temp\\",
+                ":\\Windows\\Temp\\",
+                ":\\PerfLogs\\"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_jsc_execution.yml",
+      "size_bytes": 969,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Image|endswith",
+        "OriginalFileName"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Image|endswith": "\\jsc.exe",
+          "OriginalFileName": "jsc.exe"
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_jsc_execution",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image|endswith": "\\jsc.exe",
+              "OriginalFileName": "jsc.exe"
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_susp_velociraptor_child_process.yml",
+      "size_bytes": 1802,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "ParentImage|endswith"
+      ],
+      "object_keys": [
+        "CommandLine|contains|all"
+      ],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "ParentImage|endswith": "\\Velociraptor.exe"
+        },
+        "object_attributes": {
+          "CommandLine|contains|all": [
+            "code.exe",
+            "tunnel",
+            "--accept-server-license-terms"
+          ]
+        },
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_susp_velociraptor_child_process",
+        "apt_stage": "Establish Foothold",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "ParentImage|endswith": "\\Velociraptor.exe"
+            }
+          },
+          "object": {
+            "type": "Process",
+            "attributes": {
+              "CommandLine|contains|all": [
+                "code.exe",
+                "tunnel",
+                "--accept-server-license-terms"
+              ]
+            }
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Execution",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_uninstall_crowdstrike_falcon.yml",
+      "size_bytes": 898,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "CommandLine|contains|all"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "CommandLine|contains|all": [
+            "\\WindowsSensor.exe",
+            " /uninstall",
+            " /quiet"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_uninstall_crowdstrike_falcon",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "CommandLine|contains|all": [
+                "\\WindowsSensor.exe",
+                " /uninstall",
+                " /quiet"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_susp_ntfs_short_name_use_image.yml",
+      "size_bytes": 1813,
+      "relation": "EXECUTE",
+      "subject_keys": [
+        "Image|contains"
+      ],
+      "object_keys": [],
+      "violations": [],
+      "build_error": null,
+      "extracted": {
+        "relation": "EXECUTE",
+        "subject_attributes": {
+          "Image|contains": [
+            "~1.bat",
+            "~1.dll",
+            "~1.exe",
+            "~1.hta",
+            "~1.js",
+            "~1.msi",
+            "~1.ps1",
+            "~1.tmp",
+            "~1.vbe",
+            "~1.vbs",
+            "~2.bat",
+            "~2.dll",
+            "~2.exe",
+            "~2.hta",
+            "~2.js",
+            "~2.msi",
+            "~2.ps1",
+            "~2.tmp",
+            "~2.vbe",
+            "~2.vbs"
+          ]
+        },
+        "object_attributes": {},
+        "threshold": 1
+      },
+      "holmes": {
+        "name": "proc_creation_win_susp_ntfs_short_name_use_image",
+        "apt_stage": "Execution",
+        "severity_score": 5.0,
+        "match_logic": {
+          "relation": "EXECUTE",
+          "subject": {
+            "type": "Process",
+            "attributes": {
+              "Image|contains": [
+                "~1.bat",
+                "~1.dll",
+                "~1.exe",
+                "~1.hta",
+                "~1.js",
+                "~1.msi",
+                "~1.ps1",
+                "~1.tmp",
+                "~1.vbe",
+                "~1.vbs",
+                "~2.bat",
+                "~2.dll",
+                "~2.exe",
+                "~2.hta",
+                "~2.js",
+                "~2.msi",
+                "~2.ps1",
+                "~2.tmp",
+                "~2.vbe",
+                "~2.vbs"
+              ]
+            }
+          },
+          "object": {
+            "type": "File",
+            "attributes": {}
+          },
+          "entity_bindings": {
+            "subject": "$subject_node",
+            "object": "$object_node"
+          }
+        },
+        "prerequisites": {
+          "operator": "AND",
+          "predicates": [
+            {
+              "type": "stage_path",
+              "quantifier": "EXISTS",
+              "source_stage": "Initial Compromise",
+              "target_node": "$subject_node",
+              "threshold": 1
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "violations": [
+    {
+      "source": "rules/windows/process_creation/proc_creation_win_renamed_jusched.yml",
+      "violations": [
+        "subject_noncanonical_base:Description"
+      ]
+    },
+    {
+      "source": "rules/application/kubernetes/audit/kubernetes_audit_unauthorized_unauthenticated_actions.yml",
+      "violations": [
+        "build_error:Rule is too broad: Subject and Object lack specific constraints."
+      ]
+    },
+    {
+      "source": "rules/cloud/azure/signin_logs/azure_user_login_blocked_by_conditional_access.yml",
+      "violations": [
+        "build_error:Rule is too broad: Subject and Object lack specific constraints."
+      ]
+    },
+    {
+      "source": "rules/windows/builtin/system/service_control_manager/win_system_invoke_obfuscation_via_use_mshta_services.yml",
+      "violations": [
+        "subject_noncanonical_base:Provider_Name",
+        "subject_noncanonical_base:EventID"
+      ]
+    }
+  ]
+}

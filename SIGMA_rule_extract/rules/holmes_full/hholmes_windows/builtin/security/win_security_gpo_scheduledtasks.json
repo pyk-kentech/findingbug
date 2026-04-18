@@ -1,0 +1,57 @@
+{
+  "name": "Persistence and Execution at Scale via GPO Scheduled Task",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "5136",
+        "AttributeLDAPDisplayName": [
+          "gPCMachineExtensionNames",
+          "gPCUserExtensionNames"
+        ],
+        "AttributeValue|contains": [
+          "CAB54552-DEEA-4691-817E-ED4A4D1AFC72",
+          "AADCED64-746C-4633-A97C-D61349046527"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "EventID": "5145",
+        "ShareName|endswith": "\\SYSVOL",
+        "RelativeTargetName|endswith": "ScheduledTasks.xml",
+        "AccessList|contains": [
+          "WriteData",
+          "%%4417"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

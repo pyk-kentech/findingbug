@@ -1,0 +1,46 @@
+{
+  "name": "Bitbucket User Details Export Attempt Detected",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "auditType.category": "Users and groups",
+        "auditType.action": [
+          "User permissions export failed",
+          "User permissions export started",
+          "User permissions exported"
+        ]
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

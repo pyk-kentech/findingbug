@@ -1,0 +1,47 @@
+{
+  "name": "Suspicious Child Process of AspNetCompiler",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\aspnet_compiler.exe",
+        "Image|endswith": [
+          "\\calc.exe",
+          "\\notepad.exe"
+        ],
+        "Image|contains": [
+          "\\Users\\Public\\",
+          "\\AppData\\Local\\Temp\\",
+          "\\AppData\\Local\\Roaming\\",
+          ":\\Temp\\",
+          ":\\Windows\\Temp\\",
+          ":\\Windows\\System32\\Tasks\\",
+          ":\\Windows\\Tasks\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

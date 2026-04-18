@@ -1,0 +1,71 @@
+{
+  "name": "Windows Webshell Strings",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": [
+          "=whoami",
+          "=net%20user",
+          "=net+user",
+          "=net%2Buser",
+          "=cmd%20/c%",
+          "=cmd+/c+",
+          "=cmd%2B/c%",
+          "=cmd%20/r%",
+          "=cmd+/r+",
+          "=cmd%2B/r%",
+          "=cmd%20/k%",
+          "=cmd+/k+",
+          "=cmd%2B/k%",
+          "=powershell%",
+          "=powershell+",
+          "=tasklist%",
+          "=tasklist+",
+          "=wmic%",
+          "=wmic+",
+          "=ssh%",
+          "=ssh+",
+          "=python%",
+          "=python+",
+          "=python3%",
+          "=python3+",
+          "=ipconfig",
+          "=wget%",
+          "=wget+",
+          "=curl%",
+          "=curl+",
+          "=certutil",
+          "=copy%20%5C%5C",
+          "=dsquery%",
+          "=dsquery+",
+          "=nltest%",
+          "=nltest+"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "Multi Factor Authentication Disabled For User Account",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "LoggedByService": "Core Directory",
+        "Category": "UserManagement",
+        "OperationName": "Update user"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "TargetResources.ModifiedProperties.DisplayName": "StrongAuthenticationRequirement",
+        "TargetResources.ModifiedProperties.NewValue|contains": "\"State\":0"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

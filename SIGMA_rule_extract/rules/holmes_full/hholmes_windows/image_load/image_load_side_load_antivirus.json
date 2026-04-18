@@ -1,0 +1,69 @@
+{
+  "name": "Potential Antivirus Software DLL Sideloading",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": [
+          "\\log.dll",
+          "\\qrt.dll",
+          "\\ashldres.dll",
+          "\\lockdown.dll",
+          "\\vsodscpl.dll",
+          "\\vftrace.dll",
+          "\\wsc.dll",
+          "\\DLPPREM32.dll",
+          "\\tmdbglog.dll"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Program Files\\Bitdefender Antivirus Free\\",
+          "C:\\Program Files (x86)\\Bitdefender Antivirus Free\\",
+          "C:\\Program Files\\Dell\\SARemediation\\audit\\TelemetryUtility.exe",
+          "C:\\Program Files\\Canon\\MyPrinter\\",
+          "C:\\Program Files\\AVAST Software\\Avast\\",
+          "C:\\Program Files (x86)\\AVAST Software\\Avast\\",
+          "C:\\Program Files\\AVG\\Antivirus\\",
+          "C:\\Program Files (x86)\\AVG\\Antivirus\\",
+          "C:\\Program Files\\F-Secure\\Anti-Virus\\",
+          "C:\\Program Files (x86)\\F-Secure\\Anti-Virus\\",
+          "C:\\Program Files\\McAfee\\",
+          "C:\\Program Files (x86)\\McAfee\\",
+          "C:\\Program Files\\CyberArk\\Endpoint Privilege Manager\\Agent\\x32\\",
+          "C:\\Program Files (x86)\\CyberArk\\Endpoint Privilege Manager\\Agent\\x32\\",
+          "C:\\program Files\\AVAST Software\\Avast\\",
+          "C:\\program Files (x86)\\AVAST Software\\Avast\\",
+          "C:\\Program Files\\AVG\\Antivirus\\",
+          "C:\\Program Files (x86)\\AVG\\Antivirus\\",
+          "C:\\program Files\\ESET",
+          "C:\\program Files (x86)\\ESET",
+          "C:\\program Files\\Trend Micro\\Titanium\\",
+          "C:\\program Files (x86)\\Trend Micro\\Titanium\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "Potential Initial Access via DLL Search Order Hijacking",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\winword.exe",
+          "\\excel.exe",
+          "\\powerpnt.exe",
+          "\\MSACCESS.EXE",
+          "\\MSPUB.EXE",
+          "\\fltldr.exe",
+          "\\cmd.exe",
+          "\\certutil.exe",
+          "\\mshta.exe",
+          "\\cscript.exe",
+          "\\wscript.exe",
+          "\\curl.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": ".dll",
+        "TargetFilename|contains|all": [
+          "\\Users\\",
+          "\\AppData\\"
+        ],
+        "TargetFilename|contains": [
+          "\\Microsoft\\OneDrive\\",
+          "\\Microsoft OneDrive\\",
+          "\\Microsoft\\Teams\\",
+          "\\Local\\slack\\app-",
+          "\\Local\\Programs\\Microsoft VS Code\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

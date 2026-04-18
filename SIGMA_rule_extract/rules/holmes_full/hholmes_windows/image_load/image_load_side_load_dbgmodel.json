@@ -1,0 +1,43 @@
+{
+  "name": "Potential DLL Sideloading Of DbgModel.DLL",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\dbgmodel.dll"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Windows\\System32\\",
+          "C:\\Windows\\SysWOW64\\",
+          "C:\\Windows\\WinSxS\\",
+          "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_",
+          "C:\\Program Files (x86)\\Windows Kits\\",
+          "C:\\Program Files\\Windows Kits\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

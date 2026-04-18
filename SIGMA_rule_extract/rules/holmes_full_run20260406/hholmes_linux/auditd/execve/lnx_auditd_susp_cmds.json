@@ -1,0 +1,44 @@
+{
+  "name": "Suspicious Commands Linux",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "cmd1.type": "EXECVE",
+        "cmd1.a0": "chmod",
+        "cmd2.type": "EXECVE",
+        "cmd2.a0": "chmod",
+        "cmd2.a1": "u+s",
+        "cmd3.type": "EXECVE",
+        "cmd3.a0": "cp",
+        "cmd3.a1": "/bin/ksh",
+        "cmd4.type": "EXECVE",
+        "cmd4.a0": "cp",
+        "cmd4.a1": "/bin/sh"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

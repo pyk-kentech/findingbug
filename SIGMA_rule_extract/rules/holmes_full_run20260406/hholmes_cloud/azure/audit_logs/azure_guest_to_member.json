@@ -1,0 +1,36 @@
+{
+  "name": "User State Changed From Guest To Member",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "Category": "UserManagement",
+        "OperationName": "Update user",
+        "properties.message": "\"displayName\":\"UserType\",\"oldValue\":\"[\\\"Guest\\\"]\",\"newValue\":\"[\\\"Member\\\"]\""
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

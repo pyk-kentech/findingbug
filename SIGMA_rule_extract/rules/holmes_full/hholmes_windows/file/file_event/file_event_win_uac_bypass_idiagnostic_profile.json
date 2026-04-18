@@ -1,0 +1,37 @@
+{
+  "name": "UAC Bypass Using IDiagnostic Profile - File",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\DllHost.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|startswith": "C:\\Windows\\System32\\",
+        "TargetFilename|endswith": ".dll"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

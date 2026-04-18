@@ -1,0 +1,54 @@
+{
+  "name": "Potentially Suspicious Child Process Of ClickOnce Application",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains": "\\AppData\\Local\\Apps\\2.0\\"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\calc.exe",
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\explorer.exe",
+          "\\mshta.exe",
+          "\\net.exe",
+          "\\net1.exe",
+          "\\nltest.exe",
+          "\\notepad.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\reg.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\schtasks.exe",
+          "\\werfault.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

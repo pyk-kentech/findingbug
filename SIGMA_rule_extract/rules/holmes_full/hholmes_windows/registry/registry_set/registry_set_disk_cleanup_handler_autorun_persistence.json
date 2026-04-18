@@ -1,0 +1,51 @@
+{
+  "name": "Persistence Via Disk Cleanup Handler - Autorun",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches\\Autorun",
+          "\\CleanupString",
+          "\\PreCleanupString"
+        ],
+        "Details|contains": [
+          "cmd",
+          "powershell",
+          "rundll32",
+          "mshta",
+          "cscript",
+          "wscript",
+          "wsl",
+          "\\Users\\Public\\",
+          "\\Windows\\TEMP\\",
+          "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"
+        ],
+        "Details": "DWORD (0x00000001)"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

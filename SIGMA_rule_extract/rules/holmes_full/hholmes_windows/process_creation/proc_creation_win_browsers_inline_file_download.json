@@ -1,0 +1,67 @@
+{
+  "name": "File Download From Browser Process Via Inline URL",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\brave.exe",
+          "\\chrome.exe",
+          "\\msedge.exe",
+          "\\opera.exe",
+          "\\vivaldi.exe"
+        ],
+        "CommandLine|contains": "http"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|endswith": [
+          ".7z",
+          ".dat",
+          ".dll",
+          ".exe",
+          ".hta",
+          ".ps1",
+          ".psm1",
+          ".txt",
+          ".vbe",
+          ".vbs",
+          ".zip"
+        ],
+        "CommandLine|contains": [
+          ".7z\"",
+          ".dat\"",
+          ".dll\"",
+          ".hta\"",
+          ".ps1\"",
+          ".psm1\"",
+          ".txt\"",
+          ".vbe\"",
+          ".vbs\"",
+          ".zip\""
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

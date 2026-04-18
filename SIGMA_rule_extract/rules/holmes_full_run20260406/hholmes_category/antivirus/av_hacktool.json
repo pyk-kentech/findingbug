@@ -1,0 +1,81 @@
+{
+  "name": "Antivirus Hacktool Detection",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetFilename": [
+          "*ATK/*",
+          "*Exploit.Script.CVE*",
+          "*HKTL*",
+          "*HTOOL*",
+          "*PWS.*",
+          "*PWSX*",
+          "*SecurityTool*"
+        ],
+        "Details": [
+          "*Adfind*",
+          "*Brutel*",
+          "*BruteR*",
+          "*Cobalt*",
+          "*COBEACON*",
+          "*Cometer*",
+          "*DumpCreds*",
+          "*FastReverseProxy*",
+          "*Hacktool*",
+          "*Havoc*",
+          "*Impacket*",
+          "*Keylogger*",
+          "*Koadic*",
+          "*Mimikatz*",
+          "*Nighthawk*",
+          "*PentestPowerShell*",
+          "*Potato*",
+          "*PowerSploit*",
+          "*PowerSSH*",
+          "*PshlSpy*",
+          "*PSWTool*",
+          "*PWCrack*",
+          "*PWDump*",
+          "*Rozena*",
+          "*Rusthound*",
+          "*Sbelt*",
+          "*Seatbelt*",
+          "*SecurityTool*",
+          "*SharpDump*",
+          "*SharpHound*",
+          "*Shellcode*",
+          "*Sliver*",
+          "*Snaffler*",
+          "*SOAPHound*",
+          "*Splinter*",
+          "*Swrort*",
+          "*TurtleLoader*"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "PowerShell Called from an Executable Version Mismatch",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Data|contains": [
+          "EngineVersion=2.",
+          "EngineVersion=4.",
+          "EngineVersion=5."
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Data|contains": "HostVersion=3."
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

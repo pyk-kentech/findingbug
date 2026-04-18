@@ -1,0 +1,60 @@
+{
+  "name": "Potentially Suspicious Desktop Background Change Via Registry",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\svchost.exe",
+          "C:\\Windows\\Explorer.EXE"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "Control Panel\\Desktop",
+          "CurrentVersion\\Policies\\ActiveDesktop",
+          "CurrentVersion\\Policies\\System"
+        ],
+        "TargetObject|endswith": [
+          "\\NoChangingWallpaper",
+          "\\Wallpaper",
+          "\\WallpaperStyle"
+        ],
+        "Details": [
+          "DWORD (0x00000001)",
+          "(Empty)",
+          "2"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

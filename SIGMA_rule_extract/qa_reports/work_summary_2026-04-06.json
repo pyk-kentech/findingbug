@@ -1,0 +1,185 @@
+{
+  "date": "2026-04-06",
+  "project_root": "/home/work/SIGMA/SIGMA_rule_extract",
+  "summary_type": "daily_work_log",
+  "high_level_status": {
+    "prompt_hardening": "completed",
+    "builder_safeguards": "completed",
+    "linter_alignment": "completed",
+    "qa_sampling": "completed",
+    "full_translation_run": "in_progress"
+  },
+  "completed_work": [
+    {
+      "area": "repo_orientation",
+      "details": [
+        "Confirmed workspace structure for HOLMES and SIGMA_rule_extract.",
+        "Used /home/work/SIGMA/SIGMA_rule_extract as the main working tree."
+      ]
+    },
+    {
+      "area": "linter_alignment",
+      "details": [
+        "Updated scripts/qa/rule_linter.py so empty subject constraints are allowed when object constraints are specific.",
+        "Linter now only errors when both subject_attributes and object_attributes are empty or wildcard-only.",
+        "This removed the previous mismatch between builder/validator and linter behavior."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/qa/rule_linter.py"
+      ]
+    },
+    {
+      "area": "llm_batch_reviewer_sync",
+      "details": [
+        "Updated scripts/qa/llm_batch_reviewer.py system prompt so FAIL_TOO_BROAD only triggers when both subject and object are empty or wildcard-only.",
+        "Set up and used Ollama with qwen2.5-coder:14b for local QA review runs."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/qa/llm_batch_reviewer.py"
+      ]
+    },
+    {
+      "area": "holmes_full_qa_progression",
+      "details": [
+        "Initial holmes_full QA result: PASS 2907, FAIL 185.",
+        "After builder retagging pass 1: PASS 3028, FAIL 64.",
+        "After builder retagging pass 2: PASS 3050, FAIL 42.",
+        "EMPTY_OBJECT remediation and manual fixes further improved isolated problem cases."
+      ],
+      "reports": [
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full_retag.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full_retag2.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/holmes_full_fail_focus.md",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/holmes_full_remaining_42.md"
+      ]
+    },
+    {
+      "area": "builder_type_inference",
+      "details": [
+        "Expanded subject/object type inference in scripts/translator/builder.py.",
+        "Added heuristics for network, registry, named pipe, process, identity, resource, cloud resource, and event-style log sources.",
+        "Retagged existing holmes_full outputs using updated heuristics."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/builder.py"
+      ]
+    },
+    {
+      "area": "empty_object_recovery",
+      "details": [
+        "Re-ran selected Sigma sources to recover FAIL_EMPTY_OBJECT cases.",
+        "Manually corrected several stubborn rules where object extraction remained empty.",
+        "Reduced EMPTY_OBJECT issues and converted some cases into more specific mismatch classes."
+      ]
+    },
+    {
+      "area": "random_sampling",
+      "details": [
+        "Generated 4 random JSON bundles with 25 rules each from holmes_full.",
+        "Sampling seed fixed to 20260406 for reproducibility."
+      ],
+      "artifacts": [
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/batch_1.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/batch_2.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/batch_3.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/batch_4.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/manifest.json"
+      ]
+    },
+    {
+      "area": "prompt_overhaul",
+      "details": [
+        "Overhauled HOLMES_SYSTEM_PROMPT in scripts/translator/prompts.py.",
+        "Added STRICT SCHEMA RULES section.",
+        "Added NEGATIVE CONSTRAINTS & FORMATTING section.",
+        "Normalized output example to use canonical CommandLine casing."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/prompts.py"
+      ]
+    },
+    {
+      "area": "few_shot_and_subject_drift_blocking",
+      "details": [
+        "Added few-shot critical examples for ImageLoaded and ImagePath/ServiceFileName placement.",
+        "Added builder-side forbidden subject key relocation safety net.",
+        "Relocation target list: imageloaded, imagepath, servicefilename, targetobject, targetfilename.",
+        "Extended FILE_KEYS and related inference so relocated keys are typed correctly."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/prompts.py",
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/builder.py"
+      ]
+    },
+    {
+      "area": "prompt_validation_sampling",
+      "details": [
+        "Validated prompt behavior on random 20-rule samples using qwen2.5-coder:14b.",
+        "Before relocation safety net, prompt-only validation still showed subject drift.",
+        "After few-shot plus builder relocation, forbidden subject drift for ImageLoaded/ImagePath/ServiceFileName/TargetObject/TargetFilename dropped to 0 in the sampled final HOLMES output."
+      ],
+      "reports": [
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/prompt_schema_sample_20.json",
+        "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/prompt_schema_sample_20_post_relocation.json"
+      ]
+    },
+    {
+      "area": "allow_list_update",
+      "details": [
+        "Added canonical subject allow-list entries for PE metadata and Windows event fields.",
+        "Added keys: description, product, company, eventid, provider_name, logname, channel."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/qa/rule_linter.py"
+      ]
+    },
+    {
+      "area": "full_translation_pipeline",
+      "details": [
+        "Updated run_rule_translation.py to count Too Broad drops separately from ordinary failures.",
+        "Started a fresh full translation run over all YAML rules into rules/holmes_full_run20260406."
+      ],
+      "files": [
+        "/home/work/SIGMA/SIGMA_rule_extract/scripts/run_rule_translation.py"
+      ]
+    }
+  ],
+  "current_translation_run": {
+    "status": "running",
+    "input_directory": "/home/work/SIGMA/SIGMA_rule_extract/rules",
+    "output_directory": "/home/work/SIGMA/SIGMA_rule_extract/rules/holmes_full_run20260406",
+    "input_rule_count": 3136,
+    "snapshot_generated_json_count": 1246,
+    "snapshot_progress_percent": 39.73,
+    "snapshot_too_broad_log_hits": 282,
+    "snapshot_other_error_log_entries": 240,
+    "notes": [
+      "Too Broad entries are expected defensive drops, not ordinary translation failures.",
+      "translation_errors.log contains both Too Broad drops and other processing failures."
+    ]
+  },
+  "key_output_artifacts": [
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full_retag.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/14b_review_summary_holmes_full_retag2.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/holmes_full_fail_focus.md",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/holmes_full_remaining_42.md",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/prompt_schema_sample_20.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/prompt_schema_sample_20_post_relocation.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/random_rule_batches/manifest.json",
+    "/home/work/SIGMA/SIGMA_rule_extract/qa_reports/work_summary_2026-04-06.json"
+  ],
+  "modified_source_files": [
+    "/home/work/SIGMA/SIGMA_rule_extract/scripts/qa/rule_linter.py",
+    "/home/work/SIGMA/SIGMA_rule_extract/scripts/qa/llm_batch_reviewer.py",
+    "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/builder.py",
+    "/home/work/SIGMA/SIGMA_rule_extract/scripts/translator/prompts.py",
+    "/home/work/SIGMA/SIGMA_rule_extract/scripts/run_rule_translation.py"
+  ],
+  "notes_for_next_session": [
+    "Wait for the full translation run in rules/holmes_full_run20260406 to finish.",
+    "After completion, capture final generated JSON count, Too Broad drop count, and other failure count.",
+    "Then run the linter summary and, if needed, another 14B QA pass on the new full output."
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "WSL Kali-Linux Usage",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains|all": [
+          ":\\"
+        ],
+        "ParentImage|endswith": [
+          "\\wsl.exe",
+          "\\wslhost.exe"
+        ],
+        "CommandLine|contains": [
+          "Kali.exe",
+          "Kali-linux",
+          "kalilinux"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "*\\AppData\\Local\\packages\\KaliLinux*",
+          "*\\AppData\\Local\\Microsoft\\WindowsApps\\kali.exe",
+          "*\\Program Files\\WindowsApps\\KaliLinux.*\\kali.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

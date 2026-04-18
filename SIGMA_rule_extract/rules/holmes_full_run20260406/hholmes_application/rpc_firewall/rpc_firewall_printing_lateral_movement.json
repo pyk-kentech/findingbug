@@ -1,0 +1,41 @@
+{
+  "name": "Remote Printing Abuse for Lateral Movement",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventLog": "RPCFW",
+        "EventID": 3,
+        "InterfaceUuid": [
+          "12345678-1234-abcd-ef00-0123456789ab",
+          "76f03f96-cdfd-44fc-a22c-64950a001209",
+          "0b6edbfa-4a24-4fc6-8a23-942b1eca65d1",
+          "ae33069b-a2a8-46ee-a235-ddfd339be281"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

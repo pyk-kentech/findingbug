@@ -1,0 +1,55 @@
+{
+  "name": "Cscript/Wscript Uncommon Script Extension Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": [
+          "wscript.exe",
+          "cscript.exe"
+        ],
+        "Image|endswith": [
+          "\\wscript.exe",
+          "\\cscript.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          ".csv",
+          ".dat",
+          ".doc",
+          ".gif",
+          ".jpeg",
+          ".jpg",
+          ".png",
+          ".ppt",
+          ".txt",
+          ".xls",
+          ".xml"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

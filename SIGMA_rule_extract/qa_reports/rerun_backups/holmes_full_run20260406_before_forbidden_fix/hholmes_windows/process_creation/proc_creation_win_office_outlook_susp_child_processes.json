@@ -1,0 +1,58 @@
+{
+  "name": "Suspicious Outlook Child Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\OUTLOOK.EXE"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\AppVLP.exe",
+          "\\bash.exe",
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\forfiles.exe",
+          "\\hh.exe",
+          "\\mftrace.exe",
+          "\\msbuild.exe",
+          "\\msdt.exe",
+          "\\mshta.exe",
+          "\\msiexec.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\regsvr32.exe",
+          "\\schtasks.exe",
+          "\\scrcons.exe",
+          "\\scriptrunner.exe",
+          "\\sh.exe",
+          "\\svchost.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

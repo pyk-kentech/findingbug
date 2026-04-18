@@ -1,0 +1,53 @@
+{
+  "name": "Renamed AutoIt Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          " /AutoIt3ExecuteScript",
+          " /ErrorStdOut"
+        ],
+        "Hashes|contains": [
+          "IMPHASH=FDC554B3A8683918D731685855683DDF",
+          "IMPHASH=CD30A61B60B3D60CECDB034C8C83C290",
+          "IMPHASH=F8A00C72F2D667D2EDBB234D0C0AE000"
+        ],
+        "OriginalFileName": [
+          "AutoIt3.exe",
+          "AutoIt2.exe",
+          "AutoIt.exe"
+        ],
+        "Image|endswith": [
+          "\\AutoIt.exe",
+          "\\AutoIt2.exe",
+          "\\AutoIt3_x64.exe",
+          "\\AutoIt3.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

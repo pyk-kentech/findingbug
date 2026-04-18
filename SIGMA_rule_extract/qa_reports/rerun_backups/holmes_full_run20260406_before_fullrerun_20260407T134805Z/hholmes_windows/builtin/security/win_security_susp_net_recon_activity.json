@@ -1,0 +1,45 @@
+{
+  "name": "Reconnaissance Activity",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4661",
+        "AccessMask": "0x2d"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "ObjectType": [
+          "SAM_USER",
+          "SAM_GROUP"
+        ],
+        "ObjectName|startswith": "S-1-5-21-",
+        "ObjectName|endswith": [
+          "-500",
+          "-512"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

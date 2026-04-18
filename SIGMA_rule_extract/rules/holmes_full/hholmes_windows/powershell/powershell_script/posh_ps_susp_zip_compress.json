@@ -1,0 +1,38 @@
+{
+  "name": "Zip A Folder With PowerShell For Staging In Temp - PowerShell Script",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          "Compress-Archive -Path*-DestinationPath $env:TEMP",
+          "Compress-Archive -Path*-DestinationPath*\\AppData\\Local\\Temp\\",
+          "Compress-Archive -Path*-DestinationPath*:\\Windows\\Temp\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

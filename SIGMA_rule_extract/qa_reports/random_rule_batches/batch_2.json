@@ -1,0 +1,1245 @@
+{
+  "seed": 20260406,
+  "batch_index": 2,
+  "source_dir": "rules/holmes_full",
+  "source_files": [
+    "rules/holmes_full/hholmes_windows/network_connection/net_connection_win_regasm_network_activity.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_csc_susp_dynamic_compilation.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_hktl_cobaltstrike_bloopers_cmd.json",
+    "rules/holmes_full/hholmes_windows/builtin/security/win_security_aadhealth_svc_agent_regkey_access.json",
+    "rules/holmes_full/hholmes_windows/builtin/system/microsoft_windows_kerberos_key_distribution_center/win_system_kdcsvc_cert_use_no_strong_mapping.json",
+    "rules/holmes_full/hholmes_windows/file/file_delete/file_delete_win_delete_backup_file.json",
+    "rules/holmes_full/hholmes_cloud/azure/audit_logs/azure_aad_secops_new_ca_policy_addedby_bad_actor.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_webshell_creation_detect.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_event/registry_event_stickykey_like_backdoor.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_lolbin_msdeploy.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_dctask64_arbitrary_command_and_dll_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_reg_rdp_keys_tamper.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_sysinternals_tools_masquerading.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_vscode_tunnel_remote_shell_.json",
+    "rules/holmes_full/hholmes_linux/process_creation/proc_creation_lnx_nice_shell_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_cmd_ntdllpipe_redirect.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_x509enrollment.json",
+    "rules/holmes_full/hholmes_linux/process_creation/proc_creation_lnx_esxcli_permission_change_admin.json",
+    "rules/holmes_full/hholmes_application/opencanary/opencanary_mysql_login_attempt.json",
+    "rules/holmes_full/hholmes_linux/auditd/syscall/lnx_auditd_susp_exe_folders.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_set/registry_set_add_load_service_in_safe_mode.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_cmd_ping_copy_combined_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_browsers_chromium_load_extension.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_wmic_uninstall_security_products.json",
+    "rules/holmes_full/hholmes_cloud/aws/cloudtrail/aws_snapshot_backup_exfiltration.json"
+  ],
+  "rules": [
+    {
+      "name": "RegAsm.EXE Initiating Network Connection To Public IP",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\regasm.exe"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dynamic .NET Compilation Via Csc.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\csc.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Operator Bloopers Cobalt Strike Commands",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "OriginalFileName": "Cmd.Exe",
+            "Image|endswith": "\\cmd.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|startswith": [
+              "cmd ",
+              "cmd.exe",
+              "c:\\windows\\system32\\cmd.exe"
+            ],
+            "CommandLine|contains": [
+              "psinject",
+              "spawnas",
+              "make_token",
+              "remote-exec",
+              "rev2self",
+              "dcsync",
+              "logonpasswords",
+              "execute-assembly",
+              "getsystem"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Azure AD Health Service Agents Registry Keys Access",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ProcessName|contains": [
+              "Microsoft.Identity.Health.Adfs.DiagnosticsAgent.exe",
+              "Microsoft.Identity.Health.Adfs.InsightsService.exe",
+              "Microsoft.Identity.Health.Adfs.MonitoringAgent.Startup.exe",
+              "Microsoft.Identity.Health.Adfs.PshSurrogate.exe",
+              "Microsoft.Identity.Health.Common.Clients.ResourceMonitor.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ObjectName": "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\ADHealthAgent"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Certificate Use With No Strong Mapping",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Provider_Name": [
+              "Kerberos-Key-Distribution-Center",
+              "Microsoft-Windows-Kerberos-Key-Distribution-Center"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "EventID": [
+              39,
+              41
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Backup Files Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\cmd.exe",
+              "\\powershell.exe",
+              "\\pwsh.exe",
+              "\\wt.exe",
+              "\\rundll32.exe",
+              "\\regsvr32.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": [
+              ".VHD",
+              ".bac",
+              ".bak",
+              ".wbcat",
+              ".bkf",
+              ".set",
+              ".win",
+              ".dsk"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "New CA Policy by Non-approved Actor",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "properties.message": "Add conditional access policy"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Webshell Creation On Static Website",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": [
+              "\\\\inetpub\\\\wwwroot\\\\",
+              ".ashx",
+              ".asp",
+              ".ph",
+              ".soap",
+              "\\\\www\\\\",
+              "\\\\htdocs\\\\",
+              "\\\\html\\\\",
+              ".ph"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Sticky Key Like Backdoor Usage - Registry",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject|endswith": [
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\sethc.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\utilman.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\osk.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\Magnify.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\Narrator.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\DisplaySwitch.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\atbroker.exe\\Debugger",
+              "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\HelpPane.exe\\Debugger"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Execute Files with Msdeploy.exe",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              "verb:sync",
+              "-source:RunCommand",
+              "-dest:runCommand"
+            ],
+            "Image|endswith": "\\msdeploy.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "ManageEngine Endpoint Central Dctask64.EXE Potential Abuse",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\dctask64.exe",
+            "Hashes|contains": [
+              "IMPHASH=6834B1B94E49701D77CCB3C0895E1AFD",
+              "IMPHASH=1BB6F93B129F398C7C4A76BB97450BBA",
+              "IMPHASH=FAA2AC19875FADE461C8D89DCF2710A3",
+              "IMPHASH=F1039CED4B91572AB7847D26032E6BBF"
+            ],
+            "CommandLine|contains": [
+              " executecmd64 ",
+              " invokeexe ",
+              " injectDll "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Tampering With RDP Related Registry Keys Via Reg.EXE",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\reg.exe",
+            "OriginalFileName": "reg.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              " add ",
+              "\\CurrentControlSet\\Control\\Terminal Server",
+              "REG_DWORD",
+              " /f"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Binary Impersonating Sysinternals Tools",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\accesschk.exe",
+              "\\accesschk64.exe",
+              "\\AccessEnum.exe",
+              "\\ADExplorer.exe",
+              "\\ADExplorer64.exe",
+              "\\ADInsight.exe",
+              "\\ADInsight64.exe",
+              "\\adrestore.exe",
+              "\\adrestore64.exe",
+              "\\Autologon.exe",
+              "\\Autologon64.exe",
+              "\\Autoruns.exe",
+              "\\Autoruns64.exe",
+              "\\autorunsc.exe",
+              "\\autorunsc64.exe",
+              "\\Bginfo.exe",
+              "\\Bginfo64.exe",
+              "\\Cacheset.exe",
+              "\\Cacheset64.exe",
+              "\\Clockres.exe",
+              "\\Clockres64.exe",
+              "\\Contig.exe",
+              "\\Contig64.exe",
+              "\\Coreinfo.exe",
+              "\\Coreinfo64.exe",
+              "\\CPUSTRES.EXE",
+              "\\CPUSTRES64.EXE",
+              "\\ctrl2cap.exe",
+              "\\Dbgview.exe",
+              "\\dbgview64.exe",
+              "\\Desktops.exe",
+              "\\Desktops64.exe",
+              "\\disk2vhd.exe",
+              "\\disk2vhd64.exe",
+              "\\diskext.exe",
+              "\\diskext64.exe",
+              "\\Diskmon.exe",
+              "\\Diskmon64.exe",
+              "\\DiskView.exe",
+              "\\DiskView64.exe",
+              "\\du.exe",
+              "\\du64.exe",
+              "\\efsdump.exe",
+              "\\FindLinks.exe",
+              "\\FindLinks64.exe",
+              "\\handle.exe",
+              "\\handle64.exe",
+              "\\hex2dec.exe",
+              "\\hex2dec64.exe",
+              "\\junction.exe",
+              "\\junction64.exe",
+              "\\ldmdump.exe",
+              "\\listdlls.exe",
+              "\\listdlls64.exe",
+              "\\livekd.exe",
+              "\\livekd64.exe",
+              "\\loadOrd.exe",
+              "\\loadOrd64.exe",
+              "\\loadOrdC.exe",
+              "\\loadOrdC64.exe",
+              "\\logonsessions.exe",
+              "\\logonsessions64.exe",
+              "\\movefile.exe",
+              "\\movefile64.exe",
+              "\\notmyfault.exe",
+              "\\notmyfault64.exe",
+              "\\notmyfaultc.exe",
+              "\\notmyfaultc64.exe",
+              "\\ntfsinfo.exe",
+              "\\ntfsinfo64.exe",
+              "\\pendmoves.exe",
+              "\\pendmoves64.exe",
+              "\\pipelist.exe",
+              "\\pipelist64.exe",
+              "\\portmon.exe",
+              "\\procdump.exe",
+              "\\procdump64.exe",
+              "\\procexp.exe",
+              "\\procexp64.exe",
+              "\\Procmon.exe",
+              "\\Procmon64.exe",
+              "\\psExec.exe",
+              "\\psExec64.exe",
+              "\\psfile.exe",
+              "\\psfile64.exe",
+              "\\psGetsid.exe",
+              "\\psGetsid64.exe",
+              "\\psInfo.exe",
+              "\\psInfo64.exe",
+              "\\pskill.exe",
+              "\\pskill64.exe",
+              "\\pslist.exe",
+              "\\pslist64.exe",
+              "\\psLoggedon.exe",
+              "\\psLoggedon64.exe",
+              "\\psloglist.exe",
+              "\\psloglist64.exe",
+              "\\pspasswd.exe",
+              "\\pspasswd64.exe",
+              "\\psping.exe",
+              "\\psping64.exe",
+              "\\psService.exe",
+              "\\psService64.exe",
+              "\\psshutdown.exe",
+              "\\psshutdown64.exe",
+              "\\pssuspend.exe",
+              "\\pssuspend64.exe",
+              "\\RAMMap.exe",
+              "\\RAMMap64.exe",
+              "\\RDCMan.exe",
+              "\\RegDelNull.exe",
+              "\\RegDelNull64.exe",
+              "\\regjump.exe",
+              "\\ru.exe",
+              "\\ru64.exe",
+              "\\sdelete.exe",
+              "\\sdelete64.exe",
+              "\\ShareEnum.exe",
+              "\\ShareEnum64.exe",
+              "\\shellRunas.exe",
+              "\\sigcheck.exe",
+              "\\sigcheck64.exe",
+              "\\streams.exe",
+              "\\streams64.exe",
+              "\\strings.exe",
+              "\\strings64.exe",
+              "\\sync.exe",
+              "\\sync64.exe",
+              "\\Sysmon.exe",
+              "\\Sysmon64.exe",
+              "\\tcpvcon.exe",
+              "\\tcpvcon64.exe",
+              "\\tcpview.exe",
+              "\\tcpview64.exe",
+              "\\Testlimit.exe",
+              "\\Testlimit64.exe",
+              "\\vmmap.exe",
+              "\\vmmap64.exe",
+              "\\Volumeid.exe",
+              "\\Volumeid64.exe",
+              "\\whois.exe",
+              "\\whois64.exe",
+              "\\Winobj.exe",
+              "\\Winobj64.exe",
+              "\\ZoomIt.exe",
+              "\\ZoomIt64.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Visual Studio Code Tunnel Shell Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ParentImage|contains": "\\servers\\Stable-",
+            "ParentImage|endswith": "\\server\\node.exe",
+            "ParentCommandLine|contains": ".vscode-server"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\powershell.exe",
+              "\\pwsh.exe",
+              "\\wsl.exe",
+              "\\bash.exe"
+            ],
+            "CommandLine|contains": "\\terminal\\browser\\media\\shellIntegration.ps1"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Shell Execution via Nice - Linux",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/nice"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|endswith": [
+              "/bin/bash",
+              "/bin/dash",
+              "/bin/fish",
+              "/bin/sh",
+              "/bin/zsh"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "NtdllPipe Like Activity Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line|contains": [
+              "type %windir%\\system32\\ntdll.dll",
+              "type %systemroot%\\system32\\ntdll.dll",
+              "type c:\\windows\\system32\\ntdll.dll",
+              "\\\\ntdll.dll > \\\\\\.\\\\pipe\\\\"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Suspicious X509Enrollment - Ps Script",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains": [
+              "X509Enrollment.CBinaryConverter",
+              "884e2002-217d-11da-b2a4-000e7bbb2b09"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "ESXi Admin Permission Assigned To Account Via ESXCLI",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/esxcli",
+            "CommandLine|contains": "system",
+            "CommandLine|contains|all": [
+              " permission ",
+              " set",
+              "Admin"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "OR",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          },
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "OpenCanary - MySQL Login Attempt",
+      "apt_stage": "Collection",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "logtype": "8001"
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Program Executions in Suspicious Folders",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "exe|startswith": [
+              "/tmp/",
+              "/var/www/",
+              "/home/*/public_html/",
+              "/usr/local/apache2/",
+              "/usr/local/httpd/",
+              "/var/apache/",
+              "/srv/www/",
+              "/home/httpd/html/",
+              "/srv/http/",
+              "/usr/share/nginx/html/",
+              "/var/lib/pgsql/data/",
+              "/usr/local/mysql/data/",
+              "/var/lib/mysql/",
+              "/var/vsftpd/",
+              "/etc/bind/",
+              "/var/named/"
+            ]
+          }
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Registry Persistence via Service in Safe Mode",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|contains": [
+              "\\Control\\SafeBoot\\Minimal\\",
+              "\\Control\\SafeBoot\\Network\\"
+            ],
+            "TargetObject|endswith": "\\(Default)",
+            "Details": "Service"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potentially Suspicious Ping/Copy Command Combination",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              "ping",
+              "copy "
+            ],
+            "CommandLine|contains|windash": [
+              " -n ",
+              " -y "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Chromium Browser Instance Executed With Custom Extension",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\brave.exe",
+              "\\chrome.exe",
+              "\\msedge.exe",
+              "\\opera.exe",
+              "\\vivaldi.exe"
+            ],
+            "CommandLine|contains": "--load-extension="
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Tampering With Security Products Via WMIC",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              "process ",
+              "where ",
+              "delete"
+            ],
+            "CommandLine|contains": [
+              "%carbon%",
+              "%cylance%",
+              "%endpoint%",
+              "%eset%",
+              "%malware%",
+              "%Sophos%",
+              "%symantec%",
+              "Antivirus",
+              "AVG ",
+              "Carbon Black",
+              "CarbonBlack",
+              "Cb Defense Sensor 64-bit",
+              "Crowdstrike Sensor",
+              "Cylance ",
+              "Dell Threat Defense",
+              "DLP Endpoint",
+              "Endpoint Detection",
+              "Endpoint Protection",
+              "Endpoint Security",
+              "Endpoint Sensor",
+              "ESET File Security",
+              "LogRhythm System Monitor Service",
+              "Malwarebytes",
+              "McAfee Agent",
+              "Microsoft Security Client",
+              "Sophos Anti-Virus",
+              "Sophos AutoUpdate",
+              "Sophos Credential Store",
+              "Sophos Management Console",
+              "Sophos Management Database",
+              "Sophos Management Server",
+              "Sophos Remote Management System",
+              "Sophos Update Manager",
+              "Threat Protection",
+              "VirusScan",
+              "Webroot SecureAnywhere",
+              "Windows Defender"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "AWS Snapshot Backup Exfiltration",
+      "apt_stage": "Exfiltration",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "ec2.amazonaws.com",
+            "eventName": "ModifySnapshotAttribute"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Collection",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  ]
+}

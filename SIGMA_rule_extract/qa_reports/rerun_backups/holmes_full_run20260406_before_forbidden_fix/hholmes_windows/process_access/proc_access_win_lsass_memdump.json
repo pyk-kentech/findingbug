@@ -1,0 +1,48 @@
+{
+  "name": "Potential Credential Dumping Activity Via LSASS",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "GrantedAccess|contains": [
+          "0x1038",
+          "0x1438",
+          "0x143a",
+          "0x1fffff"
+        ],
+        "CallTrace|contains": [
+          "dbgcore.dll",
+          "dbghelp.dll",
+          "kernel32.dll",
+          "kernelbase.dll",
+          "ntdll.dll"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetImage|endswith": "\\lsass.exe"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "Startup/Logon Script Added to Group Policy Object",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "5136",
+          "5145"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "AttributeLDAPDisplayName": [
+          "gPCMachineExtensionNames",
+          "gPCUserExtensionNames"
+        ],
+        "AttributeValue|contains": [
+          "42B5FAAE-6536-11D2-AE5A-0000F87571E3",
+          "40B6664F-4972-11D1-A7CA-0000F87571E3",
+          "40B66650-4972-11D1-A7CA-0000F87571E3"
+        ],
+        "ShareName|endswith": "\\SYSVOL",
+        "RelativeTargetName|endswith": [
+          "\\scripts.ini",
+          "\\psscripts.ini"
+        ],
+        "AccessList|contains": "%%4417"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "Linux HackTool Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "/crackmapexec",
+          "/havoc",
+          "/merlin-agent",
+          "/merlinServer-Linux-x64",
+          "/msfconsole",
+          "/msfvenom",
+          "/ps-empire server",
+          "/ps-empire",
+          "/sliver-client",
+          "/sliver-server",
+          "/Villain.py"
+        ],
+        "Image|contains": [
+          "/cobaltstrike",
+          "/teamserver",
+          "/autorecon",
+          "/httpx",
+          "/legion",
+          "/naabu",
+          "/netdiscover",
+          "/nuclei",
+          "/recon-ng",
+          "/sniper",
+          "/dirb",
+          "/dirbuster",
+          "/eyewitness",
+          "/feroxbuster",
+          "/ffuf",
+          "/gobuster",
+          "/wfuzz",
+          "/whatweb",
+          "/joomscan",
+          "/nikto",
+          "/wpscan",
+          "/aircrack-ng",
+          "/bloodhound-python",
+          "/bpfdos",
+          "/ebpfki",
+          "/evil-winrm",
+          "/hashcat",
+          "/hoaxshell.py",
+          "/hydra",
+          "/john",
+          "/ncrack",
+          "/nxc-ubuntu-latest",
+          "/pidhide",
+          "/pspy32",
+          "/pspy32s",
+          "/pspy64",
+          "/pspy64s",
+          "/setoolkit",
+          "/sqlmap",
+          "/writeblocker",
+          "/linpeas"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

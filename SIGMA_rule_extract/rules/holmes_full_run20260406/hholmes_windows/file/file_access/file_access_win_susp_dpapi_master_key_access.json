@@ -1,0 +1,43 @@
+{
+  "name": "Access To Windows DPAPI Master Keys By Uncommon Applications",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|startswith": [
+          "C:\\Program Files\\",
+          "C:\\Program Files (x86)\\",
+          "C:\\Windows\\system32\\",
+          "C:\\Windows\\SysWOW64\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "FileName|contains": [
+          "\\Microsoft\\Protect\\S-1-5-18\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

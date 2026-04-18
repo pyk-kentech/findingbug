@@ -1,0 +1,69 @@
+{
+  "name": "Uncommon New Firewall Rule Added In Windows Firewall Exception List",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          2004,
+          2071,
+          2097
+        ],
+        "Action": 2,
+        "ApplicationPath|startswith": [
+          "C:\\Program Files (x86)\\",
+          "C:\\Program Files\\",
+          "C:\\Windows\\System32\\",
+          "C:\\Windows\\SysWOW64\\",
+          "C:\\Windows\\WinSxS\\"
+        ],
+        "ApplicationPath|contains": [
+          "C:\\PerfLogs\\",
+          "C:\\Temp\\",
+          "C:\\Tmp\\",
+          "C:\\Users\\Public\\",
+          "C:\\Windows\\Tasks\\",
+          "C:\\Windows\\Temp\\",
+          "\\AppData\\Local\\Temp\\"
+        ],
+        "ApplicationPath": [
+          "System",
+          null,
+          ""
+        ],
+        "ModifyingApplication|startswith": [
+          "C:\\Windows\\WinSxS\\",
+          "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+          "C:\\Program Files\\Windows Defender\\"
+        ],
+        "ModifyingApplication|endswith": [
+          "\\TiWorker.exe",
+          "\\MsMpEng.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

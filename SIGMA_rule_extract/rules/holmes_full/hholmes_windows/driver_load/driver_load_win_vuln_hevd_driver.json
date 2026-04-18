@@ -1,0 +1,39 @@
+{
+  "name": "Vulnerable HackSys Extreme Vulnerable Driver Load",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\HEVD.sys"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Hashes|contains": [
+          "IMPHASH=f26d0b110873a1c7d8c4f08fbeab89c5",
+          "IMPHASH=c46ea2e651fd5f7f716c8867c6d13594"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

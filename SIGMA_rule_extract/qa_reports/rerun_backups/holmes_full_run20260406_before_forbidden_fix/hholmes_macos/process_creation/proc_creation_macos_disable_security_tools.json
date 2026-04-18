@@ -1,0 +1,52 @@
+{
+  "name": "Disable Security Tools",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "unload",
+          "com.objective-see.lulu.plist",
+          "com.objective-see.blockblock.plist",
+          "com.google.santad.plist",
+          "com.carbonblack.defense.daemon.plist",
+          "com.carbonblack.daemon.plist",
+          "at.obdev.littlesnitchd.plist",
+          "com.tenablesecurity.nessusagent.plist",
+          "com.opendns.osx.RoamingClientConfigUpdater.plist",
+          "com.crowdstrike.falcond.plist",
+          "com.crowdstrike.userdaemon.plist",
+          "osquery",
+          "filebeat",
+          "auditbeat",
+          "packetbeat",
+          "td-agent",
+          "disable"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

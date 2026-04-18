@@ -1,0 +1,60 @@
+{
+  "name": "Cmd.EXE Missing Space Characters Execution Anomaly",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "cmd.exe/c",
+          "\\cmd/c",
+          "\"cmd/c",
+          "cmd.exe/k",
+          "\\cmd/k",
+          "\"cmd/k",
+          "cmd.exe/r",
+          "\\cmd/r",
+          "\"cmd/r",
+          "/cwhoami",
+          "/cpowershell",
+          "/cschtasks",
+          "/cbitsadmin",
+          "/ccertutil",
+          "/kwhoami",
+          "/kpowershell",
+          "/kschtasks",
+          "/kbitsadmin",
+          "/kcertutil",
+          "cmd.exe /c",
+          "cmd /c",
+          "cmd.exe /k",
+          "cmd /k",
+          "cmd.exe /r",
+          "cmd /r"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

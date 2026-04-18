@@ -1,0 +1,50 @@
+{
+  "name": "Suspicious Mstsc.EXE Execution With Local RDP File",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\mstsc.exe"
+        ],
+        "OriginalFileName": [
+          "mstsc.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "*:\\Users\\Public\\*",
+          "*:\\Windows\\System32\\spool\\drivers\\color\\*",
+          "*:\\Windows\\System32\\Tasks_Migrated *",
+          "*:\\Windows\\Tasks\\*",
+          "*:\\Windows\\Temp\\*",
+          "*:\\Windows\\Tracing\\*",
+          "\\AppData\\Local\\Temp\\*",
+          "\\Downloads\\*"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

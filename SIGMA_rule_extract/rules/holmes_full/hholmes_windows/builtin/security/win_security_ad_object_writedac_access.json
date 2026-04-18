@@ -1,0 +1,41 @@
+{
+  "name": "AD Object WriteDAC Access",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4662",
+        "ObjectServer": "DS",
+        "AccessMask": "0x40000"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ObjectType": [
+          "19195a5b-6da0-11d0-afd3-00c04fd930c9",
+          "domainDNS"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

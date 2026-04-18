@@ -1,0 +1,57 @@
+{
+  "name": "PUA - PingCastle Execution From Potentially Suspicious Parent",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentCommandLine|contains": [
+          ":\\Perflogs\\",
+          ":\\Temp\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\Temp\\",
+          "\\AppData\\Local\\Temp",
+          "\\AppData\\Roaming\\",
+          "\\Temporary Internet"
+        ],
+        "ParentCommandLine|contains|all": [
+          ":\\Users\\",
+          "\\Contacts\\"
+        ],
+        "Image|endswith": "\\PingCastle.exe",
+        "OriginalFileName": "PingCastle.exe",
+        "CommandLine|contains": [
+          "--no-enum-limit"
+        ],
+        "CommandLine|contains|all": [
+          "--healthcheck",
+          "--server "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Product": "Ping Castle"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "Access of Sudoers File Content",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "/cat",
+          "/ed",
+          "/egrep",
+          "/emacs",
+          "/fgrep",
+          "/grep",
+          "/head",
+          "/less",
+          "/more",
+          "/nano",
+          "/tail"
+        ],
+        "CommandLine|contains": " /etc/sudoers"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": "/etc/sudoers"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

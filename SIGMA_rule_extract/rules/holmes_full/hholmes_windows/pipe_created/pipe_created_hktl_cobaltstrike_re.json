@@ -1,0 +1,34 @@
+{
+  "name": "CobaltStrike Named Pipe Pattern Regex",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "PipeName": "\\mojo\\.5688\\.8052\\.(?:183894939787088877|35780273329370473)[0-9a-f]{2}|\\wkssvc_?[0-9a-f]{2}|\\ntsvcs[0-9a-f]{2}|\\DserNamePipe[0-9a-f]{2}|\\SearchTextHarvester[0-9a-f]{2}|\\mypipe-(?:f|h)[0-9a-f]{2}|\\windows\\.update\\.manager[0-9a-f]{2,3}|\\ntsvcs_[0-9a-f]{2}|\\scerpc_?[0-9a-f]{2}|\\PGMessagePipe[0-9a-f]{2}|\\MsFteWds[0-9a-f]{2}|\\f4c3[0-9a-f]{2}|\\fullduplex_[0-9a-f]{2}|\\msrpc_[0-9a-f]{4}|\\win\\\\msrpc_[0-9a-f]{2}|\\f53f[0-9a-f]{2}|\\rpc_[0-9a-f]{2}|\\spoolss_[0-9a-f]{2}|\\Winsock2\\\\CatalogChangeListener-[0-9a-f]{3}-0,"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

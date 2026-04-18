@@ -1,0 +1,1109 @@
+[
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/firewall_as/win_firewall_as_add_rule.json",
+    "rule": {
+      "name": "Uncommon New Firewall Rule Added In Windows Firewall Exception List",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "EventID": [
+              "2004",
+              "2071",
+              "2097"
+            ],
+            "Action": "2"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ApplicationPath|startswith": [
+              "C:\\Program Files (x86)\\",
+              "C:\\Program Files\\",
+              "C:\\Windows\\System32\\",
+              "C:\\Windows\\SysWOW64\\",
+              "C:\\Windows\\WinSxS\\"
+            ],
+            "ApplicationPath|contains": [
+              "C:\\PerfLogs\\",
+              "C:\\Temp\\",
+              "C:\\Tmp\\",
+              "C:\\Users\\Public\\",
+              "C:\\Windows\\Tasks\\",
+              "C:\\Windows\\Temp\\",
+              "\\AppData\\Local\\Temp\\"
+            ],
+            "ApplicationPath": [
+              "System",
+              null,
+              ""
+            ],
+            "ModifyingApplication|startswith": [
+              "C:\\Windows\\WinSxS\\",
+              "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+              "C:\\Program Files\\Windows Defender\\"
+            ],
+            "ModifyingApplication|endswith": [
+              "\\TiWorker.exe",
+              "\\MsMpEng.exe"
+            ],
+            "ModifyingApplication": [
+              "C:\\Windows\\System32\\svchost.exe",
+              "C:\\Windows\\System32\\dllhost.exe"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_local_account.json",
+    "rule": {
+      "name": "Local System Accounts Discovery - Linux",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/lastlog",
+              "/cat",
+              "/ed",
+              "/head",
+              "/more",
+              "/nano",
+              "/tail",
+              "/vi",
+              "/vim",
+              "/less",
+              "/emacs",
+              "/sqlite3",
+              "/makemap",
+              "/id",
+              "/lsof"
+            ],
+            "CommandLine|contains": [
+              "'x:0:'",
+              "/etc/passwd",
+              "/etc/shadow",
+              "/etc/sudoers",
+              "/etc/spwd.db",
+              "/etc/pwd.db",
+              "/etc/master.passwd",
+              "-u"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_crontab_enumeration.json",
+    "rule": {
+      "name": "Crontab Enumeration",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/crontab",
+            "CommandLine|contains": " -l"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/application/windows_error_reporting/win_application_msmpeng_crash_wer.json",
+    "rule": {
+      "name": "Microsoft Malware Protection Engine Crash - WER",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "*MsMpEng.exe*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded": "*mpengine.dll*"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/builtin/guacamole/lnx_guacamole_susp_guacamole.json",
+    "rule": {
+      "name": "Guacamole Two Users Sharing Session Anomaly",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": "(2 users now present)"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_susp_system_network_discovery.json",
+    "rule": {
+      "name": "System Network Discovery - macOS",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/arp",
+              "/ifconfig",
+              "/netstat",
+              "/networksetup",
+              "/socketfilterfw"
+            ],
+            "ParentImage|endswith": [
+              "/wifivelocityd"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/aws/cloudtrail/aws_cloudtrail_security_group_change_rds.json",
+    "rule": {
+      "name": "RDS Database Security Group Modification",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "rds.amazonaws.com"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/builtin/lnx_shell_clear_cmd_history.json",
+    "rule": {
+      "name": "Linux Command History Tampering",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "cat /dev/null >*sh_history",
+              "cat /dev/zero >*sh_history",
+              "chattr +i*sh_history",
+              "echo \"\" >*sh_history",
+              "empty_bash_history",
+              "export HISTFILESIZE=0",
+              "history -c",
+              "history -w",
+              "ln -sf /dev/null *sh_history",
+              "ln -sf /dev/zero *sh_history",
+              "rm *sh_history",
+              "shopt -ou history",
+              "shopt -uo history",
+              "shred *sh_history",
+              "truncate -s0 *sh_history"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/audit_logs/azure_app_appid_uri_changes.json",
+    "rule": {
+      "name": "Application AppID Uri Configuration Changes",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "TargetFilename": [
+              "Update Application",
+              "Update Service principal"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_web/proxy_generic/proxy_ua_susp.json",
+    "rule": {
+      "name": "Suspicious User Agent",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Event",
+          "attributes": {
+            "c-useragent|startswith": [
+              "user-agent",
+              "Mozilla/3.0 ",
+              "Mozilla/2.0 ",
+              "Mozilla/1.0 ",
+              "Mozilla ",
+              " Mozilla/",
+              "Mozila/",
+              "Mozilla/4.0 (compatible; MSIE 6.0; MS Web Services Client Protocol"
+            ],
+            "c-useragent|contains": [
+              " (compatible;MSIE ",
+              ".0;Windows NT ",
+              "loader"
+            ],
+            "c-useragent": [
+              "_",
+              "CertUtil URL Agent",
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:60.0)",
+              "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:28.0) Gecko/20100101 Firefox/28.0",
+              "HTTPS",
+              "Erbium-UA-4ce7c27cb4be9d32e333bf032c88235a",
+              "x",
+              "xxx"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/audit_logs/azure_aad_secops_new_ca_policy_addedby_bad_actor.json",
+    "rule": {
+      "name": "New CA Policy by Non-approved Actor",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "properties.message": "Add conditional access policy"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_nscurl_usage.json",
+    "rule": {
+      "name": "File Download Via Nscurl - MacOS",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/nscurl",
+            "CommandLine|contains": [
+              "--download ",
+              "--download-directory ",
+              "--output ",
+              "-dir ",
+              "-dl ",
+              "-ld",
+              "-o "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_remove_package.json",
+    "rule": {
+      "name": "Linux Package Uninstall",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "/yum",
+              "/apt",
+              "/apt-get",
+              "/dpkg",
+              "/rpm"
+            ],
+            "CommandLine|contains": [
+              "erase",
+              "remove",
+              "purge",
+              "--remove ",
+              " -r ",
+              " -e "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_windows/builtin/dns_server/win_dns_server_failed_dns_zone_transfer.json",
+    "rule": {
+      "name": "Failed DNS Zone Transfer",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CONNECT",
+        "subject": {
+          "type": "Event",
+          "attributes": {
+            "EventID": "6004"
+          }
+        },
+        "object": {
+          "type": "NetFlow",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_firewall_rule_collection_modified_or_deleted.json",
+    "rule": {
+      "name": "Azure Firewall Rule Collection Modified or Deleted",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {
+            "operationName": [
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/APPLICATIONRULECOLLECTIONS/WRITE",
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/APPLICATIONRULECOLLECTIONS/DELETE",
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/NATRULECOLLECTIONS/WRITE",
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/NATRULECOLLECTIONS/DELETE",
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/NETWORKRULECOLLECTIONS/WRITE",
+              "MICROSOFT.NETWORK/AZUREFIREWALLS/NETWORKRULECOLLECTIONS/DELETE"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/gcp/audit/gcp_bucket_enumeration.json",
+    "rule": {
+      "name": "Google Cloud Storage Buckets Enumeration",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "gcp.audit.method_name": [
+              "storage.buckets.list",
+              "storage.buckets.listChannels"
+            ]
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/builtin/lnx_file_copy.json",
+    "rule": {
+      "name": "Remote File Copy",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "scp ",
+              "rsync ",
+              "sftp "
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_suppression_rule_created.json",
+    "rule": {
+      "name": "Azure Suppression Rule Created",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": "MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/m365/threat_management/microsoft365_impossible_travel_activity.json",
+    "rule": {
+      "name": "Microsoft 365 - Impossible Travel Activity",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventSource": "SecurityComplianceCenter",
+            "eventName": "Impossible travel activity",
+            "status": "success"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/process_creation/proc_creation_lnx_susp_hktl_execution.json",
+    "rule": {
+      "name": "Linux HackTool Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image": [
+              "*crackmapexec",
+              "*havoc",
+              "*merlin-agent",
+              "*merlinServer-Linux-x64",
+              "*msfconsole",
+              "*msfvenom",
+              "*ps-empire server",
+              "*ps-empire",
+              "*sliver-client",
+              "*sliver-server",
+              "*Villain.py"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_network/cisco/aaa/cisco_cli_file_deletion.json",
+    "rule": {
+      "name": "Cisco File Deletion",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine": [
+              "*erase*",
+              "*delete*",
+              "*format*"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_linux/auditd/path/lnx_auditd_hidden_binary_execution.json",
+    "rule": {
+      "name": "Use Of Hidden Paths Or Files",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "READ",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": [
+              "/."
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_macos/process_creation/proc_creation_macos_tmutil_delete_backup.json",
+    "rule": {
+      "name": "Time Machine Backup Deletion Attempt Via Tmutil - MacOS",
+      "apt_stage": "Complete Mission",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "DELETE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/tmutil",
+            "CommandLine|contains": "tmutil"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Lateral Movement",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_application/kubernetes/audit/kubernetes_audit_serviceaccount_creation.json",
+    "rule": {
+      "name": "New Kubernetes Service Account Created",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Event",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": "serviceaccounts"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source_file": "rules/holmes_full_run20260406/hholmes_cloud/azure/activity_logs/azure_creating_number_of_resources_detection.json",
+    "rule": {
+      "name": "Number Of Resource Creation Or Deployment Activities",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {}
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "TargetObject": [
+              "Microsoft.Compute/virtualMachines/write",
+              "Microsoft.Resources/deployments/write"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  }
+]

@@ -1,0 +1,52 @@
+{
+  "name": "Unsigned DLL Loaded by Windows Utility",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\InstallUtil.exe",
+          "\\RegAsm.exe",
+          "\\RegSvcs.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Windows\\Installer\\",
+          "C:\\Program Files (x86)\\K-Lite Codec Pack\\",
+          "C:\\Program Files\\K-Lite Codec Pack\\",
+          "C:\\Windows\\assembly\\NativeImages"
+        ],
+        "ImageLoaded|endswith": [
+          ".tmp-\\Microsoft.Deployment.WindowsInstaller.dll",
+          ".tmp-\\Avira.OE.Setup.CustomActions.dll",
+          ".dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

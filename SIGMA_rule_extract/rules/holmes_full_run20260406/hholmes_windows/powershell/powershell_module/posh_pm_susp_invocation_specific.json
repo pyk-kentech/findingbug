@@ -1,0 +1,58 @@
+{
+  "name": "Suspicious PowerShell Invocations - Specific - PowerShell Module",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": [
+          "-nop",
+          " -w ",
+          "hidden",
+          " -c ",
+          "[Convert]::FromBase64String",
+          "iex",
+          "New-Object",
+          "-ep",
+          "bypass",
+          "-Enc",
+          "powershell",
+          "reg",
+          "add",
+          "\\software\\microsoft\\windows\\currentversion\\run",
+          "\\software\\wow6432node\\microsoft\\windows\\currentversion\\run",
+          "\\software\\microsoft\\windows\\currentversion\\policies\\explorer\\run",
+          "-noprofile",
+          "-windowstyle",
+          "hidden",
+          "system.net.webclient",
+          ".download",
+          "(New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'",
+          "Write-ChocolateyWarning"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Potential Attachment Manager Settings Associations Tamper",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Associations\\",
+        "Details": [
+          "DWORD (0x00006152)",
+          ".zip;",
+          ".rar;",
+          ".exe;",
+          ".bat;",
+          ".com;",
+          ".cmd;",
+          ".reg;",
+          ".msi;",
+          ".htm;",
+          ".html;"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

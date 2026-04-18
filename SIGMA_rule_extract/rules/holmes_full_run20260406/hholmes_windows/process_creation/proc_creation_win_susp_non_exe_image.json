@@ -1,0 +1,70 @@
+{
+  "name": "Execution of Suspicious File Type Extension",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          ".bin",
+          ".cgi",
+          ".com",
+          ".exe",
+          ".scr",
+          ".tmp"
+        ],
+        "Image": [
+          "System",
+          "Registry",
+          "MemCompression",
+          "vmmem"
+        ],
+        "ParentImage|contains": [
+          ":\\Windows\\Temp\\"
+        ],
+        "Image|contains": [
+          ":\\Windows\\Installer\\MSI",
+          ":\\Windows\\System32\\DriverStore\\FileRepository\\",
+          ":\\Config.Msi\\",
+          ":\\$Extend\\$Deleted\\",
+          "-",
+          ":\\ProgramData\\Avira\\",
+          "NVIDIA\\NvBackend\\",
+          ":\\Program Files (x86)\\WINPAKPRO\\",
+          ":\\Program Files\\WINPAKPRO\\",
+          ":\\Program Files (x86)\\MyQ\\Server\\pcltool.dll",
+          ":\\Program Files\\MyQ\\Server\\pcltool.dll",
+          "\\AppData\\Local\\Packages\\",
+          "\\LocalState\\rootfs\\",
+          "\\LZMA_EXE",
+          ":\\Program Files\\Mozilla Firefox\\"
+        ],
+        "ParentImage": [
+          "C:\\Windows\\System32\\services.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

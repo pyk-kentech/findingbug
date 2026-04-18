@@ -1,0 +1,97 @@
+{
+  "name": "Suspicious Double Extension File Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "      .exe",
+          "______.exe",
+          ".doc.exe",
+          ".doc.js",
+          ".docx.exe",
+          ".docx.js",
+          ".gif.exe",
+          ".jpeg.exe",
+          ".jpg.exe",
+          ".mkv.exe",
+          ".mov.exe",
+          ".mp3.exe",
+          ".mp4.exe",
+          ".pdf.exe",
+          ".pdf.js",
+          ".png.exe",
+          ".ppt.exe",
+          ".ppt.js",
+          ".pptx.exe",
+          ".pptx.js",
+          ".rtf.exe",
+          ".rtf.js",
+          ".svg.exe",
+          ".txt.exe",
+          ".txt.js",
+          ".xls.exe",
+          ".xls.js",
+          ".xlsx.exe",
+          ".xlsx.js",
+          "⠀⠀⠀⠀⠀⠀.exe"
+        ],
+        "CommandLine|contains": [
+          "      .exe",
+          "______.exe",
+          ".doc.exe",
+          ".doc.js",
+          ".docx.exe",
+          ".docx.js",
+          ".gif.exe",
+          ".jpeg.exe",
+          ".jpg.exe",
+          ".mkv.exe",
+          ".mov.exe",
+          ".mp3.exe",
+          ".mp4.exe",
+          ".pdf.exe",
+          ".pdf.js",
+          ".png.exe",
+          ".ppt.exe",
+          ".ppt.js",
+          ".pptx.exe",
+          ".pptx.js",
+          ".rtf.exe",
+          ".rtf.js",
+          ".svg.exe",
+          ".txt.exe",
+          ".txt.js",
+          ".xls.exe",
+          ".xls.js",
+          ".xlsx.exe",
+          ".xlsx.js",
+          "⠀⠀⠀⠀⠀⠀.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

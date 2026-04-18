@@ -1,0 +1,96 @@
+{
+  "name": "Suspicious File Access to Browser Credential Storage",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\Sputnik.exe",
+          "\\ChromePlus.exe",
+          "\\QIP Surf.exe",
+          "\\BlackHawk.exe",
+          "\\7Star.exe",
+          "\\Sleipnir5.exe",
+          "\\Citrio.exe",
+          "\\Chrome SxS.exe",
+          "\\Chrome.exe",
+          "\\Coowon.exe",
+          "\\CocCocBrowser.exe",
+          "\\Uran.exe",
+          "\\QQBrowser.exe",
+          "\\Orbitum.exe",
+          "\\Slimjet.exe",
+          "\\Iridium.exe",
+          "\\Vivaldi.exe",
+          "\\Chromium.exe",
+          "\\GhostBrowser.exe",
+          "\\CentBrowser.exe",
+          "\\Xvast.exe",
+          "\\Chedot.exe",
+          "\\SuperBird.exe",
+          "\\360Browser.exe",
+          "\\360Chrome.exe",
+          "\\dragon.exe",
+          "\\brave.exe",
+          "\\torch.exe",
+          "\\UCBrowser.exe",
+          "\\BliskBrowser.exe",
+          "\\Epic Privacy Browser.exe",
+          "\\nichrome.exe",
+          "\\AmigoBrowser.exe",
+          "\\KometaBrowser.exe",
+          "\\XpomBrowser.exe",
+          "\\msedge.exe",
+          "\\LiebaoBrowser.exe",
+          "\\AvastBrowser.exe",
+          "\\Kinza.exe",
+          "\\seamonkey.exe",
+          "\\icedragon.exe",
+          "\\cyberfox.exe",
+          "\\SlimBrowser.exe",
+          "\\palemoon.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "FileName|contains": [
+          "\\Login Data",
+          "\\Cookies",
+          "\\EncryptedStorage",
+          "\\WebCache\\"
+        ],
+        "FileName|endswith": [
+          "cert9.db",
+          "cookies.sqlite",
+          "formhistory.sqlite",
+          "key3.db",
+          "key4.db",
+          "Login Data.sqlite",
+          "logins.json",
+          "places.sqlite"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

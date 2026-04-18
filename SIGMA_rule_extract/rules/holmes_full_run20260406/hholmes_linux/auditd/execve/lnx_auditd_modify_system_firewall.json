@@ -1,0 +1,48 @@
+{
+  "name": "Modify System Firewall",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "selection1.type": "EXECVE",
+        "selection1.a0": "iptables",
+        "selection1.a1|contains": "DROP",
+        "selection2.type": "EXECVE",
+        "selection2.a0": "firewall-cmd",
+        "selection2.a1|contains": "remove",
+        "selection3.type": "EXECVE",
+        "selection3.a0": "ufw",
+        "selection3.a1|contains": "delete",
+        "selection4.type": "EXECVE",
+        "selection4.a0": "nft",
+        "selection4.a1|contains": [
+          "delete",
+          "flush"
+        ]
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,1030 @@
+{
+  "seed": 20260406,
+  "batch_index": 3,
+  "source_dir": "rules/holmes_full",
+  "source_files": [
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_susp_hidden_dir_index_allocation.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_hktl_sharpsuccessor_execution.json",
+    "rules/holmes_full/hholmes_windows/pipe_created/pipe_created_hktl_generic_cred_dump_tools_pipes.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_winrm_remote_powershell_session_process.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_msix_ai_stub_execution.json",
+    "rules/holmes_full/hholmes_macos/process_creation/proc_creation_macos_osacompile_runonly_execution.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_where_browser_data_recon.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_get_adcomputer.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_reg_lsa_disable_restricted_admin.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_dsacls_abuse_permissions.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_uac_bypass_consent_comctl32.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_wab_unusual_parents.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_create_volume_shadow_copy.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_tamper_windows_defender_set_mp.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_susp_whoami_as_param.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_netsh_fw_enable_group_rule.json",
+    "rules/holmes_full/hholmes_macos/process_creation/proc_creation_macos_xattr_gatekeeper_bypass.json",
+    "rules/holmes_full/hholmes_windows/process_creation/proc_creation_win_powershell_base64_invoke.json",
+    "rules/holmes_full/hholmes_windows/image_load/image_load_side_load_mpsvc.json",
+    "rules/holmes_full/hholmes_cloud/gcp/gworkspace/gcp_gworkspace_application_access_levels_modified.json",
+    "rules/holmes_full/hholmes_linux/process_creation/proc_creation_lnx_touch_susp.json",
+    "rules/holmes_full/hholmes_windows/powershell/powershell_script/posh_ps_msxml_com.json",
+    "rules/holmes_full/hholmes_windows/builtin/application/msiinstaller/win_msi_install_from_susp_locations.json",
+    "rules/holmes_full/hholmes_windows/registry/registry_set/registry_set_internet_explorer_disable_first_run_customize.json",
+    "rules/holmes_full/hholmes_windows/file/file_event/file_event_win_powershell_module_susp_creation.json"
+  ],
+  "rules": [
+    {
+      "name": "Potential Hidden Directory Creation Via NTFS INDEX_ALLOCATION Stream",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|contains": "::$index_allocation"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "HKTL - SharpSuccessor Privilege Escalation Tool Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\SharpSuccessor.exe",
+            "OriginalFileName": "SharpSuccessor.exe",
+            "CommandLine|contains": "SharpSuccessor",
+            "CommandLine|contains|all": [
+              " add ",
+              " /impersonate",
+              " /path",
+              " /account",
+              " /name"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "HackTool - Credential Dumping Tools Named Pipe Created",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "NamedPipe",
+          "attributes": {
+            "PipeName|contains": [
+              "\\cachedump",
+              "\\lsadump",
+              "\\wceservicepipe"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Remote PowerShell Session Host Process (WinRM)",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\wsmprovhost.exe",
+            "ParentImage|endswith": "\\wsmprovhost.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Windows MSIX Package Support Framework AI_STUBS Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\AI_STUBS\\AiStubX64Elevated.exe",
+              "\\AI_STUBS\\AiStubX86Elevated.exe",
+              "\\AI_STUBS\\AiStubX64.exe",
+              "\\AI_STUBS\\AiStubX86.exe"
+            ],
+            "OriginalFileName": "popupwrapper.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "OSACompile Run-Only Execution",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line": "osacompile|contains|all: ['osacompile', ' -x ', ' -e ']"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Suspicious Where Execution",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\where.exe",
+            "OriginalFileName": "where.exe"
+          }
+        },
+        "object": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains": [
+              "places.sqlite",
+              "cookies.sqlite",
+              "formhistory.sqlite",
+              "logins.json",
+              "key4.db",
+              "key3.db",
+              "sessionstore.jsonlz4",
+              "History",
+              "Bookmarks",
+              "Cookies",
+              "Login Data"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Active Directory Computers Enumeration With Get-AdComputer",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText": "*Get-AdComputer*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "RestrictedAdminMode Registry Value Tampering - ProcCreation",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains|all": [
+              "\\System\\CurrentControlSet\\Control\\Lsa",
+              "DisableRestrictedAdmin"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potentially Over Permissive Permissions Granted Using Dsacls.EXE",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\dsacls.exe",
+            "OriginalFileName": "DSACLS.EXE"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "UAC Bypass Using Consent and Comctl32 - File",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "command_line": "*"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "file_path": "C:\\Windows\\System32\\consent.exe.@*\\comctl32.dll"
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Wab/Wabmig Unusual Parent Or Child Processes",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ParentImage|endswith": [
+              "\\WmiPrvSE.exe",
+              "\\svchost.exe",
+              "\\dllhost.exe"
+            ],
+            "Image|endswith": [
+              "\\wab.exe",
+              "\\wabmig.exe"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Create Volume Shadow Copy with Powershell",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains|all": [
+              "Win32_ShadowCopy",
+              ").Create(",
+              "ClientAccessible"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tamper Windows Defender - ScriptBlockLogging",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains": [
+              "Set-MpPreference",
+              "-dbaf $true",
+              "-dbaf 1",
+              "-dbm $true",
+              "-dbm 1",
+              "-dips $true",
+              "-dips 1",
+              "-DisableArchiveScanning $true",
+              "-DisableArchiveScanning 1",
+              "-DisableBehaviorMonitoring $true",
+              "-DisableBehaviorMonitoring 1",
+              "-DisableBlockAtFirstSeen $true",
+              "-DisableBlockAtFirstSeen 1",
+              "-DisableCatchupFullScan $true",
+              "-DisableCatchupFullScan 1",
+              "-DisableCatchupQuickScan $true",
+              "-DisableCatchupQuickScan 1",
+              "-DisableIntrusionPreventionSystem $true",
+              "-DisableIntrusionPreventionSystem 1",
+              "-DisableIOAVProtection $true",
+              "-DisableIOAVProtection 1",
+              "-DisableRealtimeMonitoring $true",
+              "-DisableRealtimeMonitoring 1",
+              "-DisableRemovableDriveScanning $true",
+              "-DisableRemovableDriveScanning 1",
+              "-DisableScanningMappedNetworkDrivesForFullScan $true",
+              "-DisableScanningMappedNetworkDrivesForFullScan 1",
+              "-DisableScanningNetworkFiles $true",
+              "-DisableScanningNetworkFiles 1",
+              "-DisableScriptScanning $true",
+              "-DisableScriptScanning 1",
+              "-MAPSReporting $false",
+              "-MAPSReporting 0",
+              "-drdsc $true",
+              "-drdsc 1",
+              "-drtm $true",
+              "-drtm 1",
+              "-dscrptsc $true",
+              "-dscrptsc 1",
+              "-dsmndf $true",
+              "-dsmndf 1",
+              "-dsnf $true",
+              "-dsnf 1",
+              "-dss $true",
+              "-dss 1",
+              "HighThreatDefaultAction Allow",
+              "htdefac Allow",
+              "LowThreatDefaultAction Allow",
+              "ltdefac Allow",
+              "ModerateThreatDefaultAction Allow",
+              "mtdefac Allow",
+              "SevereThreatDefaultAction Allow",
+              "stdefac Allow"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "WhoAmI as Parameter",
+      "apt_stage": "Internal Recon",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "CommandLine|contains": ".exe whoami"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Establish Foothold",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Netsh Allow Group Policy on Microsoft Defender Firewall",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "\\netsh.exe",
+            "OriginalFileName": "netsh.exe"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Gatekeeper Bypass via Xattr",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/xattr"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "PowerShell Base64 Encoded Invoke Keyword",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": [
+              "\\powershell.exe",
+              "\\pwsh.exe"
+            ],
+            "OriginalFileName": [
+              "PowerShell.EXE",
+              "pwsh.dll"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential DLL Sideloading Of MpSvc.DLL",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ImageLoaded|endswith": "\\MpSvc.dll"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "ImageLoaded|startswith": [
+              "C:\\Program Files\\Windows Defender\\",
+              "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+              "C:\\Windows\\WinSxS\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Google Workspace Application Access Level Modified",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "CloudIdentity",
+          "attributes": {
+            "eventService": "admin.googleapis.com",
+            "eventName": "CHANGE_APPLICATION_SETTING",
+            "setting_name|startswith": "ContextAwareAccess"
+          }
+        },
+        "object": {
+          "type": "CloudResource",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Touch Suspicious Service File",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Image|endswith": "/touch",
+            "CommandLine|contains": " -t ",
+            "CommandLine|endswith": ".service"
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Powershell MsXml COM Object",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "ScriptBlockText|contains|all": [
+              "New-Object",
+              "-ComObject",
+              "MsXml2.",
+              "XmlHttp"
+            ]
+          }
+        },
+        "object": {
+          "type": "File",
+          "attributes": {}
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "MSI Installation From Suspicious Locations",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "EXECUTE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "Provider_Name": "MsiInstaller"
+          }
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "Data|contains": [
+              ":\\Windows\\TEMP\\",
+              "\\\\",
+              "\\Desktop\\",
+              "\\PerfLogs\\",
+              "\\Users\\Public\\"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Internet Explorer DisableFirstRunCustomize Enabled",
+      "apt_stage": "Execution",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "WRITE",
+        "subject": {
+          "type": "Process",
+          "attributes": {
+            "TargetObject|endswith": "\\Microsoft\\Internet Explorer\\Main\\DisableFirstRunCustomize"
+          }
+        },
+        "object": {
+          "type": "Registry",
+          "attributes": {
+            "Details": [
+              "DWORD (0x00000001)",
+              "DWORD (0x00000002)"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Initial Compromise",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Potential Suspicious PowerShell Module File Created",
+      "apt_stage": "Establish Foothold",
+      "severity_score": 5.0,
+      "match_logic": {
+        "relation": "CREATE",
+        "subject": {
+          "type": "Process",
+          "attributes": {}
+        },
+        "object": {
+          "type": "File",
+          "attributes": {
+            "TargetFilename|endswith": [
+              "\\\\WindowsPowerShell\\\\Modules\\\\*\\.ps",
+              "\\\\WindowsPowerShell\\\\Modules\\\\*\\.dll"
+            ]
+          }
+        },
+        "entity_bindings": {
+          "subject": "$subject_node",
+          "object": "$object_node"
+        }
+      },
+      "prerequisites": {
+        "operator": "AND",
+        "predicates": [
+          {
+            "type": "stage_path",
+            "quantifier": "EXISTS",
+            "source_stage": "Execution",
+            "target_node": "$subject_node",
+            "threshold": 1
+          }
+        ]
+      }
+    }
+  ]
+}

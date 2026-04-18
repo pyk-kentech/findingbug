@@ -1,0 +1,57 @@
+{
+  "name": "Suspicious C2 Activities",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "/usr/bin/wget",
+          "/usr/bin/curl",
+          "/usr/bin/base64",
+          "/bin/nc",
+          "/bin/netcat",
+          "/usr/bin/ncat",
+          "/usr/bin/ss",
+          "/usr/bin/netstat",
+          "/usr/bin/ssh",
+          "/usr/bin/scp",
+          "/usr/bin/sftp",
+          "/usr/bin/ftp",
+          "/usr/bin/socat",
+          "/usr/bin/wireshark",
+          "/usr/bin/tshark",
+          "/usr/bin/rawshark",
+          "/usr/bin/rdesktop",
+          "/usr/local/bin/rdesktop",
+          "/usr/bin/wlfreerdp",
+          "/usr/bin/xfreerdp",
+          "/usr/local/bin/xfreerdp",
+          "/usr/bin/nmap"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

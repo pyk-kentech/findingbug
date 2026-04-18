@@ -1,0 +1,59 @@
+{
+  "name": "Webshell Tool Reconnaissance Activity",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\caddy.exe",
+          "\\httpd.exe",
+          "\\nginx.exe",
+          "\\php-cgi.exe",
+          "\\w3wp.exe",
+          "\\ws_tomcatservice.exe"
+        ],
+        "ParentImage|contains": [
+          "-tomcat-",
+          "\\tomcat"
+        ],
+        "CommandLine|contains": [
+          "CATALINA_HOME",
+          "catalina.jar"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "perl --help",
+          "perl -h",
+          "python --help",
+          "python -h",
+          "python3 --help",
+          "python3 -h",
+          "wget --help"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

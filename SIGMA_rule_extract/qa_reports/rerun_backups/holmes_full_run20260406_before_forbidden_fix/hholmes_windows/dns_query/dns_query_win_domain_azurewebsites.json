@@ -1,0 +1,57 @@
+{
+  "name": "DNS Query To AzureWebsites.NET By Non-Browser Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "Image|endswith": [
+          "chrome.exe",
+          "firefox.exe",
+          "iexplore.exe",
+          "msedge.exe",
+          "safari.exe",
+          "MsMpEng.exe",
+          "MsSense.exe",
+          "brave.exe",
+          "maxthon.exe",
+          "opera.exe",
+          "seamonkey.exe",
+          "vivaldi.exe",
+          "whale.exe",
+          "Waterfox.exe",
+          "Midori Next Generation.exe",
+          "slimbrowser.exe",
+          "Flock.exe",
+          "Phoebe.exe",
+          "falkon.exe",
+          "avant.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationIp|endswith": "azurewebsites.net"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

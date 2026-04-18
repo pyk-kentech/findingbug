@@ -1,0 +1,47 @@
+{
+  "name": "MITRE BZAR Indicators for Persistence",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "op1.endpoint": "spoolss",
+        "op1.operation": "RpcAddMonitor",
+        "op2.endpoint": "spoolss",
+        "op2.operation": "RpcAddPrintProcessor",
+        "op3.endpoint": "IRemoteWinspool",
+        "op3.operation": "RpcAsyncAddMonitor",
+        "op4.endpoint": "IRemoteWinspool",
+        "op4.operation": "RpcAsyncAddPrintProcessor",
+        "op5.endpoint": "ISecLogon",
+        "op5.operation": "SeclCreateProcessWithLogonW",
+        "op6.endpoint": "ISecLogon",
+        "op6.operation": "SeclCreateProcessWithLogonExW"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": "*"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

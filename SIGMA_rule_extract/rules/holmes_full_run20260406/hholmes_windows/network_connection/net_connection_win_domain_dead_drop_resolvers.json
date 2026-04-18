@@ -1,0 +1,106 @@
+{
+  "name": "New Connection Initiated To Potential Dead Drop Resolver Domain",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "chrome.exe",
+          "firefox.exe",
+          "iexplore.exe",
+          "msedge.exe",
+          "safari.exe",
+          "MsMpEng.exe",
+          "MsSense.exe",
+          "PRTG Probe.exe",
+          "brave.exe",
+          "maxthon.exe",
+          "opera.exe",
+          "seamonkey.exe",
+          "vivaldi.exe",
+          "whale.exe",
+          "Waterfox.exe",
+          "Midori Next Generation.exe",
+          "slimbrowser.exe",
+          "Flock.exe",
+          "Phoebe.exe",
+          "falkon.exe",
+          "QtWeb.exe",
+          "avant.exe",
+          "WhatsApp.exe",
+          "Telegram.exe",
+          "OneDrive.exe",
+          "Dropbox.exe",
+          "MEGAsync.exe",
+          "MEGAsyncSetup32_*RC.exe",
+          "MEGAsyncSetup32.exe",
+          "MEGAsyncSetup64.exe",
+          "MEGAupdater.exe",
+          "GoogleDriveFS.exe",
+          "Discord.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationHostname|endswith": [
+          ".t.me",
+          "4shared.com",
+          "abuse.ch",
+          "anonfiles.com",
+          "cdn.discordapp.com",
+          "cloudflare.com",
+          "ddns.net",
+          "discord.com",
+          "docs.google.com",
+          "drive.google.com",
+          "dropbox.com",
+          "dropmefiles.com",
+          "facebook.com",
+          "feeds.rssing.com",
+          "flickr.com",
+          "githubusercontent.com",
+          "googleapis.com",
+          "gstatic.com",
+          "instagram.com",
+          "linkedin.com",
+          "mailchimp.com",
+          "maps.google.com",
+          "microsoftonline.com",
+          "ninite.com",
+          "onedrive.com",
+          "outlook.office.com",
+          "pinterest.com",
+          "reddit.com",
+          "salesforce.com",
+          "slack.com",
+          "stackoverflow.com",
+          "twitter.com",
+          "vimeo.com",
+          "wikipedia.org",
+          "youtube.com"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

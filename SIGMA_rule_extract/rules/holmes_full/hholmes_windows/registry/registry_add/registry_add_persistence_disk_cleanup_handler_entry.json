@@ -1,0 +1,70 @@
+{
+  "name": "Potential Persistence Via Disk Cleanup Handler - Registry",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventType": "CreateKey"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCaches\\",
+        "TargetObject|endswith": [
+          "\\Active Setup Temp Folders",
+          "\\BranchCache",
+          "\\Content Indexer Cleaner",
+          "\\D3D Shader Cache",
+          "\\Delivery Optimization Files",
+          "\\Device Driver Packages",
+          "\\Diagnostic Data Viewer database files",
+          "\\Downloaded Program Files",
+          "\\DownloadsFolder",
+          "\\Feedback Hub Archive log files",
+          "\\Internet Cache Files",
+          "\\Language Pack",
+          "\\Microsoft Office Temp Files",
+          "\\Offline Pages Files",
+          "\\Old ChkDsk Files",
+          "\\Previous Installations",
+          "\\Recycle Bin",
+          "\\RetailDemo Offline Content",
+          "\\Setup Log Files",
+          "\\System error memory dump files",
+          "\\System error minidump files",
+          "\\Temporary Files",
+          "\\Temporary Setup Files",
+          "\\Temporary Sync Files",
+          "\\Thumbnail Cache",
+          "\\Update Cleanup",
+          "\\Upgrade Discarded Files",
+          "\\User file versions",
+          "\\Windows Defender",
+          "\\Windows Error Reporting Files",
+          "\\Windows ESD installation files",
+          "\\Windows Upgrade Log Files"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

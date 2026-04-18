@@ -1,0 +1,61 @@
+{
+  "name": "Suspicious Eventlog Clearing or Configuration Change Activity",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\wevtutil.exe",
+          "\\powershell.exe",
+          "\\powershell_ise.exe",
+          "\\pwsh.exe",
+          "\\wmic.exe"
+        ],
+        "OriginalFileName": "wevtutil.exe",
+        "CommandLine|contains": [
+          "clear-log ",
+          " cl ",
+          "set-log ",
+          " sl ",
+          "lfn:",
+          "Clear-EventLog ",
+          "Remove-EventLog ",
+          "Limit-EventLog ",
+          "Clear-WinEvent ",
+          "Eventing.Reader.EventLogSession",
+          "ClearLog",
+          "Diagnostics.EventLog",
+          "Clear",
+          "ClearEventLog"
+        ],
+        "ParentImage": [
+          "C:\\Windows\\SysWOW64\\msiexec.exe",
+          "C:\\Windows\\System32\\msiexec.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

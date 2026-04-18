@@ -1,0 +1,47 @@
+{
+  "name": "Screen Capture with Import Tool",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "a0": "import"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {
+        "a1|endswith": [
+          "-window",
+          ".png",
+          ".jpg",
+          ".jpeg"
+        ],
+        "a2": "root",
+        "a3|endswith": [
+          ".png",
+          ".jpg",
+          ".jpeg"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "Windows Event Auditing Disabled",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4719",
+        "AuditPolicyChanges|contains": [
+          "%%8448",
+          "%%8450"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "SubcategoryGuid": [
+          "{0CCE9210-69AE-11D9-BED3-505054503030}",
+          "{0CCE9211-69AE-11D9-BED3-505054503030}",
+          "{0CCE9212-69AE-11D9-BED3-505054503030}",
+          "{0CCE9215-69AE-11D9-BED3-505054503030}",
+          "{0CCE9217-69AE-11D9-BED3-505054503030}",
+          "{0CCE921B-69AE-11D9-BED3-505054503030}",
+          "{0CCE922B-69AE-11D9-BED3-505054503030}",
+          "{0CCE922F-69AE-11D9-BED3-505054503030}",
+          "{0CCE9230-69AE-11D9-BED3-505054503030}",
+          "{0CCE9235-69AE-11D9-BED3-505054503030}",
+          "{0CCE9236-69AE-11D9-BED3-505054503030}",
+          "{0CCE9237-69AE-11D9-BED3-505054503030}",
+          "{0CCE923F-69AE-11D9-BED3-505054503030}",
+          "{0CCE9240-69AE-11D9-BED3-505054503030}",
+          "{0CCE9242-69AE-11D9-BED3-505054503030}"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

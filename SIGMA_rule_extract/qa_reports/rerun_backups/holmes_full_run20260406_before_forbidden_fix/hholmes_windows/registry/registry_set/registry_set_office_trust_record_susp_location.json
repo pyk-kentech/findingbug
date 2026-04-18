@@ -1,0 +1,42 @@
+{
+  "name": "Macro Enabled In A Potentially Suspicious Document",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\Security\\Trusted Documents\\TrustRecords",
+          "/AppData/Local/Microsoft/Windows/INetCache/",
+          "/AppData/Local/Temp/",
+          "/PerfLogs/",
+          "C:/Users/Public/",
+          "file:///D:/",
+          "file:///E:/"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

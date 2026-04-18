@@ -1,0 +1,46 @@
+{
+  "name": "Copy .DMP/.DUMP Files From Remote Share Via Cmd.EXE",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\cmd.exe",
+        "OriginalFileName": "Cmd.Exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "file_path": "*\\\\*\\*.dmp",
+        "CommandLine|contains|all": [
+          "copy ",
+          "\\\\"
+        ],
+        "CommandLine|contains": [
+          ".dmp",
+          ".dump",
+          ".hdmp"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

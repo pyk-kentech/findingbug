@@ -1,0 +1,36 @@
+﻿rules:
+  - rule_id: TEST_PROC_TO_FILE
+    name: "Test rule: match proc_to_file"
+    source_types: ["process"]
+    target_types: ["file"]
+    apt_stage: "Initial Compromise"
+    stage: 1
+    cvss: 4.0
+    prerequisites: []
+    event_predicate:
+      event_type: "proc_to_file"
+    severity: 1
+
+  - rule_id: TEST_FILE_TO_IP
+    name: "Test rule: match file_to_ip"
+    source_types: ["file"]
+    target_types: ["ip"]
+    apt_stage: "Exfiltration"
+    stage: 6
+    cvss: 8.0
+    prerequisites: ["graph_path"]
+    event_predicate:
+      event_type: "file_to_ip"
+    severity: 1
+
+  - rule_id: TEST_PROC_TO_PROC
+    name: "Test rule: match proc_to_proc"
+    source_types: ["process"]
+    target_types: ["process"]
+    apt_stage: "Move Laterally"
+    stage: 5
+    cvss: 6.0
+    prerequisites: ["shared_entity"]
+    event_predicate:
+      event_type: "proc_to_proc"
+    severity: 1

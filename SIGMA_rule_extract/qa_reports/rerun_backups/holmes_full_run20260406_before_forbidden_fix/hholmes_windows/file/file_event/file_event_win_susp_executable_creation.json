@@ -1,0 +1,42 @@
+{
+  "name": "Suspicious Executable File Creation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ":\\$Recycle.Bin.exe",
+          ":\\Documents and Settings.exe",
+          ":\\MSOCache.exe",
+          ":\\PerfLogs.exe",
+          ":\\Recovery.exe",
+          ".bat.exe",
+          ".sys.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

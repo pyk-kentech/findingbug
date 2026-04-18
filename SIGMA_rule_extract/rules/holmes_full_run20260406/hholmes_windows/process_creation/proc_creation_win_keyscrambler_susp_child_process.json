@@ -1,0 +1,61 @@
+{
+  "name": "Potentially Suspicious Child Process of KeyScrambler.exe",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\KeyScrambler.exe",
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\mshta.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\wscript.exe"
+        ],
+        "OriginalFileName": [
+          "Cmd.Exe",
+          "cscript.exe",
+          "mshta.exe",
+          "PowerShell.EXE",
+          "pwsh.dll",
+          "regsvr32.exe",
+          "RUNDLL32.EXE",
+          "wscript.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

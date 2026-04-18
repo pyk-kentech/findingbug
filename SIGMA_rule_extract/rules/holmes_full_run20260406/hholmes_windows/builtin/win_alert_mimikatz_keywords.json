@@ -1,0 +1,55 @@
+{
+  "name": "Mimikatz Use",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": [
+          "dpapi::masterkey",
+          "eo.oe.kiwi",
+          "event::clear",
+          "event::drop",
+          "gentilkiwi.com",
+          "kerberos::golden",
+          "kerberos::ptc",
+          "kerberos::ptt",
+          "kerberos::tgt",
+          "Kiwi Legit Printer",
+          "lsadump::",
+          "mimidrv.sys",
+          "\\mimilib.dll",
+          "misc::printnightmare",
+          "misc::shadowcopies",
+          "misc::skeleton",
+          "privilege::backup",
+          "privilege::debug",
+          "privilege::driver",
+          "sekurlsa::"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "Clear or Disable Kernel Ring Buffer Logs via Syslog Syscall",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "type": "SYSCALL",
+        "SYSCALL": "syslog"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {
+        "a0": [
+          4,
+          5,
+          6
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

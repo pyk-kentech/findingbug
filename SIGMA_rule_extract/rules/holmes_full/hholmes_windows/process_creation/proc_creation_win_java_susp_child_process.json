@@ -1,0 +1,60 @@
+{
+  "name": "Suspicious Processes Spawned by Java.EXE",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\java.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\AppVLP.exe",
+          "\\bitsadmin.exe",
+          "\\certutil.exe",
+          "\\cscript.exe",
+          "\\curl.exe",
+          "\\forfiles.exe",
+          "\\hh.exe",
+          "\\mftrace.exe",
+          "\\mshta.exe",
+          "\\net.exe",
+          "\\net1.exe",
+          "\\query.exe",
+          "\\reg.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\schtasks.exe",
+          "\\scrcons.exe",
+          "\\scriptrunner.exe",
+          "\\sh.exe",
+          "\\systeminfo.exe",
+          "\\whoami.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

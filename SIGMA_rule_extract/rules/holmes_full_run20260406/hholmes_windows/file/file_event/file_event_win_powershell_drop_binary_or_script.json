@@ -1,0 +1,56 @@
+{
+  "name": "Potential Binary Or Script Dropper Via PowerShell",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\powershell_ise.exe",
+          "\\pwsh.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ".bat",
+          ".chm",
+          ".cmd",
+          ".com",
+          ".dll",
+          ".exe",
+          ".hta",
+          ".jar",
+          ".js",
+          ".ocx",
+          ".scr",
+          ".sys",
+          ".vbe",
+          ".vbs",
+          ".wsf"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

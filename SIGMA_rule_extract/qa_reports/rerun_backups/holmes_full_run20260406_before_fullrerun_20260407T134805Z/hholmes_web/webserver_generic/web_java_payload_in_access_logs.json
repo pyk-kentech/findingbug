@@ -1,0 +1,45 @@
+{
+  "name": "Java Payload Strings",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          "%24%7B%28%23a%3D%40",
+          "${(#a=@",
+          "%24%7B%40java",
+          "${@java",
+          "u0022java",
+          "%2F%24%7B%23",
+          "/${#",
+          "new+java.",
+          "getRuntime().exec(",
+          "getRuntime%28%29.exec%28"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

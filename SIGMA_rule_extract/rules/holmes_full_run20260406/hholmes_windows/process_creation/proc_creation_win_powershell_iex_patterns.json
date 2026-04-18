@@ -1,0 +1,53 @@
+{
+  "name": "Suspicious PowerShell IEX Execution Patterns",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "CommandLine|contains": [
+          " | iex;",
+          " | iex ",
+          " | iex}",
+          " | IEX ;",
+          " | IEX -Error",
+          " | IEX (new",
+          ");IEX ",
+          "::FromBase64String",
+          ".GetString([System.Convert]::",
+          ")|iex;$",
+          ");iex($",
+          ");iex $",
+          " | iex | ",
+          " | iex\""
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

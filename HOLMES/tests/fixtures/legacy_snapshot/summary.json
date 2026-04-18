@@ -1,0 +1,173 @@
+{
+  "events": 6,
+  "rules": 3,
+  "matches": 4,
+  "hsg_nodes": 4,
+  "hsg_edges": 2,
+  "noise_filter": {
+    "before": {
+      "matches": 4,
+      "hsg_nodes": 4,
+      "hsg_edges": 2
+    },
+    "after": {
+      "matches": 4,
+      "hsg_nodes": 4,
+      "hsg_edges": 2
+    },
+    "dropped": {
+      "matches": 0,
+      "hsg_nodes": 0,
+      "hsg_edges": 0
+    }
+  },
+  "resolved_effective_config": {
+    "path_thres": 0.0,
+    "path_factor_op": "ge",
+    "scoring": "legacy",
+    "paper_mode": "hybrid",
+    "paper_weights": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "paper_scoring": {
+    "threat_tuple": [
+      4.0,
+      0.0,
+      0.0,
+      0.0,
+      6.0,
+      8.0,
+      0.0
+    ],
+    "stage_severity": {
+      "Initial Compromise": 4.0,
+      "Establish Foothold": 0.0,
+      "Internal Recon": 0.0,
+      "Privilege Escalation": 0.0,
+      "Move Laterally": 6.0,
+      "Exfiltration": 8.0,
+      "Cleanup": 0.0
+    },
+    "paper_weights": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "score_paper": 4.032
+  },
+  "top_scenarios": [
+    {
+      "score": 3.5,
+      "score_legacy": 3.5,
+      "score_paper": 4.032,
+      "threat_tuple": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        6.0,
+        8.0,
+        0.0
+      ],
+      "stage_severity": {
+        "Initial Compromise": 4.0,
+        "Establish Foothold": 0.0,
+        "Internal Recon": 0.0,
+        "Privilege Escalation": 0.0,
+        "Move Laterally": 6.0,
+        "Exfiltration": 8.0,
+        "Cleanup": 0.0
+      },
+      "paper_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "nodes": 3,
+      "edges": 2
+    },
+    {
+      "score": 1.0,
+      "score_legacy": 1.0,
+      "score_paper": 1.4,
+      "threat_tuple": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "stage_severity": {
+        "Initial Compromise": 4.0,
+        "Establish Foothold": 0.0,
+        "Internal Recon": 0.0,
+        "Privilege Escalation": 0.0,
+        "Move Laterally": 0.0,
+        "Exfiltration": 0.0,
+        "Cleanup": 0.0
+      },
+      "paper_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "nodes": 1,
+      "edges": 0
+    },
+    {
+      "score": 0.0,
+      "score_legacy": 0.0,
+      "score_paper": 1.0,
+      "threat_tuple": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "stage_severity": {
+        "Initial Compromise": 0.0,
+        "Establish Foothold": 0.0,
+        "Internal Recon": 0.0,
+        "Privilege Escalation": 0.0,
+        "Move Laterally": 0.0,
+        "Exfiltration": 0.0,
+        "Cleanup": 0.0
+      },
+      "paper_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "nodes": 0,
+      "edges": 0
+    }
+  ]
+}

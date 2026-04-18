@@ -1,0 +1,42 @@
+{
+  "name": "UAC Bypass Using IEInstal - Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "IntegrityLevel": [
+          "High",
+          "System",
+          "S-1-16-16384",
+          "S-1-16-12288"
+        ],
+        "ParentImage|endswith": "\\ieinstal.exe",
+        "Image|contains": "\\AppData\\Local\\Temp\\",
+        "Image|endswith": "consent.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

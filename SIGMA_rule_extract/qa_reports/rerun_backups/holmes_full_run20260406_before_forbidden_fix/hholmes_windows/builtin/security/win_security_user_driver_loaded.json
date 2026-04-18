@@ -1,0 +1,49 @@
+{
+  "name": "Potential Privileged System Service Operation - SeLoadDriverPrivilege",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4673",
+        "PrivilegeList": "SeLoadDriverPrivilege",
+        "Service": "-",
+        "ProcessName|endswith": [
+          "\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
+          "\\Google\\Chrome\\Application\\chrome.exe",
+          "\\procexp.exe",
+          "\\procexp64.exe",
+          "\\procmon.exe",
+          "\\procmon64.exe"
+        ],
+        "ProcessName|startswith": [
+          "C:\\Program Files\\WindowsApps\\Microsoft",
+          "C:\\Program Files (x86)\\Dropbox\\",
+          "C:\\Program Files\\Dropbox\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

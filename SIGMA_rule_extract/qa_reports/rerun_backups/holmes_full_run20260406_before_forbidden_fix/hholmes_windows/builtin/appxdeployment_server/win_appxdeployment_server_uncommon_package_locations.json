@@ -1,0 +1,50 @@
+{
+  "name": "AppX Located in Uncommon Directory Added to Deployment Pipeline",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path|contains": [
+          ":/Program%20Files",
+          ":/Windows/System32/",
+          ":\nProgram Files (x86)\\",
+          ":\nProgram Files\\",
+          ":\nWindows\\ImmersiveControlPanel\\",
+          ":\nWindows\\PrintDialog\\",
+          ":\nWindows\\SystemApps\\",
+          "AppData/Local/Temp/WinGet/Microsoft.Winget.Source",
+          "x-windowsupdate://",
+          "https://installer.teams.static.microsoft/",
+          "https://res.cdn.office.net",
+          "https://statics.teams.cdn.live.net/",
+          "https://statics.teams.cdn.office.net/",
+          "microsoft.com",
+          "AppData\\Local\\Microsoft\\OneDrive\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

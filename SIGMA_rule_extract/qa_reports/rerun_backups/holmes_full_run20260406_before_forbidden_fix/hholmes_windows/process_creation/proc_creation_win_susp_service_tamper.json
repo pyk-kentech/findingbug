@@ -1,0 +1,68 @@
+{
+  "name": "Suspicious Windows Service Tampering",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": [
+          "net.exe",
+          "net1.exe",
+          "PowerShell_ISE.EXE",
+          "PowerShell.EXE",
+          "psservice.exe",
+          "pwsh.dll",
+          "sc.exe",
+          "wmic.exe"
+        ],
+        "Image|endswith": [
+          "\\net.exe",
+          "\\net1.exe",
+          "\\PowerShell_ISE.EXE",
+          "\\powershell.exe",
+          "\\PsService.exe",
+          "\\PsService64.exe",
+          "\\pwsh.exe",
+          "\\sc.exe",
+          "\\wmic.exe"
+        ],
+        "CommandLine|contains": [
+          " delete ",
+          ".delete()",
+          " pause ",
+          " stop ",
+          "Stop-Service ",
+          "Remove-Service "
+        ],
+        "CommandLine|contains|all": [
+          "config",
+          "start=disabled"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": []
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Important Scheduled Task Deleted",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "DELETE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "UserName": [
+          "*AUTHORI*",
+          "*AUTHORI*"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TaskName": [
+          "\\Windows\\SystemRestore\\SR",
+          "\\Windows\\Windows Defender\\",
+          "\\Windows\\BitLocker\\",
+          "\\Windows\\WindowsBackup\\",
+          "\\Windows\\WindowsUpdate\\",
+          "\\Windows\\UpdateOrchestrator\\",
+          "\\Windows\\ExploitGuard"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

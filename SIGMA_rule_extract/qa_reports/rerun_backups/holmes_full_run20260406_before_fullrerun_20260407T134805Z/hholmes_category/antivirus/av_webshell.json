@@ -1,0 +1,86 @@
+{
+  "name": "Antivirus Web Shell Detection",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Signature|startswith": [
+          "ASP.",
+          "IIS/BackDoor",
+          "JAVA/Backdoor",
+          "JSP.",
+          "Perl.",
+          "PHP.",
+          "Troj/ASP",
+          "Troj/JSP",
+          "Troj/PHP",
+          "VBS/Uxor"
+        ],
+        "Signature|contains": [
+          "ASP_",
+          "ASP:",
+          "ASP.Agent",
+          "ASP/",
+          "Aspdoor",
+          "ASPXSpy",
+          "Backdoor.ASP",
+          "Backdoor.Java",
+          "Backdoor.JSP",
+          "Backdoor.PHP",
+          "Backdoor.VBS",
+          "Backdoor/ASP",
+          "Backdoor/Java",
+          "Backdoor/JSP",
+          "Backdoor/PHP",
+          "Backdoor/VBS",
+          "C99shell",
+          "Chopper",
+          "filebrowser",
+          "JSP_",
+          "JSP:",
+          "JSP.Agent",
+          "JSP/",
+          "Perl:",
+          "Perl/",
+          "PHP_",
+          "PHP:",
+          "PHP.Agent",
+          "PHP/",
+          "PHPShell",
+          "PShlSpy",
+          "SinoChoper",
+          "Trojan.ASP",
+          "Trojan.JSP",
+          "Trojan.PHP",
+          "Trojan.VBS",
+          "VBS.Agent",
+          "VBS/Agent",
+          "Webshell"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+﻿rules:
+  - rule_id: TEST_PROC_TO_FILE
+    name: "C1 path_factor threshold=1.1"
+    event_type: proc_to_file
+    prerequisites:
+      - graph_path
+      - type: path_factor
+        threshold: 1.1
+        op: ">="

@@ -1,0 +1,48 @@
+{
+  "name": "PUA - Potential PE Metadata Tamper Using Rcedit",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\rcedit-x64.exe",
+          "\\rcedit-x86.exe"
+        ],
+        "Description": "Edit resources of exe",
+        "Product": "rcedit",
+        "CommandLine|contains": [
+          "--set-",
+          "OriginalFileName",
+          "CompanyName",
+          "FileDescription",
+          "ProductName",
+          "ProductVersion",
+          "LegalCopyright"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

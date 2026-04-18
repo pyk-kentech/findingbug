@@ -1,0 +1,40 @@
+{
+  "name": "Group Policy Abuse for Privilege Addition",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "5136",
+        "AttributeLDAPDisplayName": "gPCMachineExtensionNames"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "AttributeValue|contains": [
+          "827D319E-6EAC-11D2-A4EA-00C04F79F83A",
+          "803E14A0-B4FB-11D0-A0D0-00A0C90F574B"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

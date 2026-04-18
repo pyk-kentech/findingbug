@@ -1,0 +1,43 @@
+{
+  "name": "Potential JLI.dll Side-Loading",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\jli.dll"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|startswith": [
+          "C:\\Program Files\\",
+          "C:\\Program Files (x86)\\"
+        ],
+        "Description": "OpenJDK Platform binary",
+        "OriginalFileName": "jli.dll",
+        "Product|startswith": "OpenJDK Platform",
+        "Signed": "true"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Possible Coin Miner CPU Priority Param",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "a1|startswith": "--cpu-priority",
+        "a2|startswith": "--cpu-priority",
+        "a3|startswith": "--cpu-priority",
+        "a4|startswith": "--cpu-priority",
+        "a5|startswith": "--cpu-priority",
+        "a6|startswith": "--cpu-priority",
+        "a7|startswith": "--cpu-priority"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "Potential Malicious AppX Package Installation Attempts",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "400",
+          "401"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "PackageFullName|contains": "3669e262-ec02-4e9d-bcb4-3d008b4afac9"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

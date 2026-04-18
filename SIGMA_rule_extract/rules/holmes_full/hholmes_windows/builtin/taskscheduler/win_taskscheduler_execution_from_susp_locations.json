@@ -1,0 +1,50 @@
+{
+  "name": "Scheduled Task Executed From A Suspicious Location",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "129"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "Path|contains": [
+          "C:\\Windows\\Temp\\",
+          "\\AppData\\Local\\Temp\\",
+          "\\Desktop\\",
+          "\\Downloads\\",
+          "\\Users\\Public\\",
+          "C:\\Temp\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Classes Autorun Keys Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\Software\\Classes",
+          "\\Folder\\ShellEx\\ExtShellFolderViews",
+          "\\Folder\\ShellEx\\DragDropHandlers",
+          "\\Folder\\Shellex\\ColumnHandlers",
+          "\\Filter",
+          "\\Exefile\\Shell\\Open\\Command\\(Default)",
+          "\\Directory\\Shellex\\DragDropHandlers",
+          "\\Directory\\Shellex\\CopyHookHandlers",
+          "\\CLSID\\{AC757296-3522-4E11-9862-C17BE5A1767E}\\Instance",
+          "\\CLSID\\{ABE3B9A4-257D-4B97-BD1A-294AF496222E}\\Instance",
+          "\\CLSID\\{7ED96837-96F0-4812-B211-F13C24117ED3}\\Instance",
+          "\\CLSID\\{083863F1-70DE-11d0-BD40-00A0C911CE86}\\Instance",
+          "\\Classes\\AllFileSystemObjects\\ShellEx\\DragDropHandlers",
+          "\\.exe",
+          "\\.cmd",
+          "\\ShellEx\\PropertySheetHandlers",
+          "\\ShellEx\\ContextMenuHandlers"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

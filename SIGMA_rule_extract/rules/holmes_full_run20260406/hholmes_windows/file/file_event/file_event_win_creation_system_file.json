@@ -1,0 +1,53 @@
+{
+  "name": "Files With System Process Name In Unsuspected Locations",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\SecurityHealthSetup.exe"
+        ],
+        "Image|contains": [
+          "C:\\Program Files\\WindowsApps\\",
+          "C:\\Program Files (x86)\\WindowsApps\\",
+          "\\AppData\\Local\\Microsoft\\WindowsApps\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          "C:\\Windows\\explorer.exe"
+        ],
+        "TargetFilename|contains": [
+          "C:\\Windows\\System32\\SecurityHealth\\"
+        ],
+        "TargetFilename|startswith": [
+          "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+          "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+          "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

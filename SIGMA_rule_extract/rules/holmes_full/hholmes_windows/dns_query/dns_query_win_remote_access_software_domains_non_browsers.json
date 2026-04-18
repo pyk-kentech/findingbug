@@ -1,0 +1,139 @@
+{
+  "name": "DNS Query To Remote Access Software Domain From Non-Browser App",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "Image|endswith": [
+          "\\chrome.exe",
+          "\\firefox.exe",
+          "\\iexplore.exe",
+          "\\msedge.exe",
+          "\\MsMpEng.exe",
+          "\\MsSense.exe",
+          "\\brave.exe",
+          "\\maxthon.exe",
+          "\\opera.exe",
+          "\\seamonkey.exe",
+          "\\vivaldi.exe",
+          "\\whale.exe",
+          "\\Waterfox.exe",
+          "\\Midori Next Generation.exe",
+          "\\slimbrowser.exe",
+          "\\Flock.exe",
+          "\\Phoebe.exe",
+          "\\falkon.exe",
+          "\\avant.exe"
+        ],
+        "Image|startswith": [
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe",
+          "C:\\Program Files\\Internet Explorer\\iexplore.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\",
+          "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+          "C:\\Program Files (x86)\\Microsoft\\EdgeCore\\",
+          "C:\\Program Files\\Microsoft\\EdgeCore\\",
+          "C:\\Program Files\\BraveSoftware\\",
+          "C:\\AppData\\Local\\Maxthon\\",
+          "C:\\AppData\\Local\\Programs\\Opera\\",
+          "C:\\Program Files\\SeaMonkey\\",
+          "C:\\Program Files (x86)\\SeaMonkey\\",
+          "C:\\AppData\\Local\\Vivaldi\\",
+          "C:\\Program Files\\Naver\\Naver Whale\\",
+          "C:\\Program Files (x86)\\Naver\\Naver Whale\\",
+          "C:\\Tor Browser\\",
+          "C:\\Program Files\\Waterfox\\",
+          "C:\\Program Files (x86)\\Waterfox\\",
+          "C:\\AppData\\Local\\Programs\\midori-ng\\",
+          "C:\\Program Files\\SlimBrowser\\",
+          "C:\\Program Files (x86)\\SlimBrowser\\",
+          "C:\\AppData\\Local\\Flock\\",
+          "C:\\AppData\\Local\\Phoebe\\",
+          "C:\\Program Files\\Falkon\\",
+          "C:\\Program Files (x86)\\Falkon\\",
+          "C:\\Program Files (x86)\\Avant Browser\\",
+          "C:\\Program Files\\Avant Browser\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "QueryName|endswith": [
+          "agent.jumpcloud.com",
+          "agentreporting.atera.com",
+          "ammyy.com",
+          "api.parsec.app",
+          "api.playanext.com",
+          "api.splashtop.com",
+          "app.atera.com",
+          "assist.zoho.com",
+          "authentication.logmeininc.com",
+          "beyondtrustcloud.com",
+          "cdn.kaseya.net",
+          "client.teamviewer.com",
+          "comserver.corporate.beanywhere.com",
+          "control.connectwise.com",
+          "downloads.zohocdn.com",
+          "dwservice.net",
+          "express.gotoassist.com",
+          "getgo.com",
+          "getscreen.me",
+          "integratedchat.teamviewer.com",
+          "join.zoho.com",
+          "kickstart.jumpcloud.com",
+          "license.bomgar.com",
+          "logmein-gateway.com",
+          "logmein.com",
+          "logmeincdn.http.internapcdn.net",
+          "n-able.com",
+          "net.anydesk.com",
+          "netsupportsoftware.com",
+          "parsecusercontent.com",
+          "pubsub.atera.com",
+          "relay.kaseya.net",
+          "relay.screenconnect.com",
+          "relay.splashtop.com",
+          "remoteassistance.support.services.microsoft.com",
+          "remotedesktop-pa.googleapis.com",
+          "remoteutilities.com",
+          "secure.logmeinrescue.com",
+          "services.vnc.com",
+          "static.remotepc.com",
+          "swi-rc.com",
+          "swi-tc.com",
+          "tailscale.com",
+          "telemetry.servers.qetqo.com",
+          "tmate.io",
+          "twingate.com",
+          "zohoassist.com"
+        ],
+        "QueryName|startswith": [
+          "rs-"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

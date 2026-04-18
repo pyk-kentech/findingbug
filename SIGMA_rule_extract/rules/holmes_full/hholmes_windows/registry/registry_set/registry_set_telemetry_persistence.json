@@ -1,0 +1,58 @@
+{
+  "name": "Potential Registry Persistence Attempt Via Windows Telemetry",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\TelemetryController\\",
+        "TargetObject|endswith": "\\Command"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details|contains": [
+          ".bat",
+          ".bin",
+          ".cmd",
+          ".dat",
+          ".dll",
+          ".exe",
+          ".hta",
+          ".jar",
+          ".js",
+          ".msi",
+          ".ps",
+          ".sh",
+          ".vb"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

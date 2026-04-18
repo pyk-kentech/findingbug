@@ -1,0 +1,41 @@
+{
+  "name": "HackTool - Empire UserAgent URI Combo",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "c-useragent": "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "cs-uri": [
+          "/admin/get.php",
+          "/news.php",
+          "/login/process.php"
+        ],
+        "cs-method": "POST"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

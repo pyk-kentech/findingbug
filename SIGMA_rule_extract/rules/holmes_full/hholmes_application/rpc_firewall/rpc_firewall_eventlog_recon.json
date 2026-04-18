@@ -1,0 +1,40 @@
+{
+  "name": "Remote Event Log Recon",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventLog": "RPCFW"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "EventID": 3,
+        "InterfaceUuid": [
+          "82273fdc-e32a-18c3-3f78-827929dc23ea",
+          "f6beaff7-1e19-4fbb-9f8f-b89e2018337c"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

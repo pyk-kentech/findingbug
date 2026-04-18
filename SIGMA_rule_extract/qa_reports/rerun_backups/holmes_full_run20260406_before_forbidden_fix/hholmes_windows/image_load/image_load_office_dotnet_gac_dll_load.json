@@ -1,0 +1,44 @@
+{
+  "name": "GAC DLL Loaded Via Office Applications",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\excel.exe",
+          "\\mspub.exe",
+          "\\onenote.exe",
+          "\\onenoteim.exe",
+          "\\outlook.exe",
+          "\\powerpnt.exe",
+          "\\winword.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|startswith": "C:\\Windows\\Microsoft.NET\\assembly\\GAC_MSIL"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

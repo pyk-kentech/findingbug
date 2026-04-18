@@ -1,0 +1,50 @@
+{
+  "name": "New RUN Key Pointing to Suspicious Folder",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|contains": "\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\",
+        "Details|contains": [
+          "\\AppData\\Local\\Temp\\",
+          "C:\\Windows\\Temp\\"
+        ],
+        "Image|startswith": "C:\\Windows\\SoftwareDistribution\\Download\\",
+        "Details|contains|all": [
+          "rundll32.exe ",
+          "C:\\WINDOWS\\system32\\advpack.dll,DelNodeRunDLL32"
+        ],
+        "Image|endswith": [
+          "C:\\Program Files\\Spotify\\Spotify.exe",
+          "C:\\Program Files (x86)\\Spotify\\Spotify.exe",
+          "\\AppData\\Roaming\\Spotify\\Spotify.exe"
+        ],
+        "TargetObject|endswith": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Spotify",
+        "Details|endswith": "Spotify.exe --autostart --minimized"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

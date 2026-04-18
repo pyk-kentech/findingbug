@@ -1,0 +1,51 @@
+{
+  "name": "New Module Module Added To IIS Server",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "29",
+        "Configuration|contains": "/system.webServer/modules/add"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "NewValue": [
+          "AnonymousAuthenticationModule",
+          "CustomErrorModule",
+          "DefaultDocumentModule",
+          "DirectoryListingModule",
+          "FileCacheModule",
+          "HttpCacheModule",
+          "HttpLoggingModule",
+          "ProtocolSupportModule",
+          "RequestFilteringModule",
+          "StaticCompressionModule",
+          "StaticFileModule",
+          "TokenCacheModule",
+          "UriCacheModule"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

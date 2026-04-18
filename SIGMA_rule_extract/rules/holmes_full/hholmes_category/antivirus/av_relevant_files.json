@@ -1,0 +1,90 @@
+{
+  "name": "Antivirus Relevant File Paths Alerts",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Filename|contains": [
+          ":\\PerfLogs\\",
+          ":\\Temp\\",
+          ":\\Users\\Default\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\",
+          "/www/",
+          "\\inetpub\\",
+          "\\tsclient\\",
+          "apache",
+          "nginx",
+          "tomcat",
+          "weblogic"
+        ],
+        "Filename|endswith": [
+          ".asax",
+          ".ashx",
+          ".asmx",
+          ".asp",
+          ".aspx",
+          ".bat",
+          ".cfm",
+          ".cgi",
+          ".chm",
+          ".cmd",
+          ".dat",
+          ".ear",
+          ".gif",
+          ".hta",
+          ".jpeg",
+          ".jpg",
+          ".jsp",
+          ".jspx",
+          ".lnk",
+          ".msc",
+          ".php",
+          ".pl",
+          ".png",
+          ".ps1",
+          ".psm1",
+          ".py",
+          ".pyc",
+          ".rb",
+          ".scf",
+          ".sct",
+          ".sh",
+          ".svg",
+          ".txt",
+          ".vbe",
+          ".vbs",
+          ".war",
+          ".wll",
+          ".wsf",
+          ".wsh",
+          ".xll",
+          ".xml"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

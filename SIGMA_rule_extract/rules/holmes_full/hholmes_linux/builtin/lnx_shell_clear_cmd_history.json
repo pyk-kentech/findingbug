@@ -1,0 +1,50 @@
+{
+  "name": "Linux Command History Tampering",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "command_line": [
+          "cat /dev/null >*sh_history",
+          "cat /dev/zero >*sh_history",
+          "chattr +i*sh_history",
+          "echo \"\" >*sh_history",
+          "empty_bash_history",
+          "export HISTFILESIZE=0",
+          "history -c",
+          "history -w",
+          "ln -sf /dev/null *sh_history",
+          "ln -sf /dev/zero *sh_history",
+          "rm *sh_history",
+          "shopt -ou history",
+          "shopt -uo history",
+          "shred *sh_history",
+          "truncate -s0 *sh_history"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

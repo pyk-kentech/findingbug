@@ -1,0 +1,57 @@
+{
+  "name": "Potential File Extension Spoofing Using Right-to-Left Override",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": [
+          "\\u202e",
+          "[U+202E]",
+          "‮",
+          "3pm.",
+          "4pm.",
+          "cod.",
+          "fdp.",
+          "ftr.",
+          "gepj.",
+          "gnp.",
+          "gpj.",
+          "ism.",
+          "lmth.",
+          "nls.",
+          "piz.",
+          "slx.",
+          "tdo.",
+          "vsc.",
+          "vwm.",
+          "xcod.",
+          "xslx.",
+          "xtpp."
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "BITS Transfer Job Download From Direct IP",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "16403"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "RemoteName|contains": [
+          "http://1",
+          "http://2",
+          "http://3",
+          "http://4",
+          "http://5",
+          "http://6",
+          "http://7",
+          "http://8",
+          "http://9",
+          "https://1",
+          "https://2",
+          "https://3",
+          "https://4",
+          "https://5",
+          "https://6",
+          "https://7",
+          "https://8",
+          "https://9"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

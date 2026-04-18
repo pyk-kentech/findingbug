@@ -1,0 +1,41 @@
+{
+  "name": "Network Sniffing - Linux",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "selection_1.type": "execve",
+        "selection_1.a0": "tcpdump",
+        "selection_1.a1": "-c",
+        "selection_1.a3|contains": "-i",
+        "selection_2.type": "execve",
+        "selection_2.a0": "tshark",
+        "selection_2.a1": "-c",
+        "selection_2.a3": "-i"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "Enable Microsoft Dynamic Data Exchange",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|endswith": [
+          "\\Word\\Security\\AllowDDE",
+          "\\Excel\\Security\\DisableDDEServerLaunch",
+          "\\Excel\\Security\\DisableDDEServerLookup"
+        ],
+        "Details": [
+          "DWORD (0x00000001)",
+          "DWORD (0x00000002)",
+          "DWORD (0x00000000)"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

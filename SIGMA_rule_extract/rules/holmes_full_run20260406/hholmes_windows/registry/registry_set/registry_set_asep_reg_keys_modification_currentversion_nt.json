@@ -1,0 +1,62 @@
+{
+  "name": "CurrentVersion NT Autorun Keys Modification",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image": [
+          "C:\\Windows\\System32\\poqexec.exe",
+          "C:\\Windows\\system32\\svchost.exe",
+          "C:\\Windows\\System32\\RuntimeBroker.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetObject|contains": [
+          "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+          "\\Winlogon\\VmApplet",
+          "\\Winlogon\\Userinit",
+          "\\Winlogon\\Taskman",
+          "\\Winlogon\\Shell",
+          "\\Winlogon\\GpExtensions",
+          "\\Winlogon\\AppSetup",
+          "\\Winlogon\\AlternateShells\\AvailableShells",
+          "\\Windows\\IconServiceLib",
+          "\\Windows\\Appinit_Dlls",
+          "\\Image File Execution Options",
+          "\\Font Drivers",
+          "\\Drivers32",
+          "\\Windows\\Run",
+          "\\Windows\\Load"
+        ],
+        "Details": [
+          "(Empty)",
+          "DWORD (0x00000001)",
+          "DWORD (0x00000009)",
+          "DWORD (0x000003c0)"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

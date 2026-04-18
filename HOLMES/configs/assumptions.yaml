@@ -1,0 +1,29 @@
+fallback_tau:
+  value: 1378.0
+  WHY: "Global, universal tau is not specified as a fixed default across all datasets; paper reports dataset/experiment-specific thresholding."
+  IMPACT: "Detection sensitivity shifts with tau; this directly changes TP/FP tradeoff and early-detection timing."
+
+fallback_weights:
+  value: [1, 1, 1, 1, 1, 1, 1]
+  WHY: "Stage-specific weight vector w_i is configurable in paper, but no single canonical 7-value default vector is specified."
+  IMPACT: "Relative importance across stages changes final weighted product and ranking."
+
+stage_severity_assignment_rule:
+  value: "Synthetic pipeline maps generated stage marker events to Medium(6) unless configured otherwise."
+  WHY: "Paper does not provide a universal deterministic rule mapping arbitrary evidence to L/M/H/C outside its concrete TTP specs."
+  IMPACT: "Threat tuple magnitude and tau crossing point can change per scenario."
+
+synthetic_stage_templates:
+  value: "Synthetic generator uses stage_i marker event types, not original DARPA traces/TTP templates."
+  WHY: "Raw datasets and exact campaign generation templates are not fully specified for turnkey reproduction."
+  IMPACT: "Absolute numbers are for reproducibility and relative comparisons, not strict dataset-identical replication."
+
+max_pending_matches:
+  value: 100000
+  WHY: "Streaming prerequisite correlation can otherwise retain unbounded pending matches and exhaust memory on noisy or sparse data."
+  IMPACT: "Very old or low-value pending matches may be FIFO-evicted before satisfaction under sustained load."
+
+apt_alert_threshold:
+  value: 80.0
+  WHY: "A single canonical production alerting threshold is not fixed by the paper and must be calibrated to deployment data."
+  IMPACT: "Higher threshold reduces alert volume but may delay or suppress scenario-level APT alerts."

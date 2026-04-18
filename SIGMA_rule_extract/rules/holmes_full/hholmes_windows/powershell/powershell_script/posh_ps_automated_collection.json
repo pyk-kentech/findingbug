@@ -1,0 +1,49 @@
+{
+  "name": "Automated Collection Command PowerShell",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          ".doc",
+          ".docx",
+          ".xls",
+          ".xlsx",
+          ".ppt",
+          ".pptx",
+          ".rtf",
+          ".pdf",
+          ".txt"
+        ],
+        "ScriptBlockText|contains|all": [
+          "Get-ChildItem",
+          " -Recurse ",
+          " -Include "
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

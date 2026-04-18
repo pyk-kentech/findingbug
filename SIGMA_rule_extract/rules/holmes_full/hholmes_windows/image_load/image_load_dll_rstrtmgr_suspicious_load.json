@@ -1,0 +1,41 @@
+{
+  "name": "Load Of RstrtMgr.DLL By A Suspicious Process",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ImageLoaded|endswith": "\\RstrtMgr.dll",
+        "OriginalFileName": "RstrtMgr.dll"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          ":\\Perflogs\\",
+          ":\\Users\\Public\\",
+          "\\Temporary Internet"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+[
+  {
+    "match_id": "m1",
+    "rule_id": "TEST_PROC_TO_FILE",
+    "event_ids": [
+      "e1"
+    ],
+    "entities": [
+      "proc:alpha",
+      "file:/tmp/a.txt"
+    ],
+    "bindings": {
+      "subject": "proc:alpha",
+      "object": "file:/tmp/a.txt"
+    },
+    "metadata": {
+      "op": null,
+      "event_type": "proc_to_file"
+    }
+  },
+  {
+    "match_id": "m2",
+    "rule_id": "TEST_PROC_TO_FILE",
+    "event_ids": [
+      "e5"
+    ],
+    "entities": [
+      "proc:gamma",
+      "file:/var/log/demo.log"
+    ],
+    "bindings": {
+      "subject": "proc:gamma",
+      "object": "file:/var/log/demo.log"
+    },
+    "metadata": {
+      "op": null,
+      "event_type": "proc_to_file"
+    }
+  },
+  {
+    "match_id": "m3",
+    "rule_id": "TEST_FILE_TO_IP",
+    "event_ids": [
+      "e2"
+    ],
+    "entities": [
+      "file:/tmp/a.txt",
+      "ip:203.0.113.10"
+    ],
+    "bindings": {
+      "subject": "file:/tmp/a.txt",
+      "object": "ip:203.0.113.10"
+    },
+    "metadata": {
+      "op": null,
+      "event_type": "file_to_ip"
+    }
+  },
+  {
+    "match_id": "m4",
+    "rule_id": "TEST_PROC_TO_PROC",
+    "event_ids": [
+      "e3"
+    ],
+    "entities": [
+      "proc:alpha",
+      "proc:beta"
+    ],
+    "bindings": {
+      "subject": "proc:alpha",
+      "object": "proc:beta"
+    },
+    "metadata": {
+      "op": null,
+      "event_type": "proc_to_proc"
+    }
+  }
+]

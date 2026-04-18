@@ -1,0 +1,55 @@
+{
+  "name": "Suspicious Installer Package Child Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "/package_script_service",
+          "/installer"
+        ],
+        "Image|endswith": [
+          "/sh",
+          "/bash",
+          "/dash",
+          "/python",
+          "/ruby",
+          "/perl",
+          "/php",
+          "/javascript",
+          "/osascript",
+          "/tclsh",
+          "/curl",
+          "/wget"
+        ],
+        "CommandLine|contains": [
+          "preinstall",
+          "postinstall"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

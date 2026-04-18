@@ -1,0 +1,6 @@
+{"event_id":"e1","ts":"2026-02-18T00:00:00Z","event_type":"proc_to_file","subject":"proc:alpha","object":"file:/tmp/a.txt"}
+{"event_id":"e2","ts":"2026-02-18T00:00:01Z","event_type":"file_to_ip","subject":"file:/tmp/a.txt","object":"ip:203.0.113.10"}
+{"event_id":"e3","ts":"2026-02-18T00:00:02Z","event_type":"proc_to_proc","subject":"proc:alpha","object":"proc:beta"}
+{"event_id":"e4","ts":"2026-02-18T00:00:03Z","event_type":"proc_to_registry","subject":"proc:beta","object":"reg:HKCU\\Software\\Demo"}
+{"event_id":"e5","ts":"2026-02-18T00:00:04Z","event_type":"proc_to_file","subject":"proc:gamma","object":"file:/var/log/demo.log"}
+{"event_id":"e6","ts":"2026-02-18T00:00:05Z","event_type":"file_to_proc","subject":"file:/var/log/demo.log","object":"proc:delta"}

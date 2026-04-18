@@ -1,0 +1,48 @@
+{
+  "name": "Suspicious BitLocker Access Agent Update Utility Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\baaupdate.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\bitsadmin.exe",
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\mshta.exe",
+          "\\powershell_ise.exe",
+          "\\powershell.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\schtasks.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

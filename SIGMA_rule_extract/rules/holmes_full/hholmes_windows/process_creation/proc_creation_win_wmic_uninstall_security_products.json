@@ -1,0 +1,77 @@
+{
+  "name": "Potential Tampering With Security Products Via WMIC",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains|all": [
+          "process ",
+          "where ",
+          "delete"
+        ],
+        "CommandLine|contains": [
+          "%carbon%",
+          "%cylance%",
+          "%endpoint%",
+          "%eset%",
+          "%malware%",
+          "%Sophos%",
+          "%symantec%",
+          "Antivirus",
+          "AVG ",
+          "Carbon Black",
+          "CarbonBlack",
+          "Cb Defense Sensor 64-bit",
+          "Crowdstrike Sensor",
+          "Cylance ",
+          "Dell Threat Defense",
+          "DLP Endpoint",
+          "Endpoint Detection",
+          "Endpoint Protection",
+          "Endpoint Security",
+          "Endpoint Sensor",
+          "ESET File Security",
+          "LogRhythm System Monitor Service",
+          "Malwarebytes",
+          "McAfee Agent",
+          "Microsoft Security Client",
+          "Sophos Anti-Virus",
+          "Sophos AutoUpdate",
+          "Sophos Credential Store",
+          "Sophos Management Console",
+          "Sophos Management Database",
+          "Sophos Management Server",
+          "Sophos Remote Management System",
+          "Sophos Update Manager",
+          "Threat Protection",
+          "VirusScan",
+          "Webroot SecureAnywhere",
+          "Windows Defender"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

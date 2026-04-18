@@ -1,0 +1,40 @@
+{
+  "name": "Potential Unconstrained Delegation Discovery Via Get-ADComputer - ScriptBlock",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ScriptBlockText|contains": [
+          "-Properties*TrustedForDelegation",
+          "-Properties*TrustedToAuthForDelegation",
+          "-Properties*msDS-AllowedToDelegateTo",
+          "-Properties*PrincipalsAllowedToDelegateToAccount",
+          "-LDAPFilter*(userAccountControl:1.2.840.113556.1.4.803:=524288)"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

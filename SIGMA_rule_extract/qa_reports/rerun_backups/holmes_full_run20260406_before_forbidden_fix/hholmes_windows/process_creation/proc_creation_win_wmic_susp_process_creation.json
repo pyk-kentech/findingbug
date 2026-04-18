@@ -1,0 +1,64 @@
+{
+  "name": "Suspicious Process Created Via Wmic.EXE",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains|all": [
+          "process ",
+          "call ",
+          "create "
+        ],
+        "CommandLine|contains": [
+          "rundll32",
+          "bitsadmin",
+          "regsvr32",
+          "cmd.exe /c ",
+          "cmd.exe /k ",
+          "cmd.exe /r ",
+          "cmd /c ",
+          "cmd /k ",
+          "cmd /r ",
+          "powershell",
+          "pwsh",
+          "certutil",
+          "cscript",
+          "wscript",
+          "mshta",
+          "\\Users\\Public\\",
+          "\\Windows\\Temp\\",
+          "\\AppData\\Local\\",
+          "%temp%",
+          "%tmp%",
+          "%ProgramData%",
+          "%appdata%",
+          "%comspec%",
+          "%localappdata%"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

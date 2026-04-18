@@ -1,0 +1,13 @@
+﻿rules:
+  - rule_id: TEST_PROC_TO_FILE
+    name: "proc->file"
+    event_type: proc_to_file
+
+  - rule_id: TEST_FILE_TO_IP
+    name: "file->ip"
+    event_type: file_to_ip
+    prerequisites:
+      - graph_path
+      - type: path_factor
+        threshold: 1.1
+        op: ">="

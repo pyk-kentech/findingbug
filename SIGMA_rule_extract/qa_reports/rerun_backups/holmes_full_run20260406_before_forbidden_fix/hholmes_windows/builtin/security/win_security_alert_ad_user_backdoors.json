@@ -1,0 +1,50 @@
+{
+  "name": "Active Directory User Backdoors",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "4738",
+          "5136"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "AllowedToDelegateTo": [
+          "",
+          "-"
+        ],
+        "AttributeLDAPDisplayName": [
+          "msDS-AllowedToDelegateTo",
+          "servicePrincipalName",
+          "msDS-AllowedToActOnBehalfOfOtherIdentity"
+        ],
+        "ObjectClass": [
+          "user"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

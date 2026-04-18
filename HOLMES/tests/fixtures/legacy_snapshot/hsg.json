@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "match_id": "m1",
+      "rule_id": "TEST_PROC_TO_FILE",
+      "event_ids": [
+        "e1"
+      ],
+      "entities": [
+        "proc:alpha",
+        "file:/tmp/a.txt"
+      ]
+    },
+    {
+      "match_id": "m2",
+      "rule_id": "TEST_PROC_TO_FILE",
+      "event_ids": [
+        "e5"
+      ],
+      "entities": [
+        "proc:gamma",
+        "file:/var/log/demo.log"
+      ]
+    },
+    {
+      "match_id": "m3",
+      "rule_id": "TEST_FILE_TO_IP",
+      "event_ids": [
+        "e2"
+      ],
+      "entities": [
+        "file:/tmp/a.txt",
+        "ip:203.0.113.10"
+      ]
+    },
+    {
+      "match_id": "m4",
+      "rule_id": "TEST_PROC_TO_PROC",
+      "event_ids": [
+        "e3"
+      ],
+      "entities": [
+        "proc:alpha",
+        "proc:beta"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "src": "m1",
+      "dst": "m3",
+      "relation": "graph_path",
+      "weight": 0.5,
+      "path_factor": 1.0,
+      "dependency_strength": 0.5
+    },
+    {
+      "src": "m1",
+      "dst": "m4",
+      "relation": "shared_entity"
+    }
+  ]
+}

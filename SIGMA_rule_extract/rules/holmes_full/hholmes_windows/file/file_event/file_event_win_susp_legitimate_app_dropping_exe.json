@@ -1,0 +1,54 @@
+{
+  "name": "Legitimate Application Dropped Executable",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\eqnedt32.exe",
+          "\\wordpad.exe",
+          "\\wordview.exe",
+          "\\certutil.exe",
+          "\\certoc.exe",
+          "\\CertReq.exe",
+          "\\Desktopimgdownldr.exe",
+          "\\esentutl.exe",
+          "\\mshta.exe",
+          "\\AcroRd32.exe",
+          "\\RdrCEF.exe",
+          "\\hh.exe",
+          "\\finger.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          ".exe",
+          ".dll",
+          ".ocx"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

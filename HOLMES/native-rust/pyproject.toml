@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "holmes-native-rs"
+version = "0.1.0"
+description = "Rust native backend skeleton for HOLMES"
+requires-python = ">=3.10"
+
+[tool.maturin]
+module-name = "holmes_native_rs"

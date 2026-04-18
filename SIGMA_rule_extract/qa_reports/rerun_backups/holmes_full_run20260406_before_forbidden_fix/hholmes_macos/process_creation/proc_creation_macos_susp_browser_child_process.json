@@ -1,0 +1,59 @@
+{
+  "name": "Suspicious Browser Child Process - MacOS",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains": [
+          "com.apple.WebKit.WebContent",
+          "firefox",
+          "Google Chrome Helper",
+          "Google Chrome",
+          "Microsoft Edge",
+          "Opera",
+          "Safari",
+          "Tor Browser"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "/bash",
+          "/curl",
+          "/dash",
+          "/ksh",
+          "/osascript",
+          "/perl",
+          "/php",
+          "/pwsh",
+          "/python",
+          "/sh",
+          "/tcsh",
+          "/wget",
+          "/zsh"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

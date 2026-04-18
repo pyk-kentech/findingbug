@@ -1,0 +1,115 @@
+{
+  "name": "Download From Suspicious TLD - Blacklist",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "c-uri-extension": [
+          "exe",
+          "vbs",
+          "bat",
+          "rar",
+          "ps1",
+          "doc",
+          "docm",
+          "xls",
+          "xlsm",
+          "pptm",
+          "rtf",
+          "hta",
+          "dll",
+          "ws",
+          "wsf",
+          "sct",
+          "zip"
+        ],
+        "cs-host|endswith": [
+          ".country",
+          ".stream",
+          ".gdn",
+          ".mom",
+          ".xin",
+          ".kim",
+          ".men",
+          ".loan",
+          ".download",
+          ".racing",
+          ".online",
+          ".science",
+          ".ren",
+          ".gb",
+          ".win",
+          ".top",
+          ".review",
+          ".vip",
+          ".party",
+          ".tech",
+          ".xyz",
+          ".date",
+          ".faith",
+          ".zip",
+          ".cricket",
+          ".space",
+          ".info",
+          ".vn",
+          ".cm",
+          ".am",
+          ".cc",
+          ".asia",
+          ".ws",
+          ".tk",
+          ".biz",
+          ".su",
+          ".st",
+          ".ro",
+          ".ge",
+          ".ms",
+          ".pk",
+          ".nu",
+          ".me",
+          ".ph",
+          ".to",
+          ".tt",
+          ".name",
+          ".tv",
+          ".kz",
+          ".tc",
+          ".mobi",
+          ".study",
+          ".click",
+          ".link",
+          ".trade",
+          ".accountant",
+          ".cf",
+          ".gq",
+          ".ml",
+          ".ga",
+          ".pw"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

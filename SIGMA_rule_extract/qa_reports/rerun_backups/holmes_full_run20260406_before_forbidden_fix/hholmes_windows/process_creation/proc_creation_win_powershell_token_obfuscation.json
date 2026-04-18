@@ -1,0 +1,38 @@
+{
+  "name": "Powershell Token Obfuscation - Process Creation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|re": [
+          "\\w+`(\\w+|-|.)`[\\w+|\\s]",
+          "\"(\\{\\d\\})+\"\\s*-f",
+          "(?i)\\$\\{`?e`?n`?v`?:`?p`?a`?t`?h`?\\}"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

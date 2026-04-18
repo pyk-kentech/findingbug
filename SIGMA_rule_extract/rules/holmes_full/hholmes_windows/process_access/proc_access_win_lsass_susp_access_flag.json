@@ -1,0 +1,72 @@
+{
+  "name": "Potentially Suspicious GrantedAccess Flags On LSASS",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetImage|endswith": "\\lsass.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "GrantedAccess|endswith": [
+          "30",
+          "50",
+          "70",
+          "90",
+          "B0",
+          "D0",
+          "F0",
+          "18",
+          "38",
+          "58",
+          "78",
+          "98",
+          "B8",
+          "D8",
+          "F8",
+          "1A",
+          "3A",
+          "5A",
+          "7A",
+          "9A",
+          "BA",
+          "DA",
+          "FA",
+          "0x14C2"
+        ],
+        "GrantedAccess|startswith": [
+          "0x100000",
+          "0x1418",
+          "0x1438",
+          "0x143a",
+          "0x1f0fff",
+          "0x1f1fff",
+          "0x1f2fff",
+          "0x1f3fff",
+          "0x40"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

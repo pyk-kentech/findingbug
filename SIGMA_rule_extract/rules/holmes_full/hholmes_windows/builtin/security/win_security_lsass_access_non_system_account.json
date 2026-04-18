@@ -1,0 +1,58 @@
+{
+  "name": "LSASS Access From Non System Account",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": [
+          "4663",
+          "4656"
+        ],
+        "AccessMask": [
+          "0x100000",
+          "0x1010",
+          "0x1400",
+          "0x1410",
+          "0x1418",
+          "0x1438",
+          "0x143a",
+          "0x1f0fff",
+          "0x1f1fff",
+          "0x1f2fff",
+          "0x1f3fff",
+          "0x40",
+          "143a",
+          "1f0fff",
+          "1f1fff",
+          "1f2fff",
+          "1f3fff"
+        ],
+        "ObjectType": "Process",
+        "ObjectName|endswith": "\\lsass.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

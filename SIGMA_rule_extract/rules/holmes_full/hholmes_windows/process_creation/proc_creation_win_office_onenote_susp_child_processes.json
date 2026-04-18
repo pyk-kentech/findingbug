@@ -1,0 +1,85 @@
+{
+  "name": "Suspicious Microsoft OneNote Child Process",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\onenote.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "OriginalFileName": [
+          "bitsadmin.exe",
+          "CertOC.exe",
+          "CertUtil.exe",
+          "Cmd.Exe",
+          "CMSTP.EXE",
+          "cscript.exe",
+          "curl.exe",
+          "HH.exe",
+          "IEExec.exe",
+          "InstallUtil.exe",
+          "javaw.exe",
+          "Microsoft.Workflow.Compiler.exe",
+          "msdt.exe",
+          "MSHTA.EXE",
+          "msiexec.exe",
+          "Msxsl.exe",
+          "odbcconf.exe",
+          "pcalua.exe",
+          "PowerShell.EXE",
+          "RegAsm.exe",
+          "RegSvcs.exe",
+          "REGSVR32.exe",
+          "RUNDLL32.exe",
+          "schtasks.exe",
+          "ScriptRunner.exe",
+          "wmic.exe",
+          "WorkFolders.exe",
+          "wscript.exe"
+        ],
+        "Image|endswith": [
+          "\\FileCoAuth.exe"
+        ],
+        "CommandLine|contains": [
+          ".hta",
+          ".vb",
+          ".wsh",
+          ".js",
+          ".ps",
+          ".scr",
+          ".pif",
+          ".bat",
+          ".cmd"
+        ],
+        "Image|contains": [
+          "\\AppData\\Local\\Microsoft\\OneDrive\\"
+        ],
+        "CommandLine|endswith": [
+          "-Embedding"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

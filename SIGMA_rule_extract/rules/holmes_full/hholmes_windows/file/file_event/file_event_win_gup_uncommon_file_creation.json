@@ -1,0 +1,44 @@
+{
+  "name": "Uncommon File Created by Notepad++ Updater Gup.EXE",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\gup.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|startswith": "C:\\$Recycle.Bin\\S-1-5-21",
+        "TargetFilename|contains|all": [
+          "C:\\Users\\",
+          "\\AppData\\Local\\Temp\\",
+          "npp.",
+          ".Installer.",
+          ".exe"
+        ],
+        "TargetFilename|contains": ".zip"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

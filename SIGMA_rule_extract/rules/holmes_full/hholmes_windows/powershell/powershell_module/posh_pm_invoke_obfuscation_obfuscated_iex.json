@@ -1,0 +1,42 @@
+{
+  "name": "Invoke-Obfuscation Obfuscated IEX Invocation - PowerShell Module",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Payload": [
+          "\\\\$PSHome\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$PSHome\\\\[",
+          "\\\\$ShellId\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$ShellId\\\\[",
+          "\\\\$env:Public\\\\[\\s*\\d{1,3}\\\\]\\s*\\\\+\\\\s*\\\\$env:Public\\\\[",
+          "\\\\$env:ComSpec\\\\[(\\s*\\d{1,3}\\s*,){2}",
+          "\\*mdr\\*\\W\\s*\\\\)\\.Name",
+          "\\\\$VerbosePreference\\.ToString\\(",
+          "\\[String\\]\\s*\\\\$VerbosePreference"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

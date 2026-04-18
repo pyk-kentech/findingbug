@@ -1,0 +1,39 @@
+{
+  "name": "Azure Login Bypassing Conditional Access Policies",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "Operation": "UserLoggedIn",
+        "ApplicationId": "9ba1a5c7-f17a-4de9-a1f1-6178c8d51223",
+        "ResultStatus": "Success",
+        "RequestType": "Cmsi:Cmsi"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {
+        "ObjectId": "0000000a-0000-0000-c000-000000000000"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "name": "Suspicious Program Location Whitelisted In Firewall Via Netsh.EXE",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\netsh.exe",
+        "OriginalFileName": "netsh.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path": [
+          ":\\$Recycle.bin\\",
+          ":\\RECYCLER.BIN\\",
+          ":\\RECYCLERS.BIN\\",
+          ":\\SystemVolumeInformation\\",
+          ":\\Temp\\",
+          ":\\Users\\Default\\",
+          ":\\Users\\Desktop\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\addins\\",
+          ":\\Windows\\cursors\\",
+          ":\\Windows\\debug\\",
+          ":\\Windows\\drivers\\",
+          ":\\Windows\\fonts\\",
+          ":\\Windows\\help\\",
+          ":\\Windows\\system32\\tasks\\",
+          ":\\Windows\\Tasks\\",
+          ":\\Windows\\Temp\\",
+          "\\Downloads\\",
+          "\\Local Settings\\Temporary Internet Files\\",
+          "\\Temporary Internet Files\\Content.Outlook\\",
+          "%Public%\\",
+          "%TEMP%",
+          "%TMP%"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

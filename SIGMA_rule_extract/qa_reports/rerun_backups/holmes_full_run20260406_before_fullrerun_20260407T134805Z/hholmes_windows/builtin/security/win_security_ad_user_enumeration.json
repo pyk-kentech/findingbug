@@ -1,0 +1,47 @@
+{
+  "name": "Potential AD User Enumeration From Non-Machine Account",
+  "apt_stage": "Internal Recon",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "SubjectUserName|endswith": "$",
+        "SubjectUserName|startswith": "MSOL_"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ObjectType|contains": "bf967aba-0de6-11d0-a285-00aa003049e2",
+        "AccessMask|endswith": [
+          "1?",
+          "3?",
+          "4?",
+          "7?",
+          "9?",
+          "B?",
+          "D?",
+          "F?"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Establish Foothold",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Aruba Network Service Potential DLL Sideloading",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\arubanetsvc.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ImageLoaded|endswith": [
+          "\\wtsapi32.dll",
+          "\\msvcr100.dll",
+          "\\msvcp100.dll",
+          "\\dbghelp.dll",
+          "\\dbgcore.dll",
+          "\\wininet.dll",
+          "\\iphlpapi.dll",
+          "\\version.dll",
+          "\\cryptsp.dll",
+          "\\cryptbase.dll",
+          "\\wldp.dll",
+          "\\profapi.dll",
+          "\\sspicli.dll",
+          "\\winsta.dll",
+          "\\dpapi.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

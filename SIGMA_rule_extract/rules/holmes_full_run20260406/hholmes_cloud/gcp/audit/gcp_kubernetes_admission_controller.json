@@ -1,0 +1,43 @@
+{
+  "name": "Google Cloud Kubernetes Admission Controller",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "gcp.audit.method_name|startswith": "admissionregistration.k8s.io.v",
+        "gcp.audit.method_name|contains": [
+          ".mutatingwebhookconfigurations.",
+          ".validatingwebhookconfigurations."
+        ],
+        "gcp.audit.method_name|endswith": [
+          "create",
+          "patch",
+          "replace"
+        ]
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

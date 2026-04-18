@@ -1,0 +1,41 @@
+{
+  "name": "Impacket PsExec Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "5145"
+      }
+    },
+    "object": {
+      "type": "Identity",
+      "attributes": {
+        "ShareName": "\\\\\\*\\IPC$",
+        "RelativeTargetName|contains": [
+          "RemCom_stdin",
+          "RemCom_stdout",
+          "RemCom_stderr"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Suspicious Processes Spawned by WinRM",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\wsmprovhost.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\sh.exe",
+          "\\bash.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\wsl.exe",
+          "\\schtasks.exe",
+          "\\certutil.exe",
+          "\\whoami.exe",
+          "\\bitsadmin.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

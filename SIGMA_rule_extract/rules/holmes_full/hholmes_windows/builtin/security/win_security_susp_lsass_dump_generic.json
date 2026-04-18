@@ -1,0 +1,69 @@
+{
+  "name": "Potentially Suspicious AccessMask Requested From LSASS",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4656|4663",
+        "ObjectName|endswith": "\\lsass.exe",
+        "AccessMask|contains": [
+          "0x40",
+          "0x1400",
+          "0x100000",
+          "0x1410",
+          "0x1010",
+          "0x1438",
+          "0x143a",
+          "0x1418",
+          "0x1f0fff",
+          "0x1f1fff",
+          "0x1f2fff",
+          "0x1f3fff"
+        ],
+        "AccessList|contains": [
+          "4484",
+          "4416"
+        ],
+        "ProcessName|endswith": [
+          ":\\Windows\\System32\\taskhostw.exe",
+          ":\\Windows\\System32\\msiexec.exe",
+          ":\\Windows\\CCM\\CcmExec.exe"
+        ],
+        "ProcessName|contains": [
+          ":\\Program Files (x86)\\",
+          ":\\Program Files\\",
+          ":\\ProgramData\\Microsoft\\Windows Defender\\Platform\\",
+          ":\\Windows\\SysNative\\",
+          ":\\Windows\\System32\\",
+          ":\\Windows\\SysWow64\\",
+          ":\\Windows\\Temp\\asgard2-agent\\"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "ObjectName|endswith": "\\lsass.exe"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

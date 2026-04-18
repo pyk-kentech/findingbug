@@ -1,0 +1,42 @@
+{
+  "name": "Active Directory Replication from Non Machine Account",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "4662",
+        "AccessMask": "0x100",
+        "Properties|contains": [
+          "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2",
+          "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2",
+          "89e95b76-444d-4c62-991a-0facbeda640c"
+        ],
+        "SubjectUserName|endswith": "$",
+        "SubjectUserName|startswith": "MSOL_"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "Windows Defender Submit Sample Feature Disabled",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine": "*"
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "TargetFilename": "*",
+        "NewValue|contains": "\\Real-Time Protection\\SubmitSamplesConsent = 0x0"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

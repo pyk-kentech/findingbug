@@ -1,0 +1,39 @@
+{
+  "name": "Adwind RAT / JRAT File Artifact",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "process_name": "javaw.exe"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "file_path|contains|all": [
+          "\\Retrive",
+          ".vbs"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

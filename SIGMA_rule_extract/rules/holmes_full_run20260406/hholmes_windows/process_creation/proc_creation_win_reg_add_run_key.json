@@ -1,0 +1,43 @@
+{
+  "name": "Potential Persistence Attempt Via Run Keys Using Reg.EXE",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\reg.exe",
+        "CommandLine|contains|all": [
+          "reg",
+          " add "
+        ],
+        "CommandLine|contains": [
+          "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

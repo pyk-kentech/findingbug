@@ -1,0 +1,37 @@
+{
+  "name": "Azure Active Directory Hybrid Health AD FS New Server",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "CategoryValue": "Administrative",
+        "ResourceProviderValue": "Microsoft.ADHybridHealthService",
+        "ResourceId|contains": "AdFederationService",
+        "OperationNameValue": "Microsoft.ADHybridHealthService/services/servicemembers/action"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

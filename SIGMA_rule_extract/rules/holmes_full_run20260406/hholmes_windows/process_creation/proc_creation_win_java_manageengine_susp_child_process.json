@@ -1,0 +1,63 @@
+{
+  "name": "Suspicious Child Process Of Manage Engine ServiceDesk",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains|all": [
+          "\\ManageEngine\\ServiceDesk\\",
+          "\\java.exe"
+        ],
+        "Image|endswith": [
+          "\\AppVLP.exe",
+          "\\bash.exe",
+          "\\bitsadmin.exe",
+          "\\calc.exe",
+          "\\certutil.exe",
+          "\\cscript.exe",
+          "\\curl.exe",
+          "\\forfiles.exe",
+          "\\mftrace.exe",
+          "\\mshta.exe",
+          "\\net.exe",
+          "\\net1.exe",
+          "\\notepad.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\query.exe",
+          "\\reg.exe",
+          "\\schtasks.exe",
+          "\\scrcons.exe",
+          "\\sh.exe",
+          "\\systeminfo.exe",
+          "\\whoami.exe",
+          "\\wmic.exe",
+          "\\wscript.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

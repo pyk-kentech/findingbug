@@ -1,0 +1,73 @@
+{
+  "name": "Download From Suspicious TLD - Whitelist",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "c-uri-extension": [
+          "exe",
+          "vbs",
+          "bat",
+          "rar",
+          "ps1",
+          "doc",
+          "docm",
+          "xls",
+          "xlsm",
+          "pptm",
+          "rtf",
+          "hta",
+          "dll",
+          "ws",
+          "wsf",
+          "sct",
+          "zip"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "cs-host|endswith": [
+          ".com",
+          ".org",
+          ".net",
+          ".edu",
+          ".gov",
+          ".uk",
+          ".ca",
+          ".de",
+          ".jp",
+          ".fr",
+          ".au",
+          ".us",
+          ".ch",
+          ".it",
+          ".nl",
+          ".se",
+          ".no",
+          ".es"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

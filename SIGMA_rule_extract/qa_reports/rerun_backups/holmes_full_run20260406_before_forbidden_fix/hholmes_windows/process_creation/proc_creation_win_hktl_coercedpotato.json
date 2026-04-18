@@ -1,0 +1,40 @@
+{
+  "name": "HackTool - CoercedPotato Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\CoercedPotato.exe",
+        "CommandLine|contains": " --exploitId ",
+        "Hashes|contains": [
+          "IMPHASH=A75D7669DB6B2E107A44C4057FF7F7D6",
+          "IMPHASH=F91624350E2C678C5DCBE5E1F24E22C9",
+          "IMPHASH=14C81850A079A87E83D50CA41C709A15"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

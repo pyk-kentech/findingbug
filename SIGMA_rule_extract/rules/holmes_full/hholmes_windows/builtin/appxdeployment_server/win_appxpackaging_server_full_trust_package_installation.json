@@ -1,0 +1,51 @@
+{
+  "name": "Windows AppX Deployment Full Trust Package Installation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "400",
+        "HasFullTrust": "true"
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "PackageSourceUri|startswith": [
+          "file:///C:/Program%20Files/",
+          "file:///C:/Program%20Files%20(x86)/",
+          "https://go.microsoft.com/fwlink/?linkid",
+          "x-windowsupdate://"
+        ],
+        "PackageSourceUri|contains": [
+          ".cdn.microsoft.com",
+          ".cdn.office.net/"
+        ],
+        "CallingProcess|startswith": [
+          "sysprep.exe",
+          "svchost.exe,AppReadiness"
+        ],
+        "PackageFullName|startswith": "MicrosoftWindows.Client."
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

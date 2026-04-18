@@ -1,0 +1,64 @@
+{
+  "name": "Cred Dump Tools Dropped Files",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": [
+          "\\fgdump-log",
+          "\\kirbi",
+          "\\pwdump",
+          "\\pwhashes",
+          "\\wce_ccache",
+          "\\wce_krbtkts"
+        ],
+        "TargetFilename|endswith": [
+          "\\cachedump.exe",
+          "\\cachedump64.exe",
+          "\\DumpExt.dll",
+          "\\DumpSvc.exe",
+          "\\Dumpy.exe",
+          "\\fgexec.exe",
+          "\\lsremora.dll",
+          "\\lsremora64.dll",
+          "\\NTDS.out",
+          "\\procdump.exe",
+          "\\procdump64.exe",
+          "\\procdump64a.exe",
+          "\\pstgdump.exe",
+          "\\pwdump.exe",
+          "\\SAM.out",
+          "\\SECURITY.out",
+          "\\servpw.exe",
+          "\\servpw64.exe",
+          "\\SYSTEM.out",
+          "\\test.pwd",
+          "\\wceaux.dll"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

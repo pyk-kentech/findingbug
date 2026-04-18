@@ -1,0 +1,50 @@
+{
+  "name": "Disable Important Scheduled Task",
+  "apt_stage": "Complete Mission",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\schtasks.exe"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains|all": [
+          "/Change",
+          "/TN",
+          "/disable"
+        ],
+        "CommandLine|contains": [
+          "\\Windows\\BitLocker",
+          "\\Windows\\ExploitGuard",
+          "\\Windows\\ExploitGuard\\ExploitGuard MDM policy Refresh",
+          "\\Windows\\SystemRestore\\SR",
+          "\\Windows\\UpdateOrchestrator\\",
+          "\\Windows\\Windows Defender\\",
+          "\\Windows\\WindowsBackup\\",
+          "\\Windows\\WindowsUpdate\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

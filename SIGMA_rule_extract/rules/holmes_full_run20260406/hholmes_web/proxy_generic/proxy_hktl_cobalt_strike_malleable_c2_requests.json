@@ -1,0 +1,53 @@
+{
+  "name": "HackTool - CobaltStrike Malleable Profile Patterns - Proxy",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "selection_amazon_1.c-useragent": "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
+        "selection_amazon_1.cs-method": "GET",
+        "selection_amazon_1.c-uri": "/s/ref=nb_sb_noss_1/167-3294888-0262949/field-keywords=books",
+        "selection_amazon_1.cs-host": "www.amazon.com",
+        "selection_amazon_1.cs-cookie|endswith": "=csm-hit=s-24KU11BB82RZSYGJ3BDK|1419899012996",
+        "selection_amazon_2.c-useragent": "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
+        "selection_amazon_2.cs-method": "POST",
+        "selection_amazon_2.c-uri": "/N4215/adj/amzn.us.sr.aps",
+        "selection_amazon_2.cs-host": "www.amazon.com",
+        "selection_generic_1.c-useragent": [
+          "Mozilla/4.0 (compatible; MSIE 6.0;Windows NT 5.1)",
+          "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/4.0; SLCC2; .NET CLR 3.0.30729; .NET4.0C; .NET4.0E )",
+          "Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 5.2) Java/1.5.0_08"
+        ],
+        "selection_generic_2.c-useragent|endswith": "; MANM; MANM)",
+        "selection_oscp.c-uri|contains": "/oscp/",
+        "selection_oscp.cs-host": "ocsp.verisign.com",
+        "selection_onedrive.cs-method": "GET",
+        "selection_onedrive.c-uri|endswith": "\\?manifest=wac",
+        "selection_onedrive.cs-host": "onedrive.live.com"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

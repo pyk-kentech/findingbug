@@ -1,0 +1,51 @@
+{
+  "name": "Service Binary in Suspicious Folder",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject|startswith": [
+          "HKLM\\System\\CurrentControlSet\\Services\\"
+        ],
+        "TargetObject|endswith": [
+          "\\Start",
+          "\\ImagePath"
+        ],
+        "Details": [
+          "DWORD (0x00000000)",
+          "DWORD (0x00000001)",
+          "DWORD (0x00000002)"
+        ],
+        "Image|contains": [
+          "\\Users\\Public\\",
+          "\\Perflogs\\",
+          "\\ADMIN$\\",
+          "\\Temp\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

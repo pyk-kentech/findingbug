@@ -1,0 +1,52 @@
+{
+  "name": "Suspicious DotNET CLR Usage Log Artifact",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\MsiExec.exe",
+        "ParentCommandLine|contains": " -Embedding",
+        "Image|endswith": "\\rundll32.exe",
+        "CommandLine|contains|all": [
+          "Temp",
+          "zzzzInvokeManagedCustomActionOutOfProc"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          "\\UsageLogs\\cmstp.exe.log",
+          "\\UsageLogs\\cscript.exe.log",
+          "\\UsageLogs\\mshta.exe.log",
+          "\\UsageLogs\\msxsl.exe.log",
+          "\\UsageLogs\\regsvr32.exe.log",
+          "\\UsageLogs\\rundll32.exe.log",
+          "\\UsageLogs\\svchost.exe.log",
+          "\\UsageLogs\\wscript.exe.log",
+          "\\UsageLogs\\wmic.exe.log"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

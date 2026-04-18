@@ -1,0 +1,64 @@
+{
+  "name": "Remote Access Tool Services Have Been Installed - Security",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "ServiceName|contains": [
+          "AmmyyAdmin",
+          "AnyDesk",
+          "Atera",
+          "BASupportExpressSrvcUpdater",
+          "BASupportExpressStandaloneService",
+          "chromoting",
+          "GoToAssist",
+          "GoToMyPC",
+          "jumpcloud",
+          "LMIGuardianSvc",
+          "LogMeIn",
+          "monblanking",
+          "Parsec",
+          "RManService",
+          "RPCPerformanceService",
+          "RPCService",
+          "SplashtopRemoteService",
+          "SSUService",
+          "TeamViewer",
+          "TightVNC",
+          "vncserver",
+          "Zoho"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

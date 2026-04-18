@@ -1,0 +1,56 @@
+{
+  "name": "HackTool - Default PowerSploit/Empire Scheduled Task Creation",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\powershell.exe",
+          "\\pwsh.exe"
+        ],
+        "Image|endswith": "\\schtasks.exe",
+        "CommandLine|contains|all": [
+          "/Create",
+          "powershell.exe -NonI",
+          "/TN Updater /TR"
+        ],
+        "CommandLine|contains": [
+          "/SC ONLOGON",
+          "/SC DAILY /ST",
+          "/SC ONIDLE",
+          "/SC HOURLY"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

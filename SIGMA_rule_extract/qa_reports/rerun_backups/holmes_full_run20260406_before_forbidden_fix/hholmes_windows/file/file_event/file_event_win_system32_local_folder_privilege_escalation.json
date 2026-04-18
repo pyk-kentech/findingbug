@@ -1,0 +1,41 @@
+{
+  "name": "Potential Privilege Escalation Attempt Via .Exe.Local Technique",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|startswith": [
+          "C:\\Windows\\System32\\logonUI.exe.local",
+          "C:\\Windows\\System32\\werFault.exe.local",
+          "C:\\Windows\\System32\\consent.exe.local",
+          "C:\\Windows\\System32\\narrator.exe.local",
+          "C:\\Windows\\System32\\wermgr.exe.local"
+        ],
+        "TargetFilename|endswith": "\\comctl32.dll"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "Potential CommandLine Obfuscation Using Unicode Characters From Suspicious Image",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\cscript.exe",
+          "\\powershell.exe",
+          "\\powershell_ise.exe",
+          "\\pwsh.exe",
+          "\\wscript.exe"
+        ],
+        "OriginalFileName": [
+          "Cmd.EXE",
+          "cscript.exe",
+          "PowerShell.EXE",
+          "PowerShell_ISE.EXE",
+          "pwsh.dll",
+          "wscript.exe"
+        ],
+        "CommandLine|contains": [
+          "ˣ",
+          "˪",
+          "ˢ",
+          "∕",
+          "⁄",
+          "―",
+          "—",
+          " ",
+          "¯",
+          "®",
+          "¶",
+          "⠀"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

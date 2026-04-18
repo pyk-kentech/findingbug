@@ -1,0 +1,83 @@
+{
+  "name": "Potential Homoglyph Attack Using Lookalike Characters in Filename",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "READ",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|contains": [
+          "\\u0410",
+          "\\u0412",
+          "\\u0415",
+          "\\u041a",
+          "\\u041c",
+          "\\u041d",
+          "\\u041e",
+          "\\u0420",
+          "\\u0421",
+          "\\u0422",
+          "\\u0425",
+          "\\u0405",
+          "\\u0406",
+          "\\u0408",
+          "\\u04ae",
+          "\\u04c0",
+          "\\u050C",
+          "\\u051a",
+          "\\u051c",
+          "\\u0391",
+          "\\u0392",
+          "\\u0395",
+          "\\u0396",
+          "\\u0397",
+          "\\u0399",
+          "\\u039a",
+          "\\u039c",
+          "\\u039d",
+          "\\u039f",
+          "\\u03a1",
+          "\\u03a4",
+          "\\u03a5",
+          "\\u03a7",
+          "\\u0430",
+          "\\u0435",
+          "\\u043e",
+          "\\u0440",
+          "\\u0441",
+          "\\u0445",
+          "\\u0455",
+          "\\u0456",
+          "\\u04cf",
+          "\\u0458",
+          "\\u04bb",
+          "\\u0501",
+          "\\u051b",
+          "\\u051d",
+          "\\u03bf"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

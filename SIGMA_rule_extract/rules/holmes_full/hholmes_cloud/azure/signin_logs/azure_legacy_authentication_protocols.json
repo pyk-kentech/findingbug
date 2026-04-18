@@ -1,0 +1,44 @@
+{
+  "name": "Use of Legacy Authentication Protocols",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "CloudIdentity",
+      "attributes": {
+        "ActivityDetails": "Sign-ins",
+        "ClientApp|contains": [
+          "Other client",
+          "IMAP",
+          "POP3",
+          "MAPI",
+          "SMTP",
+          "Exchange ActiveSync",
+          "Exchange Web Services"
+        ],
+        "Username": "UPN"
+      }
+    },
+    "object": {
+      "type": "CloudResource",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

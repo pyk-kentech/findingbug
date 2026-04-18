@@ -1,0 +1,50 @@
+{
+  "name": "RDP over Reverse SSH Tunnel WFP",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "EventID": "5156"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "SourcePort": "3389",
+        "DestAddress": [
+          "127.*",
+          "::1"
+        ],
+        "DestPort": "3389",
+        "SourceAddress": [
+          "127.*",
+          "::1"
+        ],
+        "FilterOrigin": "AppContainer Loopback",
+        "Application|endswith": [
+          "\\thor.exe",
+          "\\thor64.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

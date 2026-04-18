@@ -1,0 +1,48 @@
+{
+  "name": "Suspicious LNK Command-Line Padding with Whitespace Characters",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": "\\explorer.exe",
+        "ParentCommandLine|contains": ".lnk"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "CommandLine|contains": [
+          "                 ",
+          "\t",
+          "\n",
+          "\u0011",
+          "\u0012",
+          "\u0013",
+          "\u000b",
+          "\f",
+          "\r"
+        ],
+        "CommandLine|re": "\\n\\n\\n\\n\\n\\n"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

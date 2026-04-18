@@ -1,0 +1,71 @@
+{
+  "name": "Suspicious WindowsTerminal Child Processes",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "SPAWN",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|endswith": [
+          "\\WindowsTerminal.exe",
+          "\\wt.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\rundll32.exe",
+          "\\regsvr32.exe",
+          "\\certutil.exe",
+          "\\cscript.exe",
+          "\\wscript.exe",
+          "\\csc.exe"
+        ],
+        "Image|contains": [
+          "C:\\Users\\Public\\",
+          "\\Downloads\\",
+          "\\Desktop\\",
+          "\\AppData\\Local\\Temp\\",
+          "\\Windows\\TEMP\\"
+        ],
+        "CommandLine|contains": [
+          " iex ",
+          " icm",
+          "Invoke-",
+          "Import-Module ",
+          "ipmo ",
+          "DownloadString(",
+          " /c ",
+          " /k ",
+          " /r "
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "OR",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      },
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

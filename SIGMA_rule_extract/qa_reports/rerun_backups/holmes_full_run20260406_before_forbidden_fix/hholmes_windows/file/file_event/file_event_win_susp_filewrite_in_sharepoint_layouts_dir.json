@@ -1,0 +1,68 @@
+{
+  "name": "Suspicious File Write to SharePoint Layouts Directory",
+  "apt_stage": "Establish Foothold",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "WRITE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\cmd.exe",
+          "\\powershell_ise.exe",
+          "\\powershell.exe",
+          "\\pwsh.exe",
+          "\\w3wp.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|startswith": [
+          "C:\\Program Files\\Common Files\\Microsoft Shared\\Web Server Extensions\\",
+          "C:\\Program Files (x86)\\Common Files\\Microsoft Shared\\Web Server Extensions\\"
+        ],
+        "TargetFilename|contains": [
+          "\\15\\TEMPLATE\\LAYOUTS\\",
+          "\\16\\TEMPLATE\\LAYOUTS\\"
+        ],
+        "TargetFilename|endswith": [
+          ".asax",
+          ".ascx",
+          ".ashx",
+          ".asmx",
+          ".asp",
+          ".aspx",
+          ".bat",
+          ".cmd",
+          ".cer",
+          ".config",
+          ".hta",
+          ".js",
+          ".jsp",
+          ".jspx",
+          ".php",
+          ".ps1",
+          ".vbs"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Execution",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

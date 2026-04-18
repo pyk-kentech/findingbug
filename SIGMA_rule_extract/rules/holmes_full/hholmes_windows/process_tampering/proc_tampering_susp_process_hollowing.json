@@ -1,0 +1,41 @@
+{
+  "name": "Potential Process Hollowing Activity",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Type": "Image is replaced"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|contains": [
+          "\\AppData\\Local\\Programs\\Opera\\"
+        ],
+        "Image|endswith": [
+          "\\WindowsApps\\MicrosoftEdge.exe"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "Files With System DLL Name In Unsuspected Locations",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {}
+    },
+    "object": {
+      "type": "File",
+      "attributes": {
+        "TargetFilename|endswith": [
+          "\\secur32.dll",
+          "\\tdh.dll"
+        ],
+        "TargetFilename|contains": [
+          "C:\\$WINDOWS.~BT\\",
+          "C:\\$WinREAgent\\",
+          "C:\\Windows\\SoftwareDistribution\\",
+          "C:\\Windows\\System32\\",
+          "C:\\Windows\\SysWOW64\\",
+          "C:\\Windows\\WinSxS\\",
+          "C:\\Windows\\uus\\"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

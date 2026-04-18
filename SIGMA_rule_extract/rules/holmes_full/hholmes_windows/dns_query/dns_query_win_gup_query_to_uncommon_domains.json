@@ -1,0 +1,43 @@
+{
+  "name": "Notepad++ Updater DNS Query to Uncommon Domains",
+  "apt_stage": "Collection",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "Image|endswith": "\\gup.exe"
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "QueryName": [
+          "*",
+          "!notepad-plus-plus.org",
+          "!*.sourceforge.net",
+          "!*.githubusercontent.com",
+          "!github.com",
+          "!*.googleapis.com"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Lateral Movement",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

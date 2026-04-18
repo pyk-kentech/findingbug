@@ -1,0 +1,39 @@
+{
+  "name": "ASLR Disabled Via Sysctl or Direct Syscall - Linux",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "selection_syscall.type": "SYSCALL",
+        "selection_syscall.SYSCALL": "personality",
+        "selection_sysctl.type": "EXECVE",
+        "selection_sysctl.a0": "sysctl",
+        "selection_sysctl.a1": "-w",
+        "selection_sysctl.a2": "kernel.randomize_va_space=0"
+      }
+    },
+    "object": {
+      "type": "Event",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

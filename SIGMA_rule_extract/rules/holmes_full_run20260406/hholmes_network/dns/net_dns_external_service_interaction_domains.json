@@ -1,0 +1,62 @@
+{
+  "name": "DNS Query to External Service Interaction Domains",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Event",
+      "attributes": {
+        "query|endswith": [
+          ".burpcollaborator.net",
+          ".canarytokens.com",
+          ".ceye.io",
+          ".ddns.1443.eu.org",
+          ".ddns.bypass.eu.org",
+          ".ddns.xn--gg8h.eu.org",
+          ".digimg.store",
+          ".dns.su18.org",
+          ".dnshook.site",
+          ".dnslog.cn",
+          ".dnslog.ink",
+          ".instances.httpworkbench.com",
+          ".interact.sh",
+          ".log.dnslog.pp.ua",
+          ".log.dnslog.qzz.io",
+          ".log.dnslogs.dpdns.org",
+          ".log.javaweb.org",
+          ".log.nat.cloudns.ph",
+          ".oast.fun",
+          ".oast.live",
+          ".oast.me",
+          ".oast.online",
+          ".oast.pro",
+          ".oast.site",
+          ".oastify.com",
+          ".p8.lol",
+          ".requestbin.net"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

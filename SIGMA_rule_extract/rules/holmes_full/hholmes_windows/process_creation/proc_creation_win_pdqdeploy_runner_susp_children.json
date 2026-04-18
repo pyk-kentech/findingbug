@@ -1,0 +1,68 @@
+{
+  "name": "Potentially Suspicious Execution Of PDQDeployRunner",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "ParentImage|contains": "\\PDQDeployRunner-"
+      }
+    },
+    "object": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\bash.exe",
+          "\\certutil.exe",
+          "\\cmd.exe",
+          "\\csc.exe",
+          "\\cscript.exe",
+          "\\dllhost.exe",
+          "\\mshta.exe",
+          "\\msiexec.exe",
+          "\\regsvr32.exe",
+          "\\rundll32.exe",
+          "\\scriptrunner.exe",
+          "\\wmic.exe",
+          "\\wscript.exe",
+          "\\wsl.exe"
+        ],
+        "Image|contains": [
+          ":\\ProgramData\\",
+          ":\\Users\\Public\\",
+          ":\\Windows\\TEMP\\",
+          "\\AppData\\Local\\Temp"
+        ],
+        "CommandLine|contains": [
+          " -decode ",
+          " -enc ",
+          " -encodedcommand ",
+          " -w hidden",
+          "DownloadString",
+          "FromBase64String",
+          "http",
+          "iex ",
+          "Invoke-"
+        ]
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "name": "Outbound RDP Connections Over Non-Standard Tools",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CONNECT",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": [
+          "\\Avast Software\\Avast\\AvastSvc.exe",
+          "\\Avast\\AvastSvc.exe",
+          "\\RDCMan.exe",
+          "\\FSAssessment.exe",
+          "\\FSDiscovery.exe",
+          "\\MobaRTE.exe",
+          "\\mRemote.exe",
+          "\\mRemoteNG.exe",
+          "\\Passwordstate.exe",
+          "\\RemoteDesktopManager.exe",
+          "\\RemoteDesktopManager64.exe",
+          "\\RemoteDesktopManagerFree.exe",
+          "\\RSSensor.exe",
+          "\\RTS2App.exe",
+          "\\RTSApp.exe",
+          "\\spiceworks-finder.exe",
+          "\\Terminals.exe",
+          "\\ws_TunnelService.exe",
+          "\\thor.exe",
+          "\\thor64.exe",
+          "\\Ranger\\SentinelRanger.exe"
+        ],
+        "Image|startswith": [
+          "C:\\Program Files\\SplunkUniversalForwarder\\bin\\"
+        ],
+        "Image": [
+          "C:\\Windows\\System32\\mstsc.exe",
+          "C:\\Windows\\SysWOW64\\mstsc.exe",
+          "C:\\Windows\\System32\\dns.exe",
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+          "C:\\Program Files\\TSplus\\Java\\bin\\HTML5service.exe",
+          "C:\\Program Files (x86)\\TSplus\\Java\\bin\\HTML5service.exe",
+          "<unknown process>"
+        ]
+      }
+    },
+    "object": {
+      "type": "NetFlow",
+      "attributes": {
+        "DestinationPort": "3389"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

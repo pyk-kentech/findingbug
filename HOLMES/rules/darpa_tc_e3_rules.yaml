@@ -1,0 +1,383 @@
+rules:
+  - rule_id: DARPA_WEB_SHELL_DROP
+    name: "DARPA E3 web shell or suspicious file drop"
+    apt_stage: "Initial Compromise"
+    stage: 1
+    severity: 7
+    cvss: 7.5
+    prerequisites: []
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_write
+            - type: selector_group
+              quantifier: COUNT
+              count: 1
+              selectors:
+                - sel_var_www
+                - sel_tmp_drop
+      selectors:
+        rel_write:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "write"
+        sel_var_www:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "file:/var/www/"
+        sel_tmp_drop:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "file:/tmp/"
+
+  - rule_id: DARPA_NGINX_FIREFOX_EXEC
+    name: "DARPA E3 nginx or firefox execution"
+    apt_stage: "Initial Compromise"
+    stage: 1
+    severity: 8
+    cvss: 8.5
+    prerequisites: []
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_execute
+            - type: selector_group
+              quantifier: COUNT
+              count: 1
+              selectors:
+                - sel_nginx
+                - sel_firefox
+      selectors:
+        rel_execute:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "execute"
+        sel_nginx:
+          type: object
+          items:
+            - type: field_match
+              field: Image
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "nginx"
+        sel_firefox:
+          type: object
+          items:
+            - type: field_match
+              field: Image
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "firefox"
+
+  - rule_id: DARPA_SUSPICIOUS_SHELL_EXEC
+    name: "DARPA E3 suspicious shell execution"
+    apt_stage: "Establish Foothold"
+    stage: 2
+    severity: 7
+    cvss: 7.0
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 3
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_execute
+            - type: selector_group
+              quantifier: COUNT
+              count: 1
+              selectors:
+                - sel_bash
+                - sel_sh
+      selectors:
+        rel_execute:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "execute"
+        sel_bash:
+          type: object
+          items:
+            - type: field_match
+              field: Image
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "/bin/bash"
+        sel_sh:
+          type: object
+          items:
+            - type: field_match
+              field: Image
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "/bin/sh"
+
+  - rule_id: DARPA_PRIV_ESC_SU_SUDO
+    name: "DARPA E3 sudo or su privilege escalation"
+    apt_stage: "Privilege Escalation"
+    stage: 4
+    severity: 9
+    cvss: 9.0
+    bypass_benign_filter: true
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 3
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_execute
+            - type: selector_group
+              quantifier: COUNT
+              count: 1
+              selectors:
+                - sel_sudo
+                - sel_su
+      selectors:
+        rel_execute:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "execute"
+        sel_sudo:
+          type: object
+          items:
+            - type: field_match
+              field: CommandLine
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "sudo"
+        sel_su:
+          type: object
+          items:
+            - type: field_match
+              field: CommandLine
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: " su "
+
+  - rule_id: DARPA_PRIV_ESC_MEM_EXEC
+    name: "DARPA E3 executable memory permission change"
+    apt_stage: "Privilege Escalation"
+    stage: 4
+    severity: 9
+    cvss: 9.5
+    bypass_benign_filter: true
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 2
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_mem_exec
+            - type: selector_ref
+              selector: sel_mem
+      selectors:
+        rel_mem_exec:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "make_mem_exec"
+        sel_mem:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "mem:"
+
+  - rule_id: DARPA_RECON_SHADOW_READ
+    name: "DARPA E3 /etc/shadow access"
+    apt_stage: "Internal Recon"
+    stage: 3
+    severity: 8
+    cvss: 8.0
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 3
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_read
+            - type: selector_ref
+              selector: sel_shadow
+      selectors:
+        rel_read:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "read"
+        sel_shadow:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "/etc/shadow"
+
+  - rule_id: DARPA_RECON_SSH_KEY_READ
+    name: "DARPA E3 SSH key access"
+    apt_stage: "Internal Recon"
+    stage: 3
+    severity: 8
+    cvss: 8.0
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 3
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_read
+            - type: selector_ref
+              selector: sel_ssh
+      selectors:
+        rel_read:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "read"
+        sel_ssh:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: ".ssh"
+
+  - rule_id: DARPA_EXFIL_REMOTE_CONNECT
+    name: "DARPA E3 suspicious outbound connection"
+    apt_stage: "Exfiltration"
+    stage: 6
+    severity: 9
+    cvss: 9.0
+    bypass_benign_filter: true
+    prerequisites:
+      - shared_entity
+      - graph_path
+      - type: path_factor
+        max_path_factor: 4
+    match_logic:
+      engine: sigma
+      condition:
+        compiled:
+          type: logical
+          operator: AND
+          operands:
+            - type: selector_ref
+              selector: rel_connect
+            - type: selector_ref
+              selector: sel_ip
+      selectors:
+        rel_connect:
+          type: object
+          items:
+            - type: field_match
+              field: cdr.semantic_relations
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "connect"
+        sel_ip:
+          type: object
+          items:
+            - type: field_match
+              field: object
+              modifiers: ["contains"]
+              value:
+                type: literal
+                value: "ip:"

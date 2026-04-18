@@ -1,0 +1,53 @@
+{
+  "name": "HackTool - Rubeus Execution",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "EXECUTE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "Image|endswith": "\\Rubeus.exe",
+        "OriginalFileName": "Rubeus.exe",
+        "Description": "Rubeus",
+        "CommandLine|contains": [
+          "asreproast ",
+          "dump /service:krbtgt ",
+          "dump /luid:0x",
+          "kerberoast ",
+          "createnetonly /program:",
+          "ptt /ticket:",
+          "/impersonateuser:",
+          "renew /ticket:",
+          "asktgt /user:",
+          "harvest /interval:",
+          "s4u /user:",
+          "s4u /ticket:",
+          "hash /password:",
+          "golden /aes256:",
+          "silver /user:"
+        ]
+      }
+    },
+    "object": {
+      "type": "File",
+      "attributes": {}
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}

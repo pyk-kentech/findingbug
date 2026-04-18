@@ -1,0 +1,47 @@
+{
+  "name": "Suspicious Service Installed",
+  "apt_stage": "Execution",
+  "severity_score": 5.0,
+  "match_logic": {
+    "relation": "CREATE",
+    "subject": {
+      "type": "Process",
+      "attributes": {
+        "TargetObject": [
+          "HKLM\\System\\CurrentControlSet\\Services\\NalDrv\\ImagePath",
+          "HKLM\\System\\CurrentControlSet\\Services\\PROCEXP152\\ImagePath"
+        ],
+        "Image|endswith": [
+          "\\procexp64.exe",
+          "\\procexp.exe",
+          "\\procmon64.exe",
+          "\\procmon.exe",
+          "\\handle.exe",
+          "\\handle64.exe"
+        ]
+      }
+    },
+    "object": {
+      "type": "Registry",
+      "attributes": {
+        "Details|contains": "\\WINDOWS\\system32\\Drivers\\PROCEXP152.SYS"
+      }
+    },
+    "entity_bindings": {
+      "subject": "$subject_node",
+      "object": "$object_node"
+    }
+  },
+  "prerequisites": {
+    "operator": "AND",
+    "predicates": [
+      {
+        "type": "stage_path",
+        "quantifier": "EXISTS",
+        "source_stage": "Initial Compromise",
+        "target_node": "$subject_node",
+        "threshold": 1
+      }
+    ]
+  }
+}
